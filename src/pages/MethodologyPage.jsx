@@ -30,7 +30,7 @@ const workflowRows = [
   "User inputs capture the delivery context, UI scale, and support assumptions.",
   "The model derives five factors from those inputs to keep the recommendation readable.",
   "Monte Carlo simulation then estimates median and p90 outcomes for build-in-house and MUI paths.",
-  "Recommendation rules combine the user inputs, derived factors, simulation output, and product/tier fit."
+  "Recommendation rules combine the user inputs, derived factors, simulation output, and internally inferred MUI path fit."
 ];
 
 function Bullet({ children }) {

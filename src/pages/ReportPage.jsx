@@ -97,11 +97,6 @@ const optionLabelMaps = {
     priority: "Priority",
     "procurement-sla": "Procurement-backed SLA"
   },
-  comparedMuiPlan: {
-    premium: "Premium",
-    enterprise: "Enterprise",
-    auto: "Auto-select later"
-  },
   advancedFeatures: {
     virtualization: "Virtualization at scale",
     "inline-editing": "Inline editing workflows",
@@ -474,7 +469,7 @@ function buildRecommendationChangeItems(result, assessmentInput) {
 function buildScenarioSnapshot(assessmentInput, result) {
   if (!assessmentInput) {
     return [
-      `Compared path: ${result.muiPath?.label ?? "Not set"}`,
+      `Modeled MUI path: ${result.muiPath?.label ?? "Not set"}`,
       `Confidence: ${result.confidence?.level ?? "Not set"}`
     ];
   }
@@ -487,7 +482,7 @@ function buildScenarioSnapshot(assessmentInput, result) {
     `Columns: ${formatLabel("expectedColumns", assessmentInput.expectedColumns)}`,
     `Ownership: ${formatLabel("ownershipModel", assessmentInput.ownershipModel)}`,
     `Support: ${formatLabel("supportRequirement", assessmentInput.supportRequirement)}`,
-    `Compared path: ${result.muiPath?.label ?? formatLabel("comparedMuiPlan", assessmentInput.comparedMuiPlan)}`
+    `Modeled MUI path: ${result.muiPath?.label ?? "Not set"}`
   ];
 
   return chips.filter(Boolean);
@@ -1331,7 +1326,7 @@ function ReportPage() {
 
       <SectionCard
         title="10. CTA to rerun assessment"
-        description="If the team context, component scope, or commercial assumptions change, rerun the model rather than stretching this result past its input set."
+        description="If the team context, component scope, or support assumptions change, rerun the model rather than stretching this result past its input set."
         action={
           <Button component={NavLink} to="/assess" variant="contained">
             Rerun assessment

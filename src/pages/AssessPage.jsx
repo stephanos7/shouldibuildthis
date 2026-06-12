@@ -116,12 +116,6 @@ const maintenanceHorizonOptions = [
   { value: "36", label: "36 months" }
 ];
 
-const comparedMuiPlanOptions = [
-  { value: "premium", label: "Premium" },
-  { value: "enterprise", label: "Enterprise" },
-  { value: "auto", label: "Auto-select later" }
-];
-
 const advancedFeatureOptions = [
   { value: "virtualization", label: "Virtualization at scale" },
   { value: "inline-editing", label: "Inline editing workflows" },
@@ -154,9 +148,9 @@ const steps = [
   },
   {
     label: "Support and assumptions",
-    title: "Capture the commercial comparison inputs",
+    title: "Capture the support and cost assumptions",
     description:
-      "Collect the cost and licensing assumptions needed later for the build-versus-buy comparison model."
+      "Collect the support posture, maintenance horizon, and internal cost assumptions used by the simulator."
   }
 ];
 
@@ -178,9 +172,7 @@ const defaultFormValues = {
   deadlinePressure: "",
   maintenanceHorizonMonths: "",
   supportRequirement: "",
-  engineerCostPerDay: "",
-  licensedDevelopers: "",
-  comparedMuiPlan: ""
+  engineerCostPerDay: ""
 };
 
 const optionLabelMaps = {
@@ -197,7 +189,6 @@ const optionLabelMaps = {
   expectedColumns: toLabelMap(expectedColumnsOptions),
   maintenanceHorizonMonths: toLabelMap(maintenanceHorizonOptions),
   supportRequirement: toLabelMap(supportRequirementOptions),
-  comparedMuiPlan: toLabelMap(comparedMuiPlanOptions),
   advancedFeatures: toLabelMap(advancedFeatureOptions)
 };
 
@@ -374,14 +365,6 @@ function validateStep(stepIndex, formValues) {
       formValues.engineerCostPerDay,
       "Engineer cost per day"
     );
-    errors.licensedDevelopers = validatePositiveInteger(
-      formValues.licensedDevelopers,
-      "Licensed developers"
-    );
-    errors.comparedMuiPlan = validateRequired(
-      formValues.comparedMuiPlan,
-      "Compared MUI plan"
-    );
   }
 
   return Object.fromEntries(
@@ -406,8 +389,6 @@ function normalizeAssessmentInput(formValues) {
     maintenanceHorizonMonths: Number(formValues.maintenanceHorizonMonths),
     supportRequirement: formValues.supportRequirement,
     engineerCostPerDay: Number(formValues.engineerCostPerDay),
-    licensedDevelopers: Number(formValues.licensedDevelopers),
-    comparedMuiPlan: formValues.comparedMuiPlan,
     advancedFeatures: [...new Set(formValues.advancedFeatures)]
   };
 }
@@ -643,7 +624,7 @@ function AssessPage() {
       <PageHero
         eyebrow="Assess"
         title="Capture the inputs for a build-vs-buy recommendation"
-        description="Work through the wizard to describe your React team, the component workload, and the commercial assumptions. Submitting this form runs the simulator, saves the input and result locally, and opens the report route."
+        description="Work through the wizard to describe your React team, the component workload, and the support assumptions. Submitting this form runs the simulator, saves the input and result locally, and opens the report route."
         chips={[
           "MUI stepper flow",
           "Netlify function submit",
@@ -1062,35 +1043,6 @@ function AssessPage() {
                         }}
                       />
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 6 }}>
-                      <TextField
-                        fullWidth
-                        required
-                        type="number"
-                        name="licensedDevelopers"
-                        label="Licensed developers"
-                        value={formValues.licensedDevelopers}
-                        onChange={handleFieldChange}
-                        error={Boolean(errors.licensedDevelopers)}
-                        helperText={
-                          errors.licensedDevelopers ||
-                          "Enter the likely number of developer seats that would need licensing."
-                        }
-                        inputProps={{ min: 1, step: 1 }}
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12 }}>
-                      <RadioField
-                        label="Compared MUI plan"
-                        name="comparedMuiPlan"
-                        value={formValues.comparedMuiPlan}
-                        onChange={handleFieldChange}
-                        options={comparedMuiPlanOptions}
-                        error={errors.comparedMuiPlan}
-                        helperText="Auto-select later keeps the input open until the recommendation logic is implemented."
-                        row
-                      />
-                    </Grid>
                   </Grid>
                 )}
 
@@ -1241,13 +1193,6 @@ function AssessPage() {
                     value={formatValue(
                       formValues.supportRequirement,
                       optionLabelMaps.supportRequirement
-                    )}
-                  />
-                  <SummaryRow
-                    label="Compared plan"
-                    value={formatValue(
-                      formValues.comparedMuiPlan,
-                      optionLabelMaps.comparedMuiPlan
                     )}
                   />
                 </Stack>

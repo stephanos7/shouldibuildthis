@@ -32,7 +32,6 @@ const EXPECTED_ROWS = new Set(['under-1k', '1k-10k', '10k-100k', 'over-100k']);
 const EXPECTED_COLUMNS = new Set(['under-10', '10-30', 'over-30']);
 const SUPPORT_REQUIREMENTS = new Set(['community', 'standard', 'priority', 'procurement-sla']);
 const MAINTENANCE_HORIZONS = new Set([12, 24, 36]);
-const COMPARED_MUI_PLANS = new Set(['premium', 'enterprise', 'auto']);
 const ADVANCED_FEATURES = new Set([
   'virtualization',
   'inline-editing',
@@ -351,8 +350,6 @@ function normalizeInput(payload) {
     maintenanceHorizonMonths: Number(payload.maintenanceHorizonMonths),
     supportRequirement: payload.supportRequirement,
     engineerCostPerDay: Number(payload.engineerCostPerDay),
-    licensedDevelopers: Number(payload.licensedDevelopers),
-    comparedMuiPlan: payload.comparedMuiPlan,
   };
 }
 
@@ -495,18 +492,6 @@ function validatePayload(normalized, originalPayload) {
     errors.push('engineerCostPerDay is required.');
   } else {
     errors.push(validateNumber(normalized.engineerCostPerDay, 'engineerCostPerDay', { minimum: 0 }));
-  }
-
-  if (isBlank(originalPayload.licensedDevelopers)) {
-    errors.push('licensedDevelopers is required.');
-  } else {
-    errors.push(validateInteger(normalized.licensedDevelopers, 'licensedDevelopers', { minimum: 0 }));
-  }
-
-  if (isBlank(originalPayload.comparedMuiPlan)) {
-    errors.push('comparedMuiPlan is required.');
-  } else {
-    errors.push(validateEnum(normalized.comparedMuiPlan, 'comparedMuiPlan', COMPARED_MUI_PLANS));
   }
 
   if (!Array.isArray(originalPayload.advancedFeatures)) {
@@ -839,7 +824,7 @@ function buildScorecard(input, derivedFactors) {
     autoSelectedMuiPlan = 'premium';
   }
 
-  const effectiveMuiPlan = input.comparedMuiPlan === 'auto' ? autoSelectedMuiPlan : input.comparedMuiPlan;
+  const effectiveMuiPlan = autoSelectedMuiPlan;
   const effectivePlanFit = planFits[effectiveMuiPlan];
   const buildCompetitiveIndex = clamp(
     100 -
@@ -913,6 +898,28 @@ function buildScorecard(input, derivedFactors) {
   };
 }
 
+function estimateLicensedDevelopers(input, effectiveMuiPlan) {
+  if (effectiveMuiPlan === 'core') {
+    return 0;
+  }
+
+  if (effectiveMuiPlan === 'premium') {
+    return Math.max(1, input.frontendDevelopers);
+  }
+
+  let estimatedSeats = Math.max(15, input.frontendDevelopers);
+
+  if (
+    input.dependentTeams === 'four-seven' ||
+    input.dependentTeams === 'eight-plus' ||
+    input.reactApps >= 3
+  ) {
+    estimatedSeats += 5;
+  }
+
+  return estimatedSeats;
+}
+
 function runSimulation(input, scorecard) {
   const rng = createRng(JSON.stringify({
     ...input,
@@ -922,6 +929,7 @@ function runSimulation(input, scorecard) {
   }));
   const muiPlan = PLAN_CONFIG[scorecard.effectiveMuiPlan];
   const planFit = scorecard.effectivePlanFit;
+  const estimatedLicensedDevelopers = estimateLicensedDevelopers(input, scorecard.effectiveMuiPlan);
   const horizonYears = input.maintenanceHorizonMonths / 12;
   const laborCostPerWeek = input.engineerCostPerDay * 5;
   const rowScale = EXPECTED_ROWS_INDEX[input.expectedRows];
@@ -1059,7 +1067,8 @@ function runSimulation(input, scorecard) {
     const muiMaintenance = Math.max(0.4, muiMaintenanceBase * (1 + randomNormal(rng, 0, 0.14 + planFit.coverageGap * 0.03)));
 
     const buildTotalCost = (buildEngineering + buildMaintenance) * laborCostPerWeek;
-    const muiLicenseCost = muiPlan.licensePerDeveloperYear * input.licensedDevelopers * horizonYears;
+    const muiLicenseCost =
+      muiPlan.licensePerDeveloperYear * estimatedLicensedDevelopers * horizonYears;
     const muiTotalCost = (muiEngineering + muiMaintenance) * laborCostPerWeek + muiLicenseCost;
 
     buildLaunchWeeks.push(buildLaunch);
@@ -1128,6 +1137,7 @@ function runSimulation(input, scorecard) {
     buildPath,
     muiPath,
     comparison,
+    estimatedLicensedDevelopers,
   };
 }
 
@@ -1290,12 +1300,9 @@ function buildResult(input) {
     'The simulation uses 10,000 seeded iterations, so the same validated input returns the same result.',
     'TCO includes internal engineering labor and estimated MUI licensing, but excludes revenue effects, non-component migration work, and negotiated vendor discounts.',
     'Launch weeks represent modeled delivery timing under the stated capacity and risk inputs, not guaranteed calendar commitments.',
-    `The comparison models ${PLAN_CONFIG[scorecard.effectiveMuiPlan].label} because comparedMuiPlan was "${input.comparedMuiPlan}".`,
+    `The comparison internally models ${PLAN_CONFIG[scorecard.effectiveMuiPlan].label} as the best-fit MUI path for these requirements.`,
+    `Estimated license exposure for the modeled MUI path is ${simulation.estimatedLicensedDevelopers} developer seat${simulation.estimatedLicensedDevelopers === 1 ? '' : 's'}.`,
   ];
-
-  if (input.comparedMuiPlan === 'auto') {
-    assumptions.push(`Auto-selection chose the ${PLAN_CONFIG[scorecard.autoSelectedMuiPlan].label} tier from the rules-based scorecard.`);
-  }
 
   assumptions.push('Derived factors are benchmark-informed heuristics meant to keep the model transparent and evolvable, not to imply precise industry averages.');
   assumptions.push('The latest model version is benchmark-informed-v2, and older saved reports may not reflect the current input schema.');
