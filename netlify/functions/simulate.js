@@ -1,207 +1,227 @@
 const ITERATIONS = 10000;
-const MODEL_VERSION = 'benchmark-informed-v2';
+const MODEL_VERSION = "benchmark-informed-v2";
 
-const EXISTING_MUI_USAGE = new Set(['none', 'some', 'standardized']);
-const DESIGN_SYSTEM_MATURITY = new Set(['low', 'medium', 'high']);
-const DEPENDENT_TEAMS = new Set(['one', 'two-three', 'four-seven', 'eight-plus']);
+const EXISTING_MUI_USAGE = new Set(["none", "some", "standardized"]);
+const DESIGN_SYSTEM_MATURITY = new Set(["low", "medium", "high"]);
+const DEPENDENT_TEAMS = new Set([
+  "one",
+  "two-three",
+  "four-seven",
+  "eight-plus"
+]);
 const OWNERSHIP_MODELS = new Set([
-  'same-product-team',
-  'frontend-platform-team',
-  'several-teams-informal',
-  'unclear',
+  "same-product-team",
+  "frontend-platform-team",
+  "several-teams-informal",
+  "unclear"
 ]);
 const PRIMARY_USE_CASES = new Set([
-  'data-grid',
-  'charts',
-  'date-pickers',
-  'tree-view',
-  'scheduler',
-  'multi-component',
+  "data-grid",
+  "charts",
+  "date-pickers",
+  "tree-view",
+  "scheduler",
+  "multi-component"
 ]);
-const ACCESSIBILITY_TARGETS = new Set(['none', 'wcag-a', 'wcag-aa', 'wcag-aaa-regulated']);
+const ACCESSIBILITY_TARGETS = new Set([
+  "none",
+  "wcag-a",
+  "wcag-aa",
+  "wcag-aaa-regulated"
+]);
 const CHANGE_LEAD_TIMES = new Set([
-  'less-than-day',
-  'one-day-to-one-week',
-  'one-week-to-one-month',
-  'more-than-month',
-  'unknown',
+  "less-than-day",
+  "one-day-to-one-week",
+  "one-week-to-one-month",
+  "more-than-month",
+  "unknown"
 ]);
-const REWORK_FREQUENCIES = new Set(['rare', 'occasional', 'frequent', 'unknown']);
-const PRESSURE_LEVELS = new Set(['low', 'medium', 'high']);
-const EXPECTED_ROWS = new Set(['under-1k', '1k-10k', '10k-100k', 'over-100k']);
-const EXPECTED_COLUMNS = new Set(['under-10', '10-30', 'over-30']);
-const SUPPORT_REQUIREMENTS = new Set(['community', 'standard', 'priority', 'procurement-sla']);
+const REWORK_FREQUENCIES = new Set([
+  "rare",
+  "occasional",
+  "frequent",
+  "unknown"
+]);
+const PRESSURE_LEVELS = new Set(["low", "medium", "high"]);
+const EXPECTED_ROWS = new Set(["under-1k", "1k-10k", "10k-100k", "over-100k"]);
+const EXPECTED_COLUMNS = new Set(["under-10", "10-30", "over-30"]);
+const SUPPORT_REQUIREMENTS = new Set([
+  "community",
+  "standard",
+  "priority",
+  "procurement-sla"
+]);
 const MAINTENANCE_HORIZONS = new Set([12, 24, 36]);
 const ADVANCED_FEATURES = new Set([
-  'virtualization',
-  'inline-editing',
-  'server-side-data',
-  'keyboard-navigation',
-  'exporting',
-  'drag-and-drop',
-  'custom-rendering',
-  'timezone-logic',
+  "virtualization",
+  "inline-editing",
+  "server-side-data",
+  "keyboard-navigation",
+  "exporting",
+  "drag-and-drop",
+  "custom-rendering",
+  "timezone-logic"
 ]);
 
 const ACCESSIBILITY_TARGET_INDEX = {
   none: 0,
-  'wcag-a': 1,
-  'wcag-aa': 2,
-  'wcag-aaa-regulated': 3,
+  "wcag-a": 1,
+  "wcag-aa": 2,
+  "wcag-aaa-regulated": 3
 };
 
 const CHANGE_LEAD_TIME_INDEX = {
-  'less-than-day': 4,
-  'one-day-to-one-week': 3,
-  'one-week-to-one-month': 2,
-  'more-than-month': 1,
-  unknown: 2,
+  "less-than-day": 4,
+  "one-day-to-one-week": 3,
+  "one-week-to-one-month": 2,
+  "more-than-month": 1,
+  unknown: 2
 };
 
 const REWORK_FREQUENCY_INDEX = {
   rare: 4,
   occasional: 3,
   frequent: 1,
-  unknown: 2,
+  unknown: 2
 };
 
 const DEPENDENT_TEAMS_INDEX = {
   one: 1,
-  'two-three': 2,
-  'four-seven': 3,
-  'eight-plus': 4,
+  "two-three": 2,
+  "four-seven": 3,
+  "eight-plus": 4
 };
 
 const OWNERSHIP_MODEL_INDEX = {
-  'same-product-team': 1,
-  'frontend-platform-team': 2,
-  'several-teams-informal': 3,
-  unclear: 4,
+  "same-product-team": 1,
+  "frontend-platform-team": 2,
+  "several-teams-informal": 3,
+  unclear: 4
 };
 
 const EXPECTED_ROWS_INDEX = {
-  'under-1k': 1,
-  '1k-10k': 2,
-  '10k-100k': 3,
-  'over-100k': 4,
+  "under-1k": 1,
+  "1k-10k": 2,
+  "10k-100k": 3,
+  "over-100k": 4
 };
 
 const EXPECTED_COLUMNS_INDEX = {
-  'under-10': 1,
-  '10-30': 2,
-  'over-30': 3,
+  "under-10": 1,
+  "10-30": 2,
+  "over-30": 3
 };
 
 const USE_CASE_COMPLEXITY = {
-  'data-grid': 4.7,
+  "data-grid": 4.7,
   charts: 3.1,
-  'date-pickers': 2.3,
-  'tree-view': 3.3,
+  "date-pickers": 2.3,
+  "tree-view": 3.3,
   scheduler: 5.0,
-  'multi-component': 4.8,
+  "multi-component": 3.2
 };
 
 const ADVANCED_FEATURE_WEIGHTS = {
   virtualization: 1.5,
-  'inline-editing': 1.0,
-  'server-side-data': 1.2,
-  'keyboard-navigation': 0.9,
+  "inline-editing": 1.0,
+  "server-side-data": 1.2,
+  "keyboard-navigation": 0.9,
   exporting: 0.5,
-  'drag-and-drop': 1.0,
-  'custom-rendering': 1.2,
-  'timezone-logic': 0.9,
+  "drag-and-drop": 1.0,
+  "custom-rendering": 1.2,
+  "timezone-logic": 0.9
 };
 
 const PRESSURE_INDEX = {
   low: 1,
   medium: 2,
-  high: 3,
+  high: 3
 };
 
 const SUPPORT_INDEX = {
   community: 0,
   standard: 1,
   priority: 2,
-  'procurement-sla': 3,
+  "procurement-sla": 3
 };
 
 const MUI_USAGE_INDEX = {
   none: 0,
   some: 1,
-  standardized: 2,
+  standardized: 2
 };
 
 const MATURITY_INDEX = {
   low: 1,
   medium: 2,
-  high: 3,
+  high: 3
 };
 
 const PLAN_CONFIG = {
   core: {
-    key: 'core',
-    label: 'MUI Core',
-    recommendationLabel: 'MUI Core',
+    key: "core",
+    label: "MUI Core",
+    recommendationLabel: "MUI Core",
     licensePerDeveloperYear: 0,
     supportCapability: 0.15,
     featureCapacity: 2.0,
     useCaseCoverage: {
-      'data-grid': 0.28,
+      "data-grid": 0.28,
       charts: 0.45,
-      'date-pickers': 0.92,
-      'tree-view': 0.5,
+      "date-pickers": 0.92,
+      "tree-view": 0.5,
       scheduler: 0.12,
-      'multi-component': 0.32,
-    },
+      "multi-component": 0.32
+    }
   },
   premium: {
-    key: 'premium',
-    label: 'MUI X Premium',
-    recommendationLabel: 'Premium',
+    key: "premium",
+    label: "MUI X Premium",
+    recommendationLabel: "Premium",
     licensePerDeveloperYear: 1800,
     supportCapability: 0.45,
     featureCapacity: 4.4,
     useCaseCoverage: {
-      'data-grid': 0.9,
+      "data-grid": 0.9,
       charts: 0.72,
-      'date-pickers': 0.96,
-      'tree-view': 0.84,
+      "date-pickers": 0.96,
+      "tree-view": 0.84,
       scheduler: 0.66,
-      'multi-component': 0.76,
-    },
+      "multi-component": 0.76
+    }
   },
   enterprise: {
-    key: 'enterprise',
-    label: 'MUI X Enterprise',
-    recommendationLabel: 'Enterprise',
+    key: "enterprise",
+    label: "MUI X Enterprise",
+    recommendationLabel: "Enterprise",
     licensePerDeveloperYear: 3600,
     supportCapability: 0.78,
     featureCapacity: 5.8,
     useCaseCoverage: {
-      'data-grid': 0.94,
+      "data-grid": 0.94,
       charts: 0.78,
-      'date-pickers': 0.97,
-      'tree-view': 0.88,
+      "date-pickers": 0.97,
+      "tree-view": 0.88,
       scheduler: 0.74,
-      'multi-component': 0.82,
-    },
-  },
+      "multi-component": 0.82
+    }
+  }
 };
 
 function jsonResponse(statusCode, body) {
   return {
     statusCode,
     headers: {
-      'content-type': 'application/json; charset=utf-8',
+      "content-type": "application/json; charset=utf-8"
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify(body)
   };
 }
 
 function badRequest(message, details) {
   return jsonResponse(400, {
     error: message,
-    ...(details ? { details } : {}),
+    ...(details ? { details } : {})
   });
 }
 
@@ -223,7 +243,10 @@ function integerCurrency(value) {
 }
 
 function percentile(sortedValues, ratio) {
-  const index = Math.min(sortedValues.length - 1, Math.max(0, Math.floor((sortedValues.length - 1) * ratio)));
+  const index = Math.min(
+    sortedValues.length - 1,
+    Math.max(0, Math.floor((sortedValues.length - 1) * ratio))
+  );
   return sortedValues[index];
 }
 
@@ -241,14 +264,14 @@ function bucket(value, small, medium) {
 
 function levelFromScore(score) {
   if (score >= 67) {
-    return 'high';
+    return "high";
   }
 
   if (score >= 34) {
-    return 'medium';
+    return "medium";
   }
 
-  return 'low';
+  return "low";
 }
 
 function buildFactor(score, drivers) {
@@ -257,7 +280,7 @@ function buildFactor(score, drivers) {
   return {
     score: normalizedScore,
     level: levelFromScore(normalizedScore),
-    drivers,
+    drivers
   };
 }
 
@@ -302,33 +325,42 @@ function randomNormal(rng, mean = 0, deviation = 1) {
     second = rng();
   }
 
-  const standard = Math.sqrt(-2 * Math.log(first)) * Math.cos(2 * Math.PI * second);
+  const standard =
+    Math.sqrt(-2 * Math.log(first)) * Math.cos(2 * Math.PI * second);
   return mean + standard * deviation;
 }
 
 function parseJsonBody(event) {
-  if (!event?.body || typeof event.body !== 'string') {
-    return { error: 'Invalid JSON body.' };
+  if (!event?.body || typeof event.body !== "string") {
+    return { error: "Invalid JSON body." };
   }
 
-  const rawBody = event.isBase64Encoded ? Buffer.from(event.body, 'base64').toString('utf8') : event.body;
+  const rawBody = event.isBase64Encoded
+    ? Buffer.from(event.body, "base64").toString("utf8")
+    : event.body;
 
   try {
     const parsed = JSON.parse(rawBody);
 
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      return { error: 'Invalid JSON body.' };
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return { error: "Invalid JSON body." };
     }
 
     return { value: parsed };
   } catch {
-    return { error: 'Invalid JSON body.' };
+    return { error: "Invalid JSON body." };
   }
 }
 
 function normalizeInput(payload) {
   const advancedFeatures = Array.isArray(payload.advancedFeatures)
-    ? [...new Set(payload.advancedFeatures.filter((feature) => typeof feature === 'string'))]
+    ? [
+        ...new Set(
+          payload.advancedFeatures.filter(
+            (feature) => typeof feature === "string"
+          )
+        )
+      ]
     : [];
 
   return {
@@ -349,11 +381,15 @@ function normalizeInput(payload) {
     deadlinePressure: payload.deadlinePressure,
     maintenanceHorizonMonths: Number(payload.maintenanceHorizonMonths),
     supportRequirement: payload.supportRequirement,
-    engineerCostPerDay: Number(payload.engineerCostPerDay),
+    engineerCostPerDay: Number(payload.engineerCostPerDay)
   };
 }
 
-function validateInteger(value, label, { minimum = 0, allowZero = false } = {}) {
+function validateInteger(
+  value,
+  label,
+  { minimum = 0, allowZero = false } = {}
+) {
   if (!Number.isInteger(value)) {
     return `${label} must be an integer.`;
   }
@@ -366,7 +402,7 @@ function validateInteger(value, label, { minimum = 0, allowZero = false } = {}) 
     return `${label} must be greater than ${minimum}.`;
   }
 
-  return '';
+  return "";
 }
 
 function validateNumber(value, label, { minimum = 0 } = {}) {
@@ -378,140 +414,227 @@ function validateNumber(value, label, { minimum = 0 } = {}) {
     return `${label} must be greater than ${minimum}.`;
   }
 
-  return '';
+  return "";
 }
 
 function validateEnum(value, label, allowedValues) {
-  return allowedValues.has(value) ? '' : `${label} is invalid.`;
+  return allowedValues.has(value) ? "" : `${label} is invalid.`;
 }
 
 function isBlank(value) {
-  return value === undefined || value === null || value === '';
+  return value === undefined || value === null || value === "";
 }
 
 function validatePayload(normalized, originalPayload) {
   const errors = [];
 
   if (isBlank(originalPayload.frontendDevelopers)) {
-    errors.push('frontendDevelopers is required.');
+    errors.push("frontendDevelopers is required.");
   } else {
-    errors.push(validateInteger(normalized.frontendDevelopers, 'frontendDevelopers', { minimum: 0 }));
+    errors.push(
+      validateInteger(normalized.frontendDevelopers, "frontendDevelopers", {
+        minimum: 0
+      })
+    );
   }
 
   if (isBlank(originalPayload.reactApps)) {
-    errors.push('reactApps is required.');
+    errors.push("reactApps is required.");
   } else {
-    errors.push(validateInteger(normalized.reactApps, 'reactApps', { minimum: 0 }));
+    errors.push(
+      validateInteger(normalized.reactApps, "reactApps", { minimum: 0 })
+    );
   }
 
   if (isBlank(originalPayload.dependentTeams)) {
-    errors.push('dependentTeams is required.');
+    errors.push("dependentTeams is required.");
   } else {
-    errors.push(validateEnum(normalized.dependentTeams, 'dependentTeams', DEPENDENT_TEAMS));
+    errors.push(
+      validateEnum(normalized.dependentTeams, "dependentTeams", DEPENDENT_TEAMS)
+    );
   }
 
   if (isBlank(originalPayload.ownershipModel)) {
-    errors.push('ownershipModel is required.');
+    errors.push("ownershipModel is required.");
   } else {
-    errors.push(validateEnum(normalized.ownershipModel, 'ownershipModel', OWNERSHIP_MODELS));
+    errors.push(
+      validateEnum(
+        normalized.ownershipModel,
+        "ownershipModel",
+        OWNERSHIP_MODELS
+      )
+    );
   }
 
   if (isBlank(originalPayload.existingMuiUsage)) {
-    errors.push('existingMuiUsage is required.');
+    errors.push("existingMuiUsage is required.");
   } else {
-    errors.push(validateEnum(normalized.existingMuiUsage, 'existingMuiUsage', EXISTING_MUI_USAGE));
+    errors.push(
+      validateEnum(
+        normalized.existingMuiUsage,
+        "existingMuiUsage",
+        EXISTING_MUI_USAGE
+      )
+    );
   }
 
   if (isBlank(originalPayload.designSystemMaturity)) {
-    errors.push('designSystemMaturity is required.');
+    errors.push("designSystemMaturity is required.");
   } else {
-    errors.push(validateEnum(normalized.designSystemMaturity, 'designSystemMaturity', DESIGN_SYSTEM_MATURITY));
+    errors.push(
+      validateEnum(
+        normalized.designSystemMaturity,
+        "designSystemMaturity",
+        DESIGN_SYSTEM_MATURITY
+      )
+    );
   }
 
   if (isBlank(originalPayload.primaryUseCase)) {
-    errors.push('primaryUseCase is required.');
+    errors.push("primaryUseCase is required.");
   } else {
-    errors.push(validateEnum(normalized.primaryUseCase, 'primaryUseCase', PRIMARY_USE_CASES));
+    errors.push(
+      validateEnum(
+        normalized.primaryUseCase,
+        "primaryUseCase",
+        PRIMARY_USE_CASES
+      )
+    );
   }
 
   if (isBlank(originalPayload.dataHeavyScreens)) {
-    errors.push('dataHeavyScreens is required.');
+    errors.push("dataHeavyScreens is required.");
   } else {
-    errors.push(validateInteger(normalized.dataHeavyScreens, 'dataHeavyScreens', { minimum: 0, allowZero: true }));
+    errors.push(
+      validateInteger(normalized.dataHeavyScreens, "dataHeavyScreens", {
+        minimum: 0,
+        allowZero: true
+      })
+    );
   }
 
   if (isBlank(originalPayload.expectedRows)) {
-    errors.push('expectedRows is required.');
+    errors.push("expectedRows is required.");
   } else {
-    errors.push(validateEnum(normalized.expectedRows, 'expectedRows', EXPECTED_ROWS));
+    errors.push(
+      validateEnum(normalized.expectedRows, "expectedRows", EXPECTED_ROWS)
+    );
   }
 
   if (isBlank(originalPayload.expectedColumns)) {
-    errors.push('expectedColumns is required.');
+    errors.push("expectedColumns is required.");
   } else {
-    errors.push(validateEnum(normalized.expectedColumns, 'expectedColumns', EXPECTED_COLUMNS));
+    errors.push(
+      validateEnum(
+        normalized.expectedColumns,
+        "expectedColumns",
+        EXPECTED_COLUMNS
+      )
+    );
   }
 
   if (isBlank(originalPayload.accessibilityTarget)) {
-    errors.push('accessibilityTarget is required.');
+    errors.push("accessibilityTarget is required.");
   } else {
-    errors.push(validateEnum(normalized.accessibilityTarget, 'accessibilityTarget', ACCESSIBILITY_TARGETS));
+    errors.push(
+      validateEnum(
+        normalized.accessibilityTarget,
+        "accessibilityTarget",
+        ACCESSIBILITY_TARGETS
+      )
+    );
   }
 
   if (isBlank(originalPayload.changeLeadTime)) {
-    errors.push('changeLeadTime is required.');
+    errors.push("changeLeadTime is required.");
   } else {
-    errors.push(validateEnum(normalized.changeLeadTime, 'changeLeadTime', CHANGE_LEAD_TIMES));
+    errors.push(
+      validateEnum(
+        normalized.changeLeadTime,
+        "changeLeadTime",
+        CHANGE_LEAD_TIMES
+      )
+    );
   }
 
   if (isBlank(originalPayload.reworkFrequency)) {
-    errors.push('reworkFrequency is required.');
+    errors.push("reworkFrequency is required.");
   } else {
-    errors.push(validateEnum(normalized.reworkFrequency, 'reworkFrequency', REWORK_FREQUENCIES));
+    errors.push(
+      validateEnum(
+        normalized.reworkFrequency,
+        "reworkFrequency",
+        REWORK_FREQUENCIES
+      )
+    );
   }
 
   if (isBlank(originalPayload.deadlinePressure)) {
-    errors.push('deadlinePressure is required.');
+    errors.push("deadlinePressure is required.");
   } else {
-    errors.push(validateEnum(normalized.deadlinePressure, 'deadlinePressure', PRESSURE_LEVELS));
+    errors.push(
+      validateEnum(
+        normalized.deadlinePressure,
+        "deadlinePressure",
+        PRESSURE_LEVELS
+      )
+    );
   }
 
   if (isBlank(originalPayload.supportRequirement)) {
-    errors.push('supportRequirement is required.');
+    errors.push("supportRequirement is required.");
   } else {
-    errors.push(validateEnum(normalized.supportRequirement, 'supportRequirement', SUPPORT_REQUIREMENTS));
+    errors.push(
+      validateEnum(
+        normalized.supportRequirement,
+        "supportRequirement",
+        SUPPORT_REQUIREMENTS
+      )
+    );
   }
 
   if (isBlank(originalPayload.maintenanceHorizonMonths)) {
-    errors.push('maintenanceHorizonMonths is required.');
+    errors.push("maintenanceHorizonMonths is required.");
   } else if (!MAINTENANCE_HORIZONS.has(normalized.maintenanceHorizonMonths)) {
-    errors.push('maintenanceHorizonMonths is invalid.');
+    errors.push("maintenanceHorizonMonths is invalid.");
   }
 
   if (isBlank(originalPayload.engineerCostPerDay)) {
-    errors.push('engineerCostPerDay is required.');
+    errors.push("engineerCostPerDay is required.");
   } else {
-    errors.push(validateNumber(normalized.engineerCostPerDay, 'engineerCostPerDay', { minimum: 0 }));
+    errors.push(
+      validateNumber(normalized.engineerCostPerDay, "engineerCostPerDay", {
+        minimum: 0
+      })
+    );
   }
 
   if (!Array.isArray(originalPayload.advancedFeatures)) {
-    errors.push('advancedFeatures must be an array.');
-  } else if (normalized.advancedFeatures.some((feature) => !ADVANCED_FEATURES.has(feature))) {
-    errors.push('advancedFeatures contains an invalid value.');
+    errors.push("advancedFeatures must be an array.");
+  } else if (
+    normalized.advancedFeatures.some(
+      (feature) => !ADVANCED_FEATURES.has(feature)
+    )
+  ) {
+    errors.push("advancedFeatures contains an invalid value.");
   }
 
   return {
-    errors: errors.filter(Boolean),
+    errors: errors.filter(Boolean)
   };
 }
 
 function buildDerivedFactors(input) {
   const useCaseComplexity = USE_CASE_COMPLEXITY[input.primaryUseCase];
-  const featureWeight = input.advancedFeatures.reduce((sum, feature) => sum + ADVANCED_FEATURE_WEIGHTS[feature], 0);
+  const featureWeight = input.advancedFeatures.reduce(
+    (sum, feature) => sum + ADVANCED_FEATURE_WEIGHTS[feature],
+    0
+  );
   const screenLoad = Math.min(input.dataHeavyScreens, 12);
   const rowScale = EXPECTED_ROWS_INDEX[input.expectedRows];
   const columnScale = EXPECTED_COLUMNS_INDEX[input.expectedColumns];
-  const accessibilityTarget = ACCESSIBILITY_TARGET_INDEX[input.accessibilityTarget];
+  const accessibilityTarget =
+    ACCESSIBILITY_TARGET_INDEX[input.accessibilityTarget];
   const changeLeadTime = CHANGE_LEAD_TIME_INDEX[input.changeLeadTime];
   const reworkFrequency = REWORK_FREQUENCY_INDEX[input.reworkFrequency];
   const dependentTeams = DEPENDENT_TEAMS_INDEX[input.dependentTeams];
@@ -521,15 +644,19 @@ function buildDerivedFactors(input) {
 
   const functionalDrivers = [
     `${input.primaryUseCase} is the primary use case, which sets the baseline interaction complexity.`,
-    `Expected volume sits in the ${input.expectedRows} row band and the ${input.expectedColumns} column band.`,
+    `Expected volume sits in the ${input.expectedRows} row band and the ${input.expectedColumns} column band.`
   ];
 
   if (input.advancedFeatures.length > 0) {
-    functionalDrivers.push(`${input.advancedFeatures.length} advanced feature${input.advancedFeatures.length === 1 ? '' : 's'} expand the component surface area.`);
+    functionalDrivers.push(
+      `${input.advancedFeatures.length} advanced feature${input.advancedFeatures.length === 1 ? "" : "s"} expand the component surface area.`
+    );
   }
 
   if (screenLoad > 0) {
-    functionalDrivers.push(`${screenLoad} data-heavy screen${screenLoad === 1 ? '' : 's'} add state and edge-case pressure.`);
+    functionalDrivers.push(
+      `${screenLoad} data-heavy screen${screenLoad === 1 ? "" : "s"} add state and edge-case pressure.`
+    );
   }
 
   const functionalComplexity = buildFactor(
@@ -538,61 +665,75 @@ function buildDerivedFactors(input) {
       screenLoad * 2.6 +
       rowScale * 5.2 +
       columnScale * 4.6 +
-      (input.primaryUseCase === 'data-grid' ? rowScale * 2.4 : 0) +
-      (input.primaryUseCase === 'scheduler' ? columnScale * 1.9 : 0),
-    functionalDrivers,
+      (input.primaryUseCase === "data-grid" ? rowScale * 2.4 : 0) +
+      (input.primaryUseCase === "scheduler" ? columnScale * 1.9 : 0),
+    functionalDrivers
   );
 
   const qualityDrivers = [
     `${input.accessibilityTarget} accessibility target sets the baseline QA and interaction burden.`,
-    `Expected volume at ${input.expectedRows} rows by ${input.expectedColumns} columns increases regression risk.`,
+    `Expected volume at ${input.expectedRows} rows by ${input.expectedColumns} columns increases regression risk.`
   ];
-  const qualityFeatures = ['keyboard-navigation', 'virtualization', 'custom-rendering', 'server-side-data', 'timezone-logic', 'drag-and-drop'].filter((feature) =>
-    input.advancedFeatures.includes(feature),
-  );
+  const qualityFeatures = [
+    "keyboard-navigation",
+    "virtualization",
+    "custom-rendering",
+    "server-side-data",
+    "timezone-logic",
+    "drag-and-drop"
+  ].filter((feature) => input.advancedFeatures.includes(feature));
 
   if (qualityFeatures.length > 0) {
-    qualityDrivers.push(`${qualityFeatures.join(', ')} require deeper behavior coverage and regression checking.`);
+    qualityDrivers.push(
+      `${qualityFeatures.join(", ")} require deeper behavior coverage and regression checking.`
+    );
   }
 
   const qualityBurden = buildFactor(
     accessibilityTarget * 18 +
       rowScale * 8.5 +
       columnScale * 7.5 +
-      (input.advancedFeatures.includes('keyboard-navigation') ? 11 : 0) +
-      (input.advancedFeatures.includes('virtualization') ? 13 : 0) +
-      (input.advancedFeatures.includes('custom-rendering') ? 12 : 0) +
-      (input.advancedFeatures.includes('server-side-data') ? 10 : 0) +
-      (input.advancedFeatures.includes('timezone-logic') ? 7 : 0) +
-      (input.advancedFeatures.includes('drag-and-drop') ? 6 : 0),
-    qualityDrivers,
+      (input.advancedFeatures.includes("keyboard-navigation") ? 11 : 0) +
+      (input.advancedFeatures.includes("virtualization") ? 13 : 0) +
+      (input.advancedFeatures.includes("custom-rendering") ? 12 : 0) +
+      (input.advancedFeatures.includes("server-side-data") ? 10 : 0) +
+      (input.advancedFeatures.includes("timezone-logic") ? 7 : 0) +
+      (input.advancedFeatures.includes("drag-and-drop") ? 6 : 0),
+    qualityDrivers
   );
 
   const deliveryDrivers = [
     `${input.changeLeadTime} change lead time is the main delivery throughput input.`,
     `${input.reworkFrequency} rework frequency affects how much churn the team should expect.`,
-    `${input.deadlinePressure} deadline pressure affects how much schedule slack the team has.`,
+    `${input.deadlinePressure} deadline pressure affects how much schedule slack the team has.`
   ];
 
-  if (input.changeLeadTime === 'unknown' || input.reworkFrequency === 'unknown') {
-    deliveryDrivers.push('Unknown cadence inputs widen the delivery uncertainty band.');
+  if (
+    input.changeLeadTime === "unknown" ||
+    input.reworkFrequency === "unknown"
+  ) {
+    deliveryDrivers.push(
+      "Unknown cadence inputs widen the delivery uncertainty band."
+    );
   }
 
   const deliveryMaturity = buildFactor(
     28 +
       changeLeadTime * 12.5 +
       reworkFrequency * 11 +
-      ({ low: 16, medium: 4, high: -12 })[input.deadlinePressure],
-    deliveryDrivers,
+      { low: 16, medium: 4, high: -12 }[input.deadlinePressure],
+    deliveryDrivers
   );
 
   const ownershipDrivers = [
     `${input.dependentTeams} dependent team band and ${input.ownershipModel} ownership model shape the coordination load.`,
-    `${input.reactApps} React app${input.reactApps === 1 ? '' : 's'} widen the long-term component ownership surface.`,
-    `${input.frontendDevelopers} frontend developer${input.frontendDevelopers === 1 ? '' : 's'} influence coordination and onboarding cost.`,
+    `${input.reactApps} React app${input.reactApps === 1 ? "" : "s"} widen the long-term component ownership surface.`,
+    `${input.frontendDevelopers} frontend developer${input.frontendDevelopers === 1 ? "" : "s"} influence coordination and onboarding cost.`
   ];
 
-  ownershipDrivers.push(`${input.designSystemMaturity} design-system maturity changes how much shared groundwork already exists.`);
+  ownershipDrivers.push(
+    `${input.designSystemMaturity} design-system maturity changes how much shared groundwork already exists.`
+  );
 
   const ownershipBurden = buildFactor(
     dependentTeams * 14 +
@@ -600,31 +741,37 @@ function buildDerivedFactors(input) {
       Math.min(input.reactApps, 8) * 4.5 +
       Math.min(input.frontendDevelopers, 12) * 2.2 +
       (4 - maturity) * 9,
-    ownershipDrivers,
+    ownershipDrivers
   );
 
   const enterpriseDrivers = [
     `${input.supportRequirement} support expectations drive the need for vendor-backed response and procurement paths.`,
     `${input.maintenanceHorizonMonths} months of planned maintenance raises the value of durable support and upgrades.`,
-    `${input.dependentTeams} dependent team band and ${input.reactApps} React app${input.reactApps === 1 ? '' : 's'} define the rollout footprint.`,
+    `${input.dependentTeams} dependent team band and ${input.reactApps} React app${input.reactApps === 1 ? "" : "s"} define the rollout footprint.`
   ];
 
   if (muiUsage > 0) {
-    enterpriseDrivers.push(`${input.existingMuiUsage} MUI usage lowers adoption friction for a packaged path.`);
+    enterpriseDrivers.push(
+      `${input.existingMuiUsage} MUI usage lowers adoption friction for a packaged path.`
+    );
   }
 
   if (input.reactApps >= 2 || input.frontendDevelopers >= 5) {
-    enterpriseDrivers.push('The React footprint is broad enough that standardization has meaningful leverage.');
+    enterpriseDrivers.push(
+      "The React footprint is broad enough that standardization has meaningful leverage."
+    );
   }
 
   const enterpriseReadiness = buildFactor(
-    ({ community: 14, standard: 30, priority: 54, 'procurement-sla': 72 })[input.supportRequirement] +
+    { community: 14, standard: 30, priority: 54, "procurement-sla": 72 }[
+      input.supportRequirement
+    ] +
       Math.min(input.reactApps, 6) * 4 +
       Math.min(input.frontendDevelopers, 10) * 2.5 +
       dependentTeams * 4 +
       muiUsage * 8 +
-      ({ 12: 6, 24: 12, 36: 18 })[input.maintenanceHorizonMonths],
-    enterpriseDrivers,
+      { 12: 6, 24: 12, 36: 18 }[input.maintenanceHorizonMonths],
+    enterpriseDrivers
   );
 
   return {
@@ -632,35 +779,56 @@ function buildDerivedFactors(input) {
     qualityBurden,
     deliveryMaturity,
     ownershipBurden,
-    enterpriseReadiness,
+    enterpriseReadiness
   };
 }
 
 function buildPlanFit(planKey, input, derivedFactors) {
   const plan = PLAN_CONFIG[planKey];
-  const featureDemand = input.advancedFeatures.reduce((sum, feature) => sum + ADVANCED_FEATURE_WEIGHTS[feature], 0);
+  const featureDemand = input.advancedFeatures.reduce(
+    (sum, feature) => sum + ADVANCED_FEATURE_WEIGHTS[feature],
+    0
+  );
   const useCaseCoverage = plan.useCaseCoverage[input.primaryUseCase];
   const rowScale = EXPECTED_ROWS_INDEX[input.expectedRows];
   const columnScale = EXPECTED_COLUMNS_INDEX[input.expectedColumns];
   const scaleDemand = rowScale * 0.85 + columnScale * 0.65;
-  const planScaleCapacity = ({ core: 1.6, premium: 2.6, enterprise: 3.2 })[planKey];
-  const featureCoverage = clamp(1 - Math.max(0, featureDemand - plan.featureCapacity) / 5.2, 0.18, 1);
-  const scaleCoverage = clamp(1 - Math.max(0, scaleDemand - planScaleCapacity) / 2.2, 0.18, 1);
-  const adoptionBoost = ({ none: 0, some: 0.06, standardized: 0.12 })[input.existingMuiUsage];
+  const planScaleCapacity = { core: 1.6, premium: 2.6, enterprise: 3.2 }[
+    planKey
+  ];
+  const featureCoverage = clamp(
+    1 - Math.max(0, featureDemand - plan.featureCapacity) / 5.2,
+    0.18,
+    1
+  );
+  const scaleCoverage = clamp(
+    1 - Math.max(0, scaleDemand - planScaleCapacity) / 2.2,
+    0.18,
+    1
+  );
+  const adoptionBoost = { none: 0, some: 0.06, standardized: 0.12 }[
+    input.existingMuiUsage
+  ];
   const supportFit = clamp(
-    1 - Math.max(0, SUPPORT_INDEX[input.supportRequirement] - plan.supportCapability * 4) / 3.2,
+    1 -
+      Math.max(
+        0,
+        SUPPORT_INDEX[input.supportRequirement] - plan.supportCapability * 4
+      ) /
+        3.2,
     0.15,
-    1,
+    1
   );
   const qualityFit = clamp(
     1 -
       Math.max(
         0,
         derivedFactors.qualityBurden.score / 100 -
-          (planKey === 'core' ? 0.42 : planKey === 'premium' ? 0.68 : 0.8),
-      ) * 1.1,
+          (planKey === "core" ? 0.42 : planKey === "premium" ? 0.68 : 0.8)
+      ) *
+        1.1,
     0.2,
-    1,
+    1
   );
 
   const coverageScore = clamp(
@@ -669,34 +837,42 @@ function buildPlanFit(planKey, input, derivedFactors) {
       scaleCoverage * 0.17 +
       supportFit * 0.14 +
       qualityFit * 0.1 +
-      adoptionBoost) * 100,
+      adoptionBoost) *
+      100,
     0,
-    100,
+    100
   );
   const coverageGap = clamp(1 - coverageScore / 100, 0, 1);
   const baseIntegrationRisk = clamp(
-    ({ none: 0.52, some: 0.28, standardized: 0.14 })[input.existingMuiUsage] +
-      (input.advancedFeatures.includes('custom-rendering') ? 0.11 : 0) +
-      (input.advancedFeatures.includes('drag-and-drop') ? 0.07 : 0) +
-      (input.advancedFeatures.includes('timezone-logic') ? 0.06 : 0) +
+    { none: 0.52, some: 0.28, standardized: 0.14 }[input.existingMuiUsage] +
+      (input.advancedFeatures.includes("custom-rendering") ? 0.11 : 0) +
+      (input.advancedFeatures.includes("drag-and-drop") ? 0.07 : 0) +
+      (input.advancedFeatures.includes("timezone-logic") ? 0.06 : 0) +
       (rowScale >= 3 ? 0.06 : 0) +
       (columnScale >= 3 ? 0.04 : 0) +
-      (planKey === 'core' ? 0.05 : 0),
+      (planKey === "core" ? 0.05 : 0),
     0.08,
-    0.92,
+    0.92
   );
-  const integrationRisk = clamp(baseIntegrationRisk * (1 - coverageScore / 100 * 0.48), 0.05, 0.82);
+  const integrationRisk = clamp(
+    baseIntegrationRisk * (1 - (coverageScore / 100) * 0.48),
+    0.05,
+    0.82
+  );
   const supportGap = clamp(
-    Math.max(0, derivedFactors.enterpriseReadiness.score / 100 - plan.supportCapability) * 0.8,
+    Math.max(
+      0,
+      derivedFactors.enterpriseReadiness.score / 100 - plan.supportCapability
+    ) * 0.8,
     0,
-    0.75,
+    0.75
   );
 
   return {
     coverageScore,
     coverageGap,
     integrationRisk,
-    supportGap,
+    supportGap
   };
 }
 
@@ -717,9 +893,9 @@ function buildScorecard(input, derivedFactors) {
   const appScale = bucket(input.reactApps, 1, 4);
 
   const planFits = {
-    core: buildPlanFit('core', input, derivedFactors),
-    premium: buildPlanFit('premium', input, derivedFactors),
-    enterprise: buildPlanFit('enterprise', input, derivedFactors),
+    core: buildPlanFit("core", input, derivedFactors),
+    premium: buildPlanFit("premium", input, derivedFactors),
+    enterprise: buildPlanFit("enterprise", input, derivedFactors)
   };
 
   const buildTierScore = clamp(
@@ -733,7 +909,7 @@ function buildScorecard(input, derivedFactors) {
       (rowScale >= 3 ? 5 : 0) -
       (columnScale >= 3 ? 4 : 0),
     0,
-    100,
+    100
   );
 
   const simpleScope =
@@ -748,9 +924,14 @@ function buildScorecard(input, derivedFactors) {
     qualityRisk >= 0.56 ||
     rowScale >= 3 ||
     columnScale >= 3 ||
-    ['scheduler', 'data-grid', 'multi-component'].includes(input.primaryUseCase) ||
     input.advancedFeatures.length >= 4;
 
+  console.log(
+    "functionalRisk",
+    functionalRisk,
+    "and qualityRisk ",
+    qualityRisk
+  );
   const coreTierScore = clamp(
     26 +
       planFits.core.coverageScore * 0.46 +
@@ -760,7 +941,7 @@ function buildScorecard(input, derivedFactors) {
       qualityRisk * 8 -
       Math.max(0, enterpriseNeed - 0.45) * 24,
     0,
-    100,
+    100
   );
 
   const premiumTierScore = clamp(
@@ -773,7 +954,7 @@ function buildScorecard(input, derivedFactors) {
       (simpleScope ? 18 : 0) -
       Math.max(0, enterpriseNeed - 0.72) * 14,
     0,
-    100,
+    100
   );
 
   const enterpriseTierScore = clamp(
@@ -786,7 +967,7 @@ function buildScorecard(input, derivedFactors) {
       dependentTeams * 1.5 -
       (simpleScope ? 10 : 0),
     0,
-    100,
+    100
   );
 
   const icpScore = clamp(
@@ -801,27 +982,27 @@ function buildScorecard(input, derivedFactors) {
       dependentTeams * 2 -
       (simpleScope ? 6 : 0),
     0,
-    100,
+    100
   );
   const enterpriseFitStrong = enterpriseNeed >= 0.68 && supportNeed >= 2;
   const lowSupportNeed = supportNeed <= 1;
   const supportOrProcurementNeed = supportNeed >= 2;
   const muiAdoptionUseful = muiUsage > 0 || input.reactApps >= 2;
 
-  let autoSelectedMuiPlan = 'core';
+  let autoSelectedMuiPlan = "core";
 
   if (
     enterpriseFitStrong &&
     enterpriseTierScore >= 78 &&
     planFits.enterprise.coverageScore >= 66
   ) {
-    autoSelectedMuiPlan = 'enterprise';
+    autoSelectedMuiPlan = "enterprise";
   } else if (
     advancedNeeds &&
     planFits.premium.coverageScore >= 62 &&
     !(simpleScope && supportNeed <= 1)
   ) {
-    autoSelectedMuiPlan = 'premium';
+    autoSelectedMuiPlan = "premium";
   }
 
   const effectiveMuiPlan = autoSelectedMuiPlan;
@@ -835,33 +1016,48 @@ function buildScorecard(input, derivedFactors) {
       (maturity - 1) * 6 -
       supportNeed * 7,
     0,
-    100,
+    100
   );
 
   const icpReasons = [];
 
   if (advancedNeeds) {
-    icpReasons.push('Complex component requirements increase the value of a packaged path with proven coverage.');
+    icpReasons.push(
+      "Complex component requirements increase the value of a packaged path with proven coverage."
+    );
   }
 
   if (supportOrProcurementNeed) {
-    icpReasons.push('Commercial support expectations make vendor responsiveness materially more important.');
+    icpReasons.push(
+      "Commercial support expectations make vendor responsiveness materially more important."
+    );
   }
 
   if (input.reactApps >= 2 || input.frontendDevelopers >= 4) {
-    icpReasons.push('The React footprint is large enough that reuse and standardization have leverage.');
+    icpReasons.push(
+      "The React footprint is large enough that reuse and standardization have leverage."
+    );
   }
 
-  if (input.dependentTeams !== 'one' || input.ownershipModel !== 'same-product-team') {
-    icpReasons.push('Multiple dependent teams or shared ownership increase the cost of bespoke maintenance.');
+  if (
+    input.dependentTeams !== "one" ||
+    input.ownershipModel !== "same-product-team"
+  ) {
+    icpReasons.push(
+      "Multiple dependent teams or shared ownership increase the cost of bespoke maintenance."
+    );
   }
 
   if (muiUsage > 0) {
-    icpReasons.push('Existing MUI usage lowers adoption friction for a packaged option.');
+    icpReasons.push(
+      "Existing MUI usage lowers adoption friction for a packaged option."
+    );
   }
 
   if (icpReasons.length === 0) {
-    icpReasons.push('The workload remains narrow enough that the rules do not strongly prefer a packaged path.');
+    icpReasons.push(
+      "The workload remains narrow enough that the rules do not strongly prefer a packaged path."
+    );
   }
 
   return {
@@ -893,25 +1089,26 @@ function buildScorecard(input, derivedFactors) {
     autoSelectedMuiPlan,
     effectiveMuiPlan,
     buildCompetitiveIndex,
-    icpFitSegment: icpScore >= 70 ? 'strong' : icpScore >= 50 ? 'moderate' : 'limited',
-    icpReasons,
+    icpFitSegment:
+      icpScore >= 70 ? "strong" : icpScore >= 50 ? "moderate" : "limited",
+    icpReasons
   };
 }
 
 function estimateLicensedDevelopers(input, effectiveMuiPlan) {
-  if (effectiveMuiPlan === 'core') {
+  if (effectiveMuiPlan === "core") {
     return 0;
   }
 
-  if (effectiveMuiPlan === 'premium') {
+  if (effectiveMuiPlan === "premium") {
     return Math.max(1, input.frontendDevelopers);
   }
 
   let estimatedSeats = Math.max(15, input.frontendDevelopers);
 
   if (
-    input.dependentTeams === 'four-seven' ||
-    input.dependentTeams === 'eight-plus' ||
+    input.dependentTeams === "four-seven" ||
+    input.dependentTeams === "eight-plus" ||
     input.reactApps >= 3
   ) {
     estimatedSeats += 5;
@@ -921,38 +1118,52 @@ function estimateLicensedDevelopers(input, effectiveMuiPlan) {
 }
 
 function runSimulation(input, scorecard) {
-  const rng = createRng(JSON.stringify({
-    ...input,
-    advancedFeatures: [...input.advancedFeatures].sort(),
-    effectiveMuiPlan: scorecard.effectiveMuiPlan,
-    modelVersion: MODEL_VERSION,
-  }));
+  const rng = createRng(
+    JSON.stringify({
+      ...input,
+      advancedFeatures: [...input.advancedFeatures].sort(),
+      effectiveMuiPlan: scorecard.effectiveMuiPlan,
+      modelVersion: MODEL_VERSION
+    })
+  );
   const muiPlan = PLAN_CONFIG[scorecard.effectiveMuiPlan];
   const planFit = scorecard.effectivePlanFit;
-  const estimatedLicensedDevelopers = estimateLicensedDevelopers(input, scorecard.effectiveMuiPlan);
+  const estimatedLicensedDevelopers = estimateLicensedDevelopers(
+    input,
+    scorecard.effectiveMuiPlan
+  );
   const horizonYears = input.maintenanceHorizonMonths / 12;
   const laborCostPerWeek = input.engineerCostPerDay * 5;
   const rowScale = EXPECTED_ROWS_INDEX[input.expectedRows];
   const columnScale = EXPECTED_COLUMNS_INDEX[input.expectedColumns];
   const scaleDemand = rowScale + columnScale;
   const coverageStrength = clamp(planFit.coverageScore / 100, 0, 1);
-  const coverageShield = coverageStrength >= 0.72 ? 0.14 : coverageStrength >= 0.58 ? 0.08 : 0;
+  const coverageShield =
+    coverageStrength >= 0.72 ? 0.14 : coverageStrength >= 0.58 ? 0.08 : 0;
 
   const buildVelocity = clamp(
     0.84 +
       scorecard.deliveryStrength * 0.36 -
       scorecard.ownershipRisk * 0.06 +
-      (input.frontendDevelopers >= 8 ? 0.08 : input.frontendDevelopers >= 4 ? 0.03 : -0.03),
+      (input.frontendDevelopers >= 8
+        ? 0.08
+        : input.frontendDevelopers >= 4
+          ? 0.03
+          : -0.03),
     0.58,
-    1.32,
+    1.32
   );
   const muiVelocity = clamp(
     0.96 +
       scorecard.deliveryStrength * 0.18 -
       scorecard.ownershipRisk * 0.03 +
-      (input.frontendDevelopers >= 8 ? 0.06 : input.frontendDevelopers >= 4 ? 0.02 : -0.01),
+      (input.frontendDevelopers >= 8
+        ? 0.06
+        : input.frontendDevelopers >= 4
+          ? 0.02
+          : -0.01),
     0.72,
-    1.4,
+    1.4
   );
 
   const buildLaunchWeeks = [];
@@ -989,10 +1200,15 @@ function runSimulation(input, scorecard) {
       scorecard.ownershipRisk * 1.5 +
       scorecard.deliveryRisk * 1 +
       (scaleDemand >= 5 ? 0.4 : 0);
-    const buildRework = Math.max(0, randomNormal(rng, buildReworkMean, 0.72 + scorecard.functionalRisk * 0.35));
+    const buildRework = Math.max(
+      0,
+      randomNormal(rng, buildReworkMean, 0.72 + scorecard.functionalRisk * 0.35)
+    );
     const buildEngineering = Math.max(
       2,
-      buildEngineeringMean * (1 + randomNormal(rng, 0, buildEngineeringVariance)) + buildRework,
+      buildEngineeringMean *
+        (1 + randomNormal(rng, 0, buildEngineeringVariance)) +
+        buildRework
     );
 
     const buildSlipMean =
@@ -1003,8 +1219,14 @@ function runSimulation(input, scorecard) {
       scorecard.ownershipRisk * 0.6 +
       scorecard.enterpriseNeed * 0.2 +
       (scaleDemand >= 5 ? 0.3 : 0);
-    const buildSlip = Math.max(0.6, randomNormal(rng, buildSlipMean, 0.82 + scorecard.deliveryRisk * 0.25));
-    const buildLaunch = Math.max(2, buildEngineering / buildVelocity + buildSlip + scorecard.appScale * 0.65);
+    const buildSlip = Math.max(
+      0.6,
+      randomNormal(rng, buildSlipMean, 0.82 + scorecard.deliveryRisk * 0.25)
+    );
+    const buildLaunch = Math.max(
+      2,
+      buildEngineering / buildVelocity + buildSlip + scorecard.appScale * 0.65
+    );
 
     const muiEngineeringMean =
       2.2 +
@@ -1028,10 +1250,14 @@ function runSimulation(input, scorecard) {
       scorecard.qualityRisk * 0.65 +
       planFit.supportGap * 0.35 -
       coverageShield * 0.08;
-    const muiRework = Math.max(0, randomNormal(rng, muiReworkMean, 0.42 + planFit.coverageGap * 0.18));
+    const muiRework = Math.max(
+      0,
+      randomNormal(rng, muiReworkMean, 0.42 + planFit.coverageGap * 0.18)
+    );
     const muiEngineering = Math.max(
       1.5,
-      muiEngineeringMean * (1 + randomNormal(rng, 0, muiEngineeringVariance)) + muiRework,
+      muiEngineeringMean * (1 + randomNormal(rng, 0, muiEngineeringVariance)) +
+        muiRework
     );
 
     const muiSlipMean =
@@ -1041,8 +1267,14 @@ function runSimulation(input, scorecard) {
       planFit.integrationRisk * 0.7 +
       planFit.supportGap * 0.35 -
       coverageShield * 0.1;
-    const muiSlip = Math.max(0.3, randomNormal(rng, muiSlipMean, 0.46 + planFit.coverageGap * 0.14));
-    const muiLaunch = Math.max(1.4, muiEngineering / muiVelocity + muiSlip + scorecard.appScale * 0.38);
+    const muiSlip = Math.max(
+      0.3,
+      randomNormal(rng, muiSlipMean, 0.46 + planFit.coverageGap * 0.14)
+    );
+    const muiLaunch = Math.max(
+      1.4,
+      muiEngineering / muiVelocity + muiSlip + scorecard.appScale * 0.38
+    );
 
     const buildMaintenanceBase =
       horizonYears *
@@ -1052,7 +1284,11 @@ function runSimulation(input, scorecard) {
         scorecard.ownershipRisk * 2 +
         scorecard.deliveryRisk * 0.55 +
         (scaleDemand >= 5 ? 0.18 : 0));
-    const buildMaintenance = Math.max(0.8, buildMaintenanceBase * (1 + randomNormal(rng, 0, 0.2 + scorecard.ownershipRisk * 0.06)));
+    const buildMaintenance = Math.max(
+      0.8,
+      buildMaintenanceBase *
+        (1 + randomNormal(rng, 0, 0.2 + scorecard.ownershipRisk * 0.06))
+    );
 
     const muiMaintenanceBase =
       horizonYears *
@@ -1064,12 +1300,20 @@ function runSimulation(input, scorecard) {
         planFit.supportGap * 0.68 -
         scorecard.muiUsage * 0.08 -
         coverageShield * 0.12);
-    const muiMaintenance = Math.max(0.4, muiMaintenanceBase * (1 + randomNormal(rng, 0, 0.14 + planFit.coverageGap * 0.03)));
+    const muiMaintenance = Math.max(
+      0.4,
+      muiMaintenanceBase *
+        (1 + randomNormal(rng, 0, 0.14 + planFit.coverageGap * 0.03))
+    );
 
-    const buildTotalCost = (buildEngineering + buildMaintenance) * laborCostPerWeek;
+    const buildTotalCost =
+      (buildEngineering + buildMaintenance) * laborCostPerWeek;
     const muiLicenseCost =
-      muiPlan.licensePerDeveloperYear * estimatedLicensedDevelopers * horizonYears;
-    const muiTotalCost = (muiEngineering + muiMaintenance) * laborCostPerWeek + muiLicenseCost;
+      muiPlan.licensePerDeveloperYear *
+      estimatedLicensedDevelopers *
+      horizonYears;
+    const muiTotalCost =
+      (muiEngineering + muiMaintenance) * laborCostPerWeek + muiLicenseCost;
 
     buildLaunchWeeks.push(buildLaunch);
     buildEngineeringWeeks.push(buildEngineering);
@@ -1103,13 +1347,13 @@ function runSimulation(input, scorecard) {
   muiTco.sort((left, right) => left - right);
 
   const buildPath = {
-    label: 'Build in-house',
+    label: "Build in-house",
     medianLaunchWeeks: roundTo(percentile(buildLaunchWeeks, 0.5)),
     p90LaunchWeeks: roundTo(percentile(buildLaunchWeeks, 0.9)),
     medianEngineeringWeeks: roundTo(percentile(buildEngineeringWeeks, 0.5)),
     p90EngineeringWeeks: roundTo(percentile(buildEngineeringWeeks, 0.9)),
     medianTco: integerCurrency(percentile(buildTco, 0.5)),
-    p90Tco: integerCurrency(percentile(buildTco, 0.9)),
+    p90Tco: integerCurrency(percentile(buildTco, 0.9))
   };
 
   const muiPath = {
@@ -1120,24 +1364,32 @@ function runSimulation(input, scorecard) {
     medianEngineeringWeeks: roundTo(percentile(muiEngineeringWeeks, 0.5)),
     p90EngineeringWeeks: roundTo(percentile(muiEngineeringWeeks, 0.9)),
     medianTco: integerCurrency(percentile(muiTco, 0.5)),
-    p90Tco: integerCurrency(percentile(muiTco, 0.9)),
+    p90Tco: integerCurrency(percentile(muiTco, 0.9))
   };
 
   const comparison = {
     probabilityMuiFaster: percentage(muiFasterCount / ITERATIONS),
     probabilityMuiLowerTco: percentage(muiLowerTcoCount / ITERATIONS),
-    probabilityBuildExceeds20Weeks: percentage(buildExceeds20WeeksCount / ITERATIONS),
-    probabilityMuiExceeds20Weeks: percentage(muiExceeds20WeeksCount / ITERATIONS),
-    launchWeekDeltaMedian: roundTo(muiPath.medianLaunchWeeks - buildPath.medianLaunchWeeks),
-    engineeringWeekDeltaMedian: roundTo(muiPath.medianEngineeringWeeks - buildPath.medianEngineeringWeeks),
-    tcoDeltaMedian: integerCurrency(muiPath.medianTco - buildPath.medianTco),
+    probabilityBuildExceeds20Weeks: percentage(
+      buildExceeds20WeeksCount / ITERATIONS
+    ),
+    probabilityMuiExceeds20Weeks: percentage(
+      muiExceeds20WeeksCount / ITERATIONS
+    ),
+    launchWeekDeltaMedian: roundTo(
+      muiPath.medianLaunchWeeks - buildPath.medianLaunchWeeks
+    ),
+    engineeringWeekDeltaMedian: roundTo(
+      muiPath.medianEngineeringWeeks - buildPath.medianEngineeringWeeks
+    ),
+    tcoDeltaMedian: integerCurrency(muiPath.medianTco - buildPath.medianTco)
   };
 
   return {
     buildPath,
     muiPath,
     comparison,
-    estimatedLicensedDevelopers,
+    estimatedLicensedDevelopers
   };
 }
 
@@ -1146,73 +1398,77 @@ function buildRecommendation(input, scorecard, simulation) {
   const selectedPlan = PLAN_CONFIG[scorecard.effectiveMuiPlan];
   const planFit = scorecard.effectivePlanFit;
   const deliveryRiskReduction =
-    comparison.probabilityBuildExceeds20Weeks - comparison.probabilityMuiExceeds20Weeks;
+    comparison.probabilityBuildExceeds20Weeks -
+    comparison.probabilityMuiExceeds20Weeks;
   const muiDeliveryFavored =
     comparison.probabilityMuiFaster >= 55 || deliveryRiskReduction >= 12;
   const muiCostFavored = comparison.probabilityMuiLowerTco >= 55;
   const buildStillCompetitive =
-    simulation.buildPath.medianLaunchWeeks <= simulation.muiPath.medianLaunchWeeks + 1.5 &&
+    simulation.buildPath.medianLaunchWeeks <=
+      simulation.muiPath.medianLaunchWeeks + 1.5 &&
     simulation.buildPath.medianTco <= simulation.muiPath.medianTco * 1.1;
 
-  let option = 'Build in-house';
+  let option = "Build in-house";
   let summary =
-    'The modeled tradeoff stays close enough that owning the component internally remains a credible option for this input set.';
+    "The modeled tradeoff stays close enough that owning the component internally remains a credible option for this input set.";
 
   if (
     scorecard.simpleScope &&
     scorecard.lowSupportNeed &&
-    input.designSystemMaturity === 'high' &&
-    input.dependentTeams === 'one' &&
-    input.ownershipModel === 'same-product-team' &&
+    input.designSystemMaturity === "high" &&
+    input.dependentTeams === "one" &&
+    input.ownershipModel === "same-product-team" &&
     scorecard.buildCompetitiveIndex >= 58 &&
     buildStillCompetitive
   ) {
-    option = 'Build in-house';
+    option = "Build in-house";
     summary =
-      'The scope is controlled, support need is low, and the existing design-system baseline is strong enough that an internal build remains competitive.';
+      "The scope is controlled, support need is low, and the existing design-system baseline is strong enough that an internal build remains competitive.";
   } else if (
     scorecard.enterpriseFitStrong &&
-    scorecard.effectiveMuiPlan === 'enterprise' &&
+    scorecard.effectiveMuiPlan === "enterprise" &&
     (muiDeliveryFavored || planFit.supportGap < 0.18)
   ) {
-    option = 'Enterprise';
+    option = "Enterprise";
     summary =
-      'Enterprise support expectations are elevated and the modeled downside is meaningfully lower with the enterprise tier.';
+      "Enterprise support expectations are elevated and the modeled downside is meaningfully lower with the enterprise tier.";
   } else if (
-    scorecard.effectiveMuiPlan === 'premium' &&
+    scorecard.effectiveMuiPlan === "premium" &&
     scorecard.advancedNeeds &&
     !scorecard.supportOrProcurementNeed &&
     (muiDeliveryFavored || planFit.coverageScore >= 68)
   ) {
-    option = 'Premium';
+    option = "Premium";
     summary =
-      'The workload is advanced enough to benefit from packaged component coverage, but it does not show strong enterprise procurement pressure.';
+      "The workload is advanced enough to benefit from packaged component coverage, but it does not show strong enterprise procurement pressure.";
   } else if (
-    scorecard.effectiveMuiPlan === 'core' &&
+    scorecard.effectiveMuiPlan === "core" &&
     scorecard.simpleScope &&
     scorecard.muiAdoptionUseful &&
     (muiDeliveryFavored || muiCostFavored)
   ) {
-    option = 'MUI Core';
+    option = "MUI Core";
     summary =
-      'The scope stays relatively standard and existing MUI familiarity makes the lighter packaged path easier to absorb.';
+      "The scope stays relatively standard and existing MUI familiarity makes the lighter packaged path easier to absorb.";
   } else if (
     scorecard.buildCompetitiveIndex >= 62 &&
     !scorecard.enterpriseFitStrong &&
     scorecard.functionalRisk < 0.55 &&
     buildStillCompetitive
   ) {
-    option = 'Build in-house';
+    option = "Build in-house";
     summary =
-      'Even after factoring in delivery variance, the internal path remains competitive on both timing and total ownership cost.';
+      "Even after factoring in delivery variance, the internal path remains competitive on both timing and total ownership cost.";
   } else if (muiDeliveryFavored || muiCostFavored) {
     option = selectedPlan.recommendationLabel;
     summary =
-      'The simulation leans toward the selected MUI tier on delivery risk, cost, or both, so the packaged path is the safer default here.';
+      "The simulation leans toward the selected MUI tier on delivery risk, cost, or both, so the packaged path is the safer default here.";
   }
 
   const ruleAlignment =
-    (option === 'Build in-house' ? scorecard.buildTierScore : scorecard[`${scorecard.effectiveMuiPlan}TierScore`]) / 100;
+    (option === "Build in-house"
+      ? scorecard.buildTierScore
+      : scorecard[`${scorecard.effectiveMuiPlan}TierScore`]) / 100;
   const probabilitySeparation =
     Math.abs(comparison.probabilityMuiFaster - 50) * 0.42 +
     Math.abs(comparison.probabilityMuiLowerTco - 50) * 0.32 +
@@ -1222,70 +1478,75 @@ function buildRecommendation(input, scorecard, simulation) {
       50 +
         probabilitySeparation +
         ruleAlignment * 14 +
-        (option === 'Build in-house' && scorecard.simpleScope ? 5 : 0) +
-        (option === 'Enterprise' && scorecard.enterpriseFitStrong ? 7 : 0) +
-        (option === 'Premium' && scorecard.advancedNeeds ? 4 : 0),
+        (option === "Build in-house" && scorecard.simpleScope ? 5 : 0) +
+        (option === "Enterprise" && scorecard.enterpriseFitStrong ? 7 : 0) +
+        (option === "Premium" && scorecard.advancedNeeds ? 4 : 0)
     ),
     52,
-    92,
+    92
   );
 
   return {
     recommendation: {
       option,
-      summary,
+      summary
     },
     confidence: {
       score: confidenceScore,
-      level: confidenceScore >= 78 ? 'high' : confidenceScore >= 64 ? 'moderate' : 'qualified',
+      level:
+        confidenceScore >= 78
+          ? "high"
+          : confidenceScore >= 64
+            ? "moderate"
+            : "qualified",
       rationale:
-        'Confidence reflects how strongly the rules-based tiering and the simulation point to the same path, not a guarantee of outcome.',
-    },
+        "Confidence reflects how strongly the rules-based tiering and the simulation point to the same path, not a guarantee of outcome."
+    }
   };
 }
 
 function buildEvidenceBasis(input, scorecard) {
   return [
     {
-      factor: 'functionalComplexity',
-      basis: 'benchmark-informed',
+      factor: "functionalComplexity",
+      basis: "benchmark-informed",
       explanation:
-        'Primary use case, expected row and column scale, data-heavy screens, and advanced features raise effort because complex component programs typically expand integration and QA scope.',
+        "Primary use case, expected row and column scale, data-heavy screens, and advanced features raise effort because complex component programs typically expand integration and QA scope."
     },
     {
-      factor: 'qualityBurden',
-      basis: 'standard-backed',
+      factor: "qualityBurden",
+      basis: "standard-backed",
       explanation:
-        'Accessibility target, expected scale, keyboard support, virtualization, custom rendering, and similar behaviors increase the verification burden because they expand behavioral requirements.',
+        "Accessibility target, expected scale, keyboard support, virtualization, custom rendering, and similar behaviors increase the verification burden because they expand behavioral requirements."
     },
     {
-      factor: 'deliveryMaturity',
-      basis: 'practice-backed',
+      factor: "deliveryMaturity",
+      basis: "practice-backed",
       explanation:
-        'Change lead time, rework frequency, and deadline pressure are used as delivery health signals because teams with faster change cycles and less churn absorb change with less schedule variance.',
+        "Change lead time, rework frequency, and deadline pressure are used as delivery health signals because teams with faster change cycles and less churn absorb change with less schedule variance."
     },
     {
-      factor: 'ownershipBurden',
-      basis: 'practice-backed',
+      factor: "ownershipBurden",
+      basis: "practice-backed",
       explanation:
-        'Dependent teams, ownership model, React footprint, and design-system maturity shape long-term ownership cost because shared components create maintenance and onboarding obligations.',
+        "Dependent teams, ownership model, React footprint, and design-system maturity shape long-term ownership cost because shared components create maintenance and onboarding obligations."
     },
     {
-      factor: 'enterpriseReadiness',
-      basis: 'benchmark-informed',
+      factor: "enterpriseReadiness",
+      basis: "benchmark-informed",
       explanation:
-        'Support expectations, maintenance horizon, existing MUI usage, and organizational footprint raise enterprise fit because vendor-backed procurement and response matter more in larger or longer-lived programs.',
+        "Support expectations, maintenance horizon, existing MUI usage, and organizational footprint raise enterprise fit because vendor-backed procurement and response matter more in larger or longer-lived programs."
     },
     {
       factor: `${PLAN_CONFIG[scorecard.effectiveMuiPlan].label} plan fit`,
-      basis: 'product-specific heuristic',
-      explanation: `The model estimates ${PLAN_CONFIG[scorecard.effectiveMuiPlan].label} fit from this payload's use case, feature demand, support need, and existing MUI usage.`,
+      basis: "product-specific heuristic",
+      explanation: `The model estimates ${PLAN_CONFIG[scorecard.effectiveMuiPlan].label} fit from this payload's use case, feature demand, support need, and existing MUI usage.`
     },
     {
-      factor: 'recommendation synthesis',
-      basis: 'product-specific heuristic',
-      explanation: `The final recommendation combines the factor model with seeded scenario simulation instead of using a single threshold for ${input.primaryUseCase}.`,
-    },
+      factor: "recommendation synthesis",
+      basis: "product-specific heuristic",
+      explanation: `The final recommendation combines the factor model with seeded scenario simulation instead of using a single threshold for ${input.primaryUseCase}.`
+    }
   ];
 }
 
@@ -1297,15 +1558,19 @@ function buildResult(input) {
   const evidenceBasis = buildEvidenceBasis(input, scorecard);
 
   const assumptions = [
-    'The simulation uses 10,000 seeded iterations, so the same validated input returns the same result.',
-    'TCO includes internal engineering labor and estimated MUI licensing, but excludes revenue effects, non-component migration work, and negotiated vendor discounts.',
-    'Launch weeks represent modeled delivery timing under the stated capacity and risk inputs, not guaranteed calendar commitments.',
+    "The simulation uses 10,000 seeded iterations, so the same validated input returns the same result.",
+    "TCO includes internal engineering labor and estimated MUI licensing, but excludes revenue effects, non-component migration work, and negotiated vendor discounts.",
+    "Launch weeks represent modeled delivery timing under the stated capacity and risk inputs, not guaranteed calendar commitments.",
     `The comparison internally models ${PLAN_CONFIG[scorecard.effectiveMuiPlan].label} as the best-fit MUI path for these requirements.`,
-    `Estimated license exposure for the modeled MUI path is ${simulation.estimatedLicensedDevelopers} developer seat${simulation.estimatedLicensedDevelopers === 1 ? '' : 's'}.`,
+    `Estimated license exposure for the modeled MUI path is ${simulation.estimatedLicensedDevelopers} developer seat${simulation.estimatedLicensedDevelopers === 1 ? "" : "s"}.`
   ];
 
-  assumptions.push('Derived factors are benchmark-informed heuristics meant to keep the model transparent and evolvable, not to imply precise industry averages.');
-  assumptions.push('The latest model version is benchmark-informed-v2, and older saved reports may not reflect the current input schema.');
+  assumptions.push(
+    "Derived factors are benchmark-informed heuristics meant to keep the model transparent and evolvable, not to imply precise industry averages."
+  );
+  assumptions.push(
+    "The latest model version is benchmark-informed-v2, and older saved reports may not reflect the current input schema."
+  );
 
   return {
     ...recommendation,
@@ -1321,28 +1586,28 @@ function buildResult(input) {
         enterprise: roundTo(scorecard.enterpriseTierScore),
         premium: roundTo(scorecard.premiumTierScore),
         core: roundTo(scorecard.coreTierScore),
-        build: roundTo(scorecard.buildTierScore),
+        build: roundTo(scorecard.buildTierScore)
       },
-      reasons: scorecard.icpReasons,
+      reasons: scorecard.icpReasons
     },
     buildPath: simulation.buildPath,
     muiPath: simulation.muiPath,
     comparison: simulation.comparison,
-    assumptions,
+    assumptions
   };
 }
 
 export const handler = async (event) => {
-  if (event?.httpMethod !== 'POST') {
+  if (event?.httpMethod !== "POST") {
     return {
       statusCode: 405,
       headers: {
-        allow: 'POST',
-        'content-type': 'application/json; charset=utf-8',
+        allow: "POST",
+        "content-type": "application/json; charset=utf-8"
       },
       body: JSON.stringify({
-        error: 'Method not allowed.',
-      }),
+        error: "Method not allowed."
+      })
     };
   }
 
@@ -1356,7 +1621,7 @@ export const handler = async (event) => {
   const { errors } = validatePayload(normalized, parsedBody.value);
 
   if (errors.length > 0) {
-    return badRequest('Invalid assessment input.', errors);
+    return badRequest("Invalid assessment input.", errors);
   }
 
   return jsonResponse(200, buildResult(normalized));
