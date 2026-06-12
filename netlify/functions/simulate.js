@@ -919,19 +919,6 @@ function buildScorecard(input, derivedFactors) {
     input.dataHeavyScreens <= 3 &&
     rowScale <= 2 &&
     columnScale <= 2;
-  const advancedNeeds =
-    functionalRisk >= 0.62 ||
-    qualityRisk >= 0.56 ||
-    rowScale >= 3 ||
-    columnScale >= 3 ||
-    input.advancedFeatures.length >= 4;
-
-  console.log(
-    "functionalRisk",
-    functionalRisk,
-    "and qualityRisk ",
-    qualityRisk
-  );
   const coreTierScore = clamp(
     26 +
       planFits.core.coverageScore * 0.46 +
@@ -949,7 +936,6 @@ function buildScorecard(input, derivedFactors) {
       planFits.premium.coverageScore * 0.42 +
       functionalRisk * 12 +
       qualityRisk * 10 +
-      (advancedNeeds ? 16 : 0) +
       muiUsage * 5 -
       (simpleScope ? 18 : 0) -
       Math.max(0, enterpriseNeed - 0.72) * 14,
@@ -988,6 +974,18 @@ function buildScorecard(input, derivedFactors) {
   const lowSupportNeed = supportNeed <= 1;
   const supportOrProcurementNeed = supportNeed >= 2;
   const muiAdoptionUseful = muiUsage > 0 || input.reactApps >= 2;
+  const buildFriendlyContext =
+    lowSupportNeed &&
+    input.designSystemMaturity === "high" &&
+    input.dependentTeams === "one" &&
+    input.ownershipModel === "same-product-team" &&
+    input.changeLeadTime === "less-than-day" &&
+    input.reworkFrequency === "rare" &&
+    input.deadlinePressure === "low" &&
+    rowScale <= 2 &&
+    columnScale <= 2 &&
+    input.advancedFeatures.length === 0 &&
+    ["none", "wcag-a"].includes(input.accessibilityTarget);
 
   let autoSelectedMuiPlan = "core";
 
@@ -998,9 +996,13 @@ function buildScorecard(input, derivedFactors) {
   ) {
     autoSelectedMuiPlan = "enterprise";
   } else if (
-    advancedNeeds &&
     planFits.premium.coverageScore >= 62 &&
-    !(simpleScope && supportNeed <= 1)
+    !(simpleScope && supportNeed <= 1) &&
+    (functionalRisk >= 0.62 ||
+      qualityRisk >= 0.56 ||
+      rowScale >= 3 ||
+      columnScale >= 3 ||
+      input.advancedFeatures.length >= 4)
   ) {
     autoSelectedMuiPlan = "premium";
   }
@@ -1020,12 +1022,6 @@ function buildScorecard(input, derivedFactors) {
   );
 
   const icpReasons = [];
-
-  if (advancedNeeds) {
-    icpReasons.push(
-      "Complex component requirements increase the value of a packaged path with proven coverage."
-    );
-  }
 
   if (supportOrProcurementNeed) {
     icpReasons.push(
@@ -1081,7 +1077,7 @@ function buildScorecard(input, derivedFactors) {
     enterpriseTierScore,
     icpScore,
     simpleScope,
-    advancedNeeds,
+    buildFriendlyContext,
     enterpriseFitStrong,
     lowSupportNeed,
     supportOrProcurementNeed,
@@ -1403,10 +1399,19 @@ function buildRecommendation(input, scorecard, simulation) {
   const muiDeliveryFavored =
     comparison.probabilityMuiFaster >= 55 || deliveryRiskReduction >= 12;
   const muiCostFavored = comparison.probabilityMuiLowerTco >= 55;
+  const packagedPathCostPenalty =
+    comparison.probabilityMuiLowerTco <= 50 && comparison.tcoDeltaMedian >= 0;
+  const muiOnlyDeliveryFavored = muiDeliveryFavored && !muiCostFavored;
   const buildStillCompetitive =
     simulation.buildPath.medianLaunchWeeks <=
       simulation.muiPath.medianLaunchWeeks + 1.5 &&
     simulation.buildPath.medianTco <= simulation.muiPath.medianTco * 1.1;
+  const nonSpeedMuiSignal =
+    scorecard.muiAdoptionUseful ||
+    scorecard.supportOrProcurementNeed ||
+    input.dependentTeams !== "one" ||
+    input.reactApps >= 2 ||
+    (planFit.coverageScore >= 74 && scorecard.buildCompetitiveIndex < 58);
 
   let option = "Build in-house";
   let summary =
@@ -1434,18 +1439,29 @@ function buildRecommendation(input, scorecard, simulation) {
       "Enterprise support expectations are elevated and the modeled downside is meaningfully lower with the enterprise tier.";
   } else if (
     scorecard.effectiveMuiPlan === "premium" &&
-    scorecard.advancedNeeds &&
     !scorecard.supportOrProcurementNeed &&
-    (muiDeliveryFavored || planFit.coverageScore >= 68)
+    (muiDeliveryFavored || planFit.coverageScore >= 68 || nonSpeedMuiSignal)
   ) {
     option = "Premium";
     summary =
       "The workload is advanced enough to benefit from packaged component coverage, but it does not show strong enterprise procurement pressure.";
   } else if (
+    scorecard.buildFriendlyContext &&
+    !scorecard.enterpriseFitStrong &&
+    scorecard.effectiveMuiPlan === "core"
+  ) {
+    option = "Build in-house";
+    summary =
+      muiOnlyDeliveryFavored || packagedPathCostPenalty
+        ? "The inputs show strong internal ownership, mature delivery conditions, and low support pressure. The modeled MUI path may be faster, but it is not cost-favored enough to outweigh the current build-friendly context."
+        : "The inputs show strong internal ownership, mature delivery conditions, and low support pressure. Even with the Core path modeled as the faster comparison option, the context is internally credible enough that building in-house remains the better recommendation.";
+  } else if (
     scorecard.effectiveMuiPlan === "core" &&
     scorecard.simpleScope &&
-    scorecard.muiAdoptionUseful &&
-    (muiDeliveryFavored || muiCostFavored)
+    !scorecard.buildFriendlyContext &&
+    nonSpeedMuiSignal &&
+    muiDeliveryFavored &&
+    muiCostFavored
   ) {
     option = "MUI Core";
     summary =
@@ -1459,7 +1475,11 @@ function buildRecommendation(input, scorecard, simulation) {
     option = "Build in-house";
     summary =
       "Even after factoring in delivery variance, the internal path remains competitive on both timing and total ownership cost.";
-  } else if (muiDeliveryFavored || muiCostFavored) {
+  } else if (
+    !scorecard.buildFriendlyContext &&
+    (muiDeliveryFavored || muiCostFavored) &&
+    nonSpeedMuiSignal
+  ) {
     option = selectedPlan.recommendationLabel;
     summary =
       "The simulation leans toward the selected MUI tier on delivery risk, cost, or both, so the packaged path is the safer default here.";
@@ -1480,10 +1500,10 @@ function buildRecommendation(input, scorecard, simulation) {
         ruleAlignment * 14 +
         (option === "Build in-house" && scorecard.simpleScope ? 5 : 0) +
         (option === "Enterprise" && scorecard.enterpriseFitStrong ? 7 : 0) +
-        (option === "Premium" && scorecard.advancedNeeds ? 4 : 0)
+        (option === "Build in-house" && scorecard.buildFriendlyContext ? 4 : 0)
     ),
     52,
-    92
+    96
   );
 
   return {
