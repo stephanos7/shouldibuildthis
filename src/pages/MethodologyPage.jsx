@@ -1,61 +1,189 @@
-import { Card, CardContent, Grid, Stack, Typography } from '@mui/material';
-import PageHero from '../components/PageHero.jsx';
+import { Box, Card, CardContent, Chip, Grid, Stack, Typography } from "@mui/material";
+import PageHero from "../components/PageHero.jsx";
+
+const benchmarkInputChips = [
+  "Accessibility target (accessibilityTarget)",
+  "Change lead time (changeLeadTime)",
+  "Rework frequency (reworkFrequency)",
+  "Dependent teams (dependentTeams)",
+  "Ownership model (ownershipModel)",
+  "Expected rows (expectedRows)",
+  "Expected columns (expectedColumns)"
+];
+
+const derivedFactorRows = [
+  "Functional complexity",
+  "Quality burden",
+  "Delivery maturity",
+  "Ownership burden",
+  "Enterprise readiness"
+];
+
+const limitationRows = [
+  "The model is scenario analysis, not a guaranteed forecast.",
+  "Some factors are standards-backed or benchmark-informed, but the numeric weights remain model assumptions.",
+  "The tool may recommend build in-house when scope is simple and internal ownership is credible.",
+  "TCO excludes revenue impact, negotiated pricing, and broader migration work unless the user inputs represent them."
+];
+
+const workflowRows = [
+  "User inputs capture the delivery context, UI scale, and support assumptions.",
+  "The model derives five factors from those inputs to keep the recommendation readable.",
+  "Monte Carlo simulation then estimates median and p90 outcomes for build-in-house and MUI paths.",
+  "Recommendation rules combine the user inputs, derived factors, simulation output, and product/tier fit."
+];
+
+function Bullet({ children }) {
+  return (
+    <Stack direction="row" spacing={1.5} alignItems="flex-start">
+      <Box
+        sx={{
+          width: 8,
+          height: 8,
+          mt: "9px",
+          borderRadius: "50%",
+          bgcolor: "secondary.main",
+          flexShrink: 0
+        }}
+      />
+      <Typography variant="body2" color="text.secondary">
+        {children}
+      </Typography>
+    </Stack>
+  );
+}
+
+function SectionCard({ title, description, children }) {
+  return (
+    <Card elevation={0} sx={{ height: "100%", border: 1, borderColor: "divider" }}>
+      <CardContent sx={{ p: { xs: 2.5, md: 3.5 } }}>
+        <Stack spacing={2.25}>
+          <Box>
+            <Typography variant="h5" component="h2">
+              {title}
+            </Typography>
+            {description ? (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1, maxWidth: 760 }}>
+                {description}
+              </Typography>
+            ) : null}
+          </Box>
+          {children}
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+}
 
 function MethodologyPage() {
   return (
     <Stack spacing={4}>
       <PageHero
         eyebrow="Methodology"
-        title="How the recommendation is produced"
-        description="This page explains the rules and scenario analysis behind the recommendation so users can inspect the assumptions instead of treating the output as a black box."
-        chips={['Scenario analysis', 'Transparent rules', 'Uncertainty-aware']}
+        title="How the benchmark-informed recommendation is produced"
+        description="The app stays recommendation-first. It combines user inputs, derived factors, and simulated risk evidence into a build-vs-buy answer that stays transparent about what it can and cannot know."
+        chips={["Benchmark-informed inputs", "Scenario simulation", "Recommendation first"]}
       />
 
       <Grid container spacing={3}>
-        {[
-          {
-            title: 'Not a guarantee',
-            body: 'This is scenario analysis, not a promise that one path will always win. The output is a structured decision aid, not certainty.',
-          },
-          {
-            title: 'Inputs plus evidence',
-            body: 'The recommendation is based on user inputs together with simulation evidence, so the final answer reflects both context and modeled outcomes.',
-          },
-          {
-            title: 'Rules for fit and tier',
-            body: 'Simple rules classify component fit and delivery tier before the simulator combines them into a final recommendation.',
-          },
-          {
-            title: 'Uncertainty estimation',
-            body: 'The simulation estimates uncertainty around delivery, rework, maintenance, and total cost of ownership so tradeoffs stay visible.',
-          },
-        ].map((item) => (
-          <Grid key={item.title} size={{ xs: 12, md: 6 }}>
-            <Card elevation={0} sx={{ height: '100%', border: 1, borderColor: 'divider' }}>
-              <CardContent>
-                <Stack spacing={1.5}>
-                  <Typography variant="h5" component="h2">
-                    {item.title}
-                  </Typography>
-                  <Typography variant="body1" color="text.secondary">
-                    {item.body}
-                  </Typography>
-                </Stack>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
+        <Grid size={{ xs: 12, md: 6 }}>
+          <SectionCard
+            title="Recommendation flow"
+            description="The output is not a model dump. It is a decision aid that explains the recommendation in layers."
+          >
+            <Stack spacing={1.25}>
+              {workflowRows.map((row) => (
+                <Bullet key={row}>{row}</Bullet>
+              ))}
+            </Stack>
+          </SectionCard>
+        </Grid>
+
+        <Grid size={{ xs: 12, md: 6 }}>
+          <SectionCard
+            title="Benchmark-informed schema"
+            description="PR B replaced the older delivery-capacity and turnover fields with captures that better reflect how React teams evaluate advanced UI components."
+          >
+            <Stack spacing={2}>
+              <Typography variant="body2" color="text.secondary">
+                The current schema emphasizes organization ownership, UI scale, and delivery cadence.
+              </Typography>
+              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                {benchmarkInputChips.map((chip) => (
+                  <Chip key={chip} label={chip} size="small" variant="outlined" />
+                ))}
+              </Stack>
+            </Stack>
+          </SectionCard>
+        </Grid>
+
+        <Grid size={{ xs: 12, md: 6 }}>
+          <SectionCard
+            title="Derived factors"
+            description="The simulation first compresses the inputs into five factors so the report can explain the result in plain language."
+          >
+            <Stack spacing={1.25}>
+              {derivedFactorRows.map((row) => (
+                <Bullet key={row}>{row}</Bullet>
+              ))}
+            </Stack>
+          </SectionCard>
+        </Grid>
+
+        <Grid size={{ xs: 12, md: 6 }}>
+          <SectionCard
+            title="Monte Carlo simulation"
+            description="The factor model feeds a seeded Monte Carlo simulation that estimates the medians and long-tail p90 ranges for both paths."
+          >
+            <Stack spacing={1.25}>
+              <Bullet>Build-in-house and MUI paths are both simulated under the same input set.</Bullet>
+              <Bullet>Median and p90 ranges help expose long-tail delivery and cost risk.</Bullet>
+              <Bullet>Probability outputs summarize how often each path wins across repeated modeled scenarios.</Bullet>
+            </Stack>
+          </SectionCard>
+        </Grid>
       </Grid>
 
-      <Card elevation={0} sx={{ border: 1, borderColor: 'divider' }}>
-        <CardContent>
-          <Typography variant="h6" component="h2" sx={{ mb: 1 }}>
-            When build-in-house can be the right answer
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            The tool may recommend building in-house when the team has the capacity, the component is strategically
-            important, the MUI X fit is strong, and the modeled risk stays within an acceptable range.
-          </Typography>
+      <SectionCard
+        title="Evidence basis and limits"
+        description="This is a scenario model, not a guarantee. The evidence basis explains why each factor is included, not that the numeric coefficient is externally certified."
+      >
+        <Grid container spacing={3}>
+          <Grid size={{ xs: 12, md: 6 }}>
+            <Stack spacing={1.5}>
+              <Typography variant="h6" component="h3">
+                Evidence basis
+              </Typography>
+              <Bullet>Standard-backed means the factor is linked to a recognized standard or formal practice area, such as accessibility or software quality.</Bullet>
+              <Bullet>Benchmark-informed means the factor is inspired by industry measurement practices, such as delivery performance metrics.</Bullet>
+              <Bullet>Practice-backed means the factor reflects widely used engineering practice, such as performance concerns for large data tables.</Bullet>
+              <Bullet>Product-specific heuristic means it is an assumption specific to MUI adoption, licensing, support, or tier fit.</Bullet>
+            </Stack>
+          </Grid>
+
+          <Grid size={{ xs: 12, md: 6 }}>
+            <Stack spacing={1.5}>
+              <Typography variant="h6" component="h3">
+                Practical limits
+              </Typography>
+              {limitationRows.map((row) => (
+                <Bullet key={row}>{row}</Bullet>
+              ))}
+            </Stack>
+          </Grid>
+        </Grid>
+      </SectionCard>
+
+      <Card elevation={0} sx={{ border: 1, borderColor: "divider" }}>
+        <CardContent sx={{ p: { xs: 2.5, md: 3.5 } }}>
+          <Stack spacing={1.5}>
+            <Typography variant="h6" component="h2">
+              When build-in-house can be the right answer
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              The tool may recommend building in-house when the scope is simple, the team has credible ownership, the React footprint is manageable, and the modeled risk stays within an acceptable range.
+            </Typography>
+          </Stack>
         </CardContent>
       </Card>
     </Stack>

@@ -1,34 +1,53 @@
-# Should I Build This
+# AGENTS.md
 
-Build a Vite React JavaScript app using React Router, MUI Core, and Netlify Functions.
+## Project
 
-No TypeScript. No unit tests. No database. No auth. No charting libraries.
+This project is `shouldibuildthis`, a launch-oriented React app that helps engineering leaders compare building advanced React UI in-house against using MUI/MUI X.
 
-Routes:
+The app is a recommendation-first decision-support tool. The final user-facing output is a recommendation supported by probability/range evidence from a deterministic Monte Carlo-style simulation.
 
-- /
-- /assess
-- /report
-- /methodology
+The app should answer:
 
-The product is a build-vs-buy risk simulator for React teams evaluating advanced UI components.
+> What path should this team take, and why?
 
-The final output is a recommendation supported by probability-based scenario evidence.
+It should not behave like a generic ROI calculator or a precise financial forecast.
 
-The app must use MUI components throughout.
+## Stack constraints
 
-Keep implementation simple, readable, and launchable in 2-3 days.
+Use only:
 
-Use JavaScript files:
+- React
+- Vite
+- JavaScript
+- React Router
+- MUI Core
+- Netlify Functions
+- localStorage for the current assessment/report flow
 
-- .jsx for React components
-- .js for utilities and Netlify functions
+Do not add unless explicitly requested:
 
-Do not add dependencies unless explicitly requested.
+- TypeScript
+- unit test frameworks
+- Playwright/Cypress
+- databases
+- authentication
+- charting libraries
+- state-management libraries
+- additional dependencies
+- MUI X components inside this app
 
-Always ensure:
+Use `.jsx` for React components and `.js` for utilities/functions.
 
-- npm run build succeeds
-- app is responsive
-- methodology is transparent
-- report does not overclaim
+## Core user journey
+
+The core journey is:
+
+```txt
+/assess
+→ user completes assessment
+→ frontend builds payload
+→ POST /.netlify/functions/simulate
+→ function returns simulation result
+→ frontend saves assessmentInput and simulationResult in localStorage
+→ /report renders the result
+```

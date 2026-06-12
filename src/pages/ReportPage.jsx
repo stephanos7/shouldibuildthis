@@ -1,4 +1,5 @@
 import {
+  Alert,
   Box,
   Button,
   Card,
@@ -30,6 +31,18 @@ const optionLabelMaps = {
     medium: "Medium",
     high: "High"
   },
+  dependentTeams: {
+    one: "One",
+    "two-three": "Two to three",
+    "four-seven": "Four to seven",
+    "eight-plus": "Eight or more"
+  },
+  ownershipModel: {
+    "same-product-team": "Same product team",
+    "frontend-platform-team": "Frontend platform team",
+    "several-teams-informal": "Several teams informally",
+    unclear: "Unclear"
+  },
   primaryUseCase: {
     "data-grid": "Data grid",
     charts: "Charts",
@@ -38,25 +51,40 @@ const optionLabelMaps = {
     scheduler: "Scheduler",
     "multi-component": "Multi-component evaluation"
   },
+  accessibilityTarget: {
+    none: "None",
+    "wcag-a": "WCAG A",
+    "wcag-aa": "WCAG AA",
+    "wcag-aaa-regulated": "WCAG AAA / regulated"
+  },
+  changeLeadTime: {
+    "less-than-day": "Less than a day",
+    "one-day-to-one-week": "One day to one week",
+    "one-week-to-one-month": "One week to one month",
+    "more-than-month": "More than a month",
+    unknown: "Unknown"
+  },
+  reworkFrequency: {
+    rare: "Rare",
+    occasional: "Occasional",
+    frequent: "Frequent",
+    unknown: "Unknown"
+  },
   deadlinePressure: {
     low: "Low",
     medium: "Medium",
     high: "High"
   },
-  internalCapacity: {
-    constrained: "Constrained",
-    manageable: "Manageable",
-    ample: "Ample"
+  expectedRows: {
+    "under-1k": "Under 1k",
+    "1k-10k": "1k to 10k",
+    "10k-100k": "10k to 100k",
+    "over-100k": "Over 100k"
   },
-  delayImpact: {
-    low: "Low",
-    medium: "Medium",
-    high: "High"
-  },
-  accessibilityStrictness: {
-    low: "Low",
-    medium: "Medium",
-    high: "High"
+  expectedColumns: {
+    "under-10": "Under 10",
+    "10-30": "10 to 30",
+    "over-30": "Over 30"
   },
   maintenanceHorizonMonths: {
     12: "12 months",
@@ -68,11 +96,6 @@ const optionLabelMaps = {
     standard: "Standard",
     priority: "Priority",
     "procurement-sla": "Procurement-backed SLA"
-  },
-  turnoverRisk: {
-    low: "Low",
-    medium: "Medium",
-    high: "High"
   },
   comparedMuiPlan: {
     premium: "Premium",
@@ -240,6 +263,7 @@ function buildProbabilityMetrics(result) {
 
 function buildRiskDrivers(result, assessmentInput) {
   const comparison = result.comparison ?? {};
+  const derived = result.derivedFactors ?? {};
   const advancedFeatureCount = Array.isArray(assessmentInput?.advancedFeatures)
     ? assessmentInput.advancedFeatures.length
     : 0;
@@ -249,17 +273,39 @@ function buildRiskDrivers(result, assessmentInput) {
   const reactApps = Number(assessmentInput?.reactApps) || 0;
   const frontendDevelopers = Number(assessmentInput?.frontendDevelopers) || 0;
   const deadlinePressure = assessmentInput?.deadlinePressure;
-  const internalCapacity = assessmentInput?.internalCapacity;
-  const delayImpact = assessmentInput?.delayImpact;
-  const turnoverRisk = assessmentInput?.turnoverRisk;
+  const accessibilityTarget = assessmentInput?.accessibilityTarget;
+  const changeLeadTime = assessmentInput?.changeLeadTime;
+  const reworkFrequency = assessmentInput?.reworkFrequency;
+  const dependentTeams = assessmentInput?.dependentTeams;
+  const ownershipModel = assessmentInput?.ownershipModel;
   const existingMuiUsage = assessmentInput?.existingMuiUsage;
   const primaryUseCase = assessmentInput?.primaryUseCase;
+  const expectedRows = assessmentInput?.expectedRows;
+  const expectedColumns = assessmentInput?.expectedColumns;
+  const functionalScore = Number(derived.functionalComplexity?.score) || 0;
+  const qualityScore = Number(derived.qualityBurden?.score) || 0;
+  const deliveryScore = Number(derived.deliveryMaturity?.score) || 0;
+  const ownershipScore = Number(derived.ownershipBurden?.score) || 0;
+  const enterpriseScore = Number(derived.enterpriseReadiness?.score) || 0;
+  const rowWeights = {
+    "under-1k": 2,
+    "1k-10k": 8,
+    "10k-100k": 15,
+    "over-100k": 22
+  };
+  const columnWeights = {
+    "under-10": 2,
+    "10-30": 7,
+    "over-30": 14
+  };
 
   const advancedScopeScore = clamp(
     advancedFeatureCount * 14 +
       Math.min(dataHeavyScreens, 10) * 3 +
       (useCaseWeightMap[primaryUseCase] ?? 10) +
-      (result.icpFit?.score ?? 0) * 0.2,
+      (rowWeights[expectedRows] ?? 0) +
+      (columnWeights[expectedColumns] ?? 0) +
+      (result.icpFit?.score ?? functionalScore) * 0.18,
     0,
     100
   );
@@ -267,8 +313,16 @@ function buildRiskDrivers(result, assessmentInput) {
     (comparison.probabilityBuildExceeds20Weeks ?? 0) * 0.8 -
       (comparison.probabilityMuiExceeds20Weeks ?? 0) * 0.3 +
       (deadlinePressure === "high" ? 18 : deadlinePressure === "medium" ? 10 : 0) +
-      (delayImpact === "high" ? 16 : delayImpact === "medium" ? 8 : 0) +
-      (internalCapacity === "constrained" ? 18 : internalCapacity === "manageable" ? 8 : 0),
+      (changeLeadTime === "more-than-month"
+        ? 18
+        : changeLeadTime === "one-week-to-one-month"
+          ? 11
+          : changeLeadTime === "one-day-to-one-week"
+            ? 5
+            : changeLeadTime === "less-than-day"
+              ? 2
+              : 7) +
+      (reworkFrequency === "frequent" ? 16 : reworkFrequency === "occasional" ? 8 : reworkFrequency === "rare" ? 2 : 6),
     0,
     100
   );
@@ -277,28 +331,45 @@ function buildRiskDrivers(result, assessmentInput) {
       ? 48
       : supportRequirement === "priority"
         ? 36
-        : supportRequirement === "standard"
-          ? 20
-          : 8) +
-      (assessmentInput?.accessibilityStrictness === "high"
-        ? 12
-        : assessmentInput?.accessibilityStrictness === "medium"
-          ? 6
-          : 0),
+      : supportRequirement === "standard"
+        ? 20
+        : 8) +
+      (accessibilityTarget === "wcag-aaa-regulated"
+        ? 16
+        : accessibilityTarget === "wcag-aa"
+          ? 10
+          : accessibilityTarget === "wcag-a"
+            ? 5
+            : 0),
     0,
     100
   );
   const maintenanceScore = clamp(
     (maintenanceHorizonMonths / 36) * 42 +
-      (turnoverRisk === "high" ? 26 : turnoverRisk === "medium" ? 15 : 6) +
-      (reactApps >= 4 ? 18 : reactApps >= 2 ? 10 : 4),
+      (dependentTeams === "eight-plus"
+        ? 22
+        : dependentTeams === "four-seven"
+          ? 16
+          : dependentTeams === "two-three"
+            ? 10
+            : 6) +
+      (ownershipModel === "unclear"
+        ? 18
+        : ownershipModel === "several-teams-informal"
+          ? 12
+          : ownershipModel === "frontend-platform-team"
+            ? 8
+            : 4) +
+      (reactApps >= 4 ? 16 : reactApps >= 2 ? 10 : 4),
     0,
     100
   );
   const rolloutScore = clamp(
     (frontendDevelopers >= 8 ? 28 : frontendDevelopers >= 4 ? 18 : 8) +
       (reactApps >= 4 ? 28 : reactApps >= 2 ? 16 : 8) +
-      (existingMuiUsage === "standardized" ? 24 : existingMuiUsage === "some" ? 14 : 4),
+      (existingMuiUsage === "standardized" ? 24 : existingMuiUsage === "some" ? 14 : 4) +
+      (assessmentInput?.designSystemMaturity === "high" ? 10 : assessmentInput?.designSystemMaturity === "medium" ? 6 : 0) +
+      (dependentTeams === "one" ? 2 : dependentTeams === "two-three" ? 5 : dependentTeams === "four-seven" ? 10 : 14),
     0,
     100
   );
@@ -307,7 +378,7 @@ function buildRiskDrivers(result, assessmentInput) {
     {
       title: "Advanced scope complexity",
       score: advancedScopeScore,
-      detail: `${formatLabel("primaryUseCase", primaryUseCase)} currently carries ${advancedFeatureCount || "no"} additional advanced behavior${advancedFeatureCount === 1 ? "" : "s"} and ${dataHeavyScreens} data-heavy screen${dataHeavyScreens === 1 ? "" : "s"}.`,
+      detail: `${formatLabel("primaryUseCase", primaryUseCase)} currently carries ${advancedFeatureCount || "no"} additional advanced behavior${advancedFeatureCount === 1 ? "" : "s"}, ${dataHeavyScreens} data-heavy screen${dataHeavyScreens === 1 ? "" : "s"}, and a ${formatLabel("expectedRows", expectedRows)} by ${formatLabel("expectedColumns", expectedColumns)} scale profile.`,
       implication: "This expands the edge-case surface area and makes a clean custom build harder to keep predictable."
     },
     {
@@ -319,19 +390,19 @@ function buildRiskDrivers(result, assessmentInput) {
     {
       title: "Support and accessibility expectations",
       score: supportScore,
-      detail: `Current support need is ${formatLabel("supportRequirement", supportRequirement)} with ${formatLabel("accessibilityStrictness", assessmentInput?.accessibilityStrictness)} accessibility strictness.`,
+      detail: `Current support need is ${formatLabel("supportRequirement", supportRequirement)} with a ${formatLabel("accessibilityTarget", accessibilityTarget)} accessibility target.`,
       implication: "Higher assurance requirements increase the value of vendor-backed behavior, fixes, and support channels."
     },
     {
       title: "Maintenance continuity",
       score: maintenanceScore,
-      detail: `The model assumes a ${formatLabel("maintenanceHorizonMonths", assessmentInput?.maintenanceHorizonMonths)} horizon with ${formatLabel("turnoverRisk", turnoverRisk)} turnover risk.`,
+      detail: `The model assumes a ${formatLabel("maintenanceHorizonMonths", assessmentInput?.maintenanceHorizonMonths)} horizon with ${formatLabel("dependentTeams", dependentTeams)} dependent teams and ${formatLabel("ownershipModel", ownershipModel)} ownership.`,
       implication: "Longer ownership windows and staffing churn make ongoing custom maintenance more consequential."
     },
     {
       title: "Rollout footprint and reuse",
       score: rolloutScore,
-      detail: `${frontendDevelopers || "A small number of"} frontend developer${frontendDevelopers === 1 ? "" : "s"} support ${reactApps || "a limited number of"} React app${reactApps === 1 ? "" : "s"}, with ${formatLabel("existingMuiUsage", existingMuiUsage)} MUI usage today.`,
+      detail: `${frontendDevelopers || "A small number of"} frontend developer${frontendDevelopers === 1 ? "" : "s"} support ${reactApps || "a limited number of"} React app${reactApps === 1 ? "" : "s"}, with ${formatLabel("existingMuiUsage", existingMuiUsage)} MUI usage and ${formatLabel("designSystemMaturity", assessmentInput?.designSystemMaturity)} maturity today.`,
       implication: "As more teams and apps share the component, consistency and standardization matter more."
     }
   ];
@@ -356,15 +427,15 @@ function buildRecommendationChangeItems(result, assessmentInput) {
     return [
       {
         title: "Scope becomes less contained",
-        body: `If the workload expands beyond the current ${scopeLabel} profile, especially with more advanced behaviors or heavier accessibility needs, a packaged path would look safer.`
+        body: `If the workload expands beyond the current ${scopeLabel} profile, especially with more advanced behaviors, heavier accessibility needs, or larger row and column counts, a packaged path would look safer.`
       },
       {
         title: "Delivery pressure rises",
-        body: `If deadline pressure moves above the current ${formatLabel("deadlinePressure", assessmentInput?.deadlinePressure)} state or internal capacity falls below ${formatLabel("internalCapacity", assessmentInput?.internalCapacity)}, the schedule-risk gap would widen.`
+        body: `If deadline pressure moves above the current ${formatLabel("deadlinePressure", assessmentInput?.deadlinePressure)} state or change lead time stretches beyond ${formatLabel("changeLeadTime", assessmentInput?.changeLeadTime)}, the schedule-risk gap would widen.`
       },
       {
         title: "Shared rollout grows",
-        body: `If the component needs to serve more than the current ${reactApps || 1} app${reactApps === 1 ? "" : "s"}, the standardization benefit of a packaged tier becomes more important.`
+        body: `If the component needs to serve more than the current ${reactApps || 1} app${reactApps === 1 ? "" : "s"} or a broader dependent-team footprint than today, the standardization benefit of a packaged tier becomes more important.`
       },
       {
         title: "Support expectations increase",
@@ -383,7 +454,11 @@ function buildRecommendationChangeItems(result, assessmentInput) {
     },
     {
       title: "Internal leverage improves",
-      body: `More available capacity than the current ${formatLabel("internalCapacity", assessmentInput?.internalCapacity)} state, paired with less deadline pressure than ${formatLabel("deadlinePressure", assessmentInput?.deadlinePressure)}, would reduce custom-build risk.`
+      body: `A shorter change lead time than the current ${formatLabel("changeLeadTime", assessmentInput?.changeLeadTime)} state, paired with less deadline pressure than ${formatLabel("deadlinePressure", assessmentInput?.deadlinePressure)}, would reduce custom-build risk.`
+    },
+    {
+      title: "Ownership gets clearer",
+      body: "If the component had clearer ownership and fewer dependent teams than today, the internal option would carry less long-term coordination risk."
     },
     {
       title: "Support burden softens",
@@ -408,7 +483,9 @@ function buildScenarioSnapshot(assessmentInput, result) {
     `${Number(assessmentInput.frontendDevelopers) || 0} devs`,
     `${Number(assessmentInput.reactApps) || 0} apps`,
     `Use case: ${formatLabel("primaryUseCase", assessmentInput.primaryUseCase)}`,
-    `Capacity: ${formatLabel("internalCapacity", assessmentInput.internalCapacity)}`,
+    `Rows: ${formatLabel("expectedRows", assessmentInput.expectedRows)}`,
+    `Columns: ${formatLabel("expectedColumns", assessmentInput.expectedColumns)}`,
+    `Ownership: ${formatLabel("ownershipModel", assessmentInput.ownershipModel)}`,
     `Support: ${formatLabel("supportRequirement", assessmentInput.supportRequirement)}`,
     `Compared path: ${result.muiPath?.label ?? formatLabel("comparedMuiPlan", assessmentInput.comparedMuiPlan)}`
   ];
@@ -567,9 +644,180 @@ function DriverCard({ title, score, detail, implication }) {
   );
 }
 
+const derivedFactorLabels = {
+  functionalComplexity: "Functional complexity",
+  qualityBurden: "Quality burden",
+  deliveryMaturity: "Delivery maturity",
+  ownershipBurden: "Ownership burden",
+  enterpriseReadiness: "Enterprise readiness"
+};
+
+const evidenceBasisOrder = [
+  "standard-backed",
+  "benchmark-informed",
+  "practice-backed",
+  "product-specific heuristic"
+];
+
+const evidenceBasisLabels = {
+  "standard-backed": "Standard-backed",
+  "benchmark-informed": "Benchmark-informed",
+  "practice-backed": "Practice-backed",
+  "product-specific heuristic": "Product-specific heuristic"
+};
+
+const evidenceBasisDescriptions = {
+  "standard-backed":
+    "Linked to a recognized standard or formal practice area, such as accessibility or software quality.",
+  "benchmark-informed":
+    "Inspired by industry measurement practices, such as delivery performance metrics.",
+  "practice-backed":
+    "Reflects widely used engineering practice, such as concerns that rise with large data tables or complex interactions.",
+  "product-specific heuristic":
+    "A product assumption specific to MUI adoption, licensing, support, or tier fit."
+};
+
+function groupEvidenceBasis(items) {
+  const grouped = Object.fromEntries(
+    evidenceBasisOrder.map((basis) => [basis, []])
+  );
+
+  (Array.isArray(items) ? items : []).forEach((item) => {
+    const basis = evidenceBasisOrder.includes(item?.basis)
+      ? item.basis
+      : "product-specific heuristic";
+
+    grouped[basis].push(item);
+  });
+
+  return evidenceBasisOrder
+    .map((basis) => ({
+      basis,
+      items: grouped[basis].filter(Boolean)
+    }))
+    .filter((group) => group.items.length > 0);
+}
+
+function FactorCard({ title, factor }) {
+  const score = Number(factor?.score);
+  const drivers = Array.isArray(factor?.drivers) ? factor.drivers.slice(0, 4) : [];
+  const level = factor?.level ?? "unknown";
+
+  return (
+    <Card elevation={0} sx={{ height: "100%", border: 1, borderColor: "divider" }}>
+      <CardContent sx={{ p: 2.5 }}>
+        <Stack spacing={2}>
+          <Stack direction="row" justifyContent="space-between" spacing={2} alignItems="flex-start">
+            <Box>
+              <Typography variant="h6" component="h3">
+                {title}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {level.charAt(0).toUpperCase() + level.slice(1)} signal
+              </Typography>
+            </Box>
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap justifyContent="flex-end">
+              {Number.isFinite(score) ? (
+                <Chip label={`${formatNumber(score)}/100`} size="small" />
+              ) : null}
+              <Chip
+                label={level}
+                size="small"
+                color={level === "high" ? "primary" : "secondary"}
+                variant={level === "high" ? "filled" : "outlined"}
+              />
+            </Stack>
+          </Stack>
+
+          <LinearProgress
+            variant="determinate"
+            value={clamp(Number.isFinite(score) ? score : 0, 0, 100)}
+            sx={{
+              height: 10,
+              borderRadius: 999,
+              bgcolor: "action.hover",
+              "& .MuiLinearProgress-bar": {
+                borderRadius: 999,
+                bgcolor: level === "high" ? "primary.main" : "secondary.main"
+              }
+            }}
+          />
+
+          <Stack spacing={1}>
+            {drivers.length > 0 ? (
+              drivers.map((driver) => (
+                <BulletItem key={driver}>{driver}</BulletItem>
+              ))
+            ) : (
+              <Typography variant="body2" color="text.secondary">
+                No driver notes were stored for this factor.
+              </Typography>
+            )}
+          </Stack>
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+}
+
+function EvidenceItem({ item }) {
+  const appliesBecause = Array.isArray(item?.appliesBecause) ? item.appliesBecause.filter(Boolean) : [];
+
+  return (
+    <Stack spacing={1.25}>
+      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+        <Typography variant="subtitle2" component="h4">
+          {derivedFactorLabels[item?.factor] ?? item?.factor ?? "Factor"}
+        </Typography>
+        {item?.basis ? <Chip label={evidenceBasisLabels[item.basis] ?? item.basis} size="small" variant="outlined" /> : null}
+      </Stack>
+      <Typography variant="body2" color="text.secondary">
+        {item?.explanation ?? item?.detail ?? "No explanation was stored for this item."}
+      </Typography>
+      {appliesBecause.length > 0 ? (
+        <Stack spacing={0.75}>
+          {appliesBecause.map((line) => (
+            <BulletItem key={line}>{line}</BulletItem>
+          ))}
+        </Stack>
+      ) : null}
+    </Stack>
+  );
+}
+
+function EvidenceBasisGroup({ basis, items }) {
+  return (
+    <Card elevation={0} sx={{ height: "100%", border: 1, borderColor: "divider" }}>
+      <CardContent sx={{ p: 2.5 }}>
+        <Stack spacing={2}>
+          <Box>
+            <Typography variant="h6" component="h3">
+              {evidenceBasisLabels[basis] ?? basis}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+              {evidenceBasisDescriptions[basis] ?? "Grouped model evidence."}
+            </Typography>
+          </Box>
+          <Stack spacing={2}>
+            {items.map((item, index) => (
+              <Box key={`${item?.factor ?? basis}-${index}`}>
+                {index > 0 ? <Divider sx={{ mb: 2 }} /> : null}
+                <EvidenceItem item={item} />
+              </Box>
+            ))}
+          </Stack>
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+}
+
 function ReportPage() {
   const simulationResult = readStoredObject("simulationResult");
   const assessmentInput = readStoredObject("assessmentInput");
+  const isLegacyReport =
+    Boolean(simulationResult) &&
+    simulationResult.modelVersion !== "benchmark-informed-v2";
 
   if (!simulationResult) {
     return (
@@ -612,6 +860,19 @@ function ReportPage() {
     assessmentInput ?? {}
   );
   const scenarioSnapshot = buildScenarioSnapshot(assessmentInput, simulationResult);
+  const derivedFactors = simulationResult.derivedFactors ?? null;
+  const derivedFactorEntries = derivedFactors
+    ? [
+        ["functionalComplexity", derivedFactors.functionalComplexity],
+        ["qualityBurden", derivedFactors.qualityBurden],
+        ["deliveryMaturity", derivedFactors.deliveryMaturity],
+        ["ownershipBurden", derivedFactors.ownershipBurden],
+        ["enterpriseReadiness", derivedFactors.enterpriseReadiness]
+      ].filter(([, factor]) => factor)
+    : [];
+  const evidenceBasisGroups = groupEvidenceBasis(simulationResult.evidenceBasis);
+  const showModelExplanation =
+    derivedFactorEntries.length > 0 || evidenceBasisGroups.length > 0;
   const tierScores = [
     { label: "Build in-house", value: icpFit.tierScores?.build ?? 0 },
     { label: "MUI Core", value: icpFit.tierScores?.core ?? 0 },
@@ -621,6 +882,11 @@ function ReportPage() {
 
   return (
     <Stack spacing={4}>
+      {isLegacyReport ? (
+        <Alert severity="warning" variant="outlined">
+          This report was generated with an older model. Rerun the assessment for the latest benchmark-informed inputs.
+        </Alert>
+      ) : null}
       <Box
         sx={{
           borderRadius: 4,
@@ -695,10 +961,66 @@ function ReportPage() {
         </Grid>
       </Box>
 
+      {showModelExplanation ? (
+        <SectionCard
+          title="2. Why the model reached this view"
+          description="This is a scenario model, not a guarantee. The evidence basis explains why each factor is included, not that the numeric coefficient is externally certified."
+        >
+          <Stack spacing={4}>
+            {derivedFactorEntries.length > 0 ? (
+              <Stack spacing={2.5}>
+                <Box>
+                  <Typography variant="h6" component="h3">
+                    Derived factors
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                    These summarize the input set into the five signals used by the recommendation and simulation.
+                  </Typography>
+                </Box>
+                <Grid container spacing={2.5}>
+                  {derivedFactorEntries.map(([key, factor]) => (
+                    <Grid key={key} size={{ xs: 12, md: 6 }}>
+                      <FactorCard
+                        title={derivedFactorLabels[key] ?? key}
+                        factor={factor}
+                      />
+                    </Grid>
+                  ))}
+                </Grid>
+              </Stack>
+            ) : null}
+
+            {derivedFactorEntries.length > 0 && evidenceBasisGroups.length > 0 ? (
+              <Divider />
+            ) : null}
+
+            {evidenceBasisGroups.length > 0 ? (
+              <Stack spacing={2.5}>
+                <Box>
+                  <Typography variant="h6" component="h3">
+                    Evidence basis
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                    Standard-backed means a recognized standard or formal practice area. Benchmark-informed means an industry measurement pattern. Practice-backed means a widely used engineering concern. Product-specific heuristic means an MUI adoption or tier-fit assumption.
+                  </Typography>
+                </Box>
+                <Grid container spacing={2.5}>
+                  {evidenceBasisGroups.map((group) => (
+                    <Grid key={group.basis} size={{ xs: 12, md: 6 }}>
+                      <EvidenceBasisGroup basis={group.basis} items={group.items} />
+                    </Grid>
+                  ))}
+                </Grid>
+              </Stack>
+            ) : null}
+          </Stack>
+        </SectionCard>
+      ) : null}
+
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 5 }}>
           <SectionCard
-            title="2. Confidence"
+            title="3. Confidence"
             description="Confidence reflects how strongly the rules and scenario simulation agree. It does not mean certainty."
           >
             <Stack spacing={3}>
@@ -738,7 +1060,7 @@ function ReportPage() {
 
         <Grid size={{ xs: 12, md: 7 }}>
           <SectionCard
-            title="3. ICP fit score and reasons"
+            title="4. ICP fit score and reasons"
             description="This score reflects how strongly the workload matches an advanced packaged-component decision profile."
           >
             <Stack spacing={3}>
@@ -806,7 +1128,7 @@ function ReportPage() {
       </Grid>
 
       <SectionCard
-        title="4. Scenario comparison table"
+        title="5. Scenario comparison table"
         description={`Modeled medians and P90 outcomes comparing a custom build against ${muiPath.label ?? "the selected MUI path"}.`}
       >
         <Stack spacing={3}>
@@ -911,7 +1233,7 @@ function ReportPage() {
       </SectionCard>
 
       <SectionCard
-        title="5. Probability metrics"
+        title="6. Probability metrics"
         description="These probabilities support the recommendation by showing how often each path wins under repeated modeled scenarios."
       >
         <Grid container spacing={2.5}>
@@ -928,7 +1250,7 @@ function ReportPage() {
       </SectionCard>
 
       <SectionCard
-        title="6. Main risk drivers"
+        title="7. Main risk drivers"
         description="These are the factors doing the most work in the recommendation, based on the stored assessment input and the modeled output."
       >
         {riskDrivers.length > 0 ? (
@@ -950,7 +1272,7 @@ function ReportPage() {
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 6 }}>
           <SectionCard
-            title="7. Assumptions"
+            title="8. Assumptions"
             description="The report should stay transparent about what the model includes and what it does not."
           >
             <Stack spacing={2}>
@@ -967,8 +1289,12 @@ function ReportPage() {
                     </Typography>
                     <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                       {[
-                        `Design system: ${formatLabel("designSystemMaturity", assessmentInput.designSystemMaturity)}`,
+                        `UI/platform maturity: ${formatLabel("designSystemMaturity", assessmentInput.designSystemMaturity)}`,
                         `MUI usage: ${formatLabel("existingMuiUsage", assessmentInput.existingMuiUsage)}`,
+                        `Accessibility target: ${formatLabel("accessibilityTarget", assessmentInput.accessibilityTarget)}`,
+                        `Rows: ${formatLabel("expectedRows", assessmentInput.expectedRows)}`,
+                        `Columns: ${formatLabel("expectedColumns", assessmentInput.expectedColumns)}`,
+                        `Ownership: ${formatLabel("ownershipModel", assessmentInput.ownershipModel)}`,
                         `Advanced features: ${summarizeAdvancedFeatures(assessmentInput.advancedFeatures)}`,
                         `Maintenance: ${formatLabel("maintenanceHorizonMonths", assessmentInput.maintenanceHorizonMonths)}`
                       ].map((chip) => (
@@ -984,7 +1310,7 @@ function ReportPage() {
 
         <Grid size={{ xs: 12, md: 6 }}>
           <SectionCard
-            title="8. What would change the recommendation"
+            title="9. What would change the recommendation"
             description="These are the shifts most likely to move the result, not promises that the recommendation would definitely flip."
           >
             <Stack spacing={2}>
@@ -1004,7 +1330,7 @@ function ReportPage() {
       </Grid>
 
       <SectionCard
-        title="9. CTA to rerun assessment"
+        title="10. CTA to rerun assessment"
         description="If the team context, component scope, or commercial assumptions change, rerun the model rather than stretching this result past its input set."
         action={
           <Button component={NavLink} to="/assess" variant="contained">

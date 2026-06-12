@@ -39,6 +39,20 @@ const designSystemMaturityOptions = [
   { value: "high", label: "High" }
 ];
 
+const dependentTeamsOptions = [
+  { value: "one", label: "One" },
+  { value: "two-three", label: "Two to three" },
+  { value: "four-seven", label: "Four to seven" },
+  { value: "eight-plus", label: "Eight or more" }
+];
+
+const ownershipModelOptions = [
+  { value: "same-product-team", label: "Same product team" },
+  { value: "frontend-platform-team", label: "Frontend platform team" },
+  { value: "several-teams-informal", label: "Several teams informally" },
+  { value: "unclear", label: "Unclear" }
+];
+
 const primaryUseCaseOptions = [
   { value: "data-grid", label: "Data grid" },
   { value: "charts", label: "Charts" },
@@ -48,16 +62,45 @@ const primaryUseCaseOptions = [
   { value: "multi-component", label: "Multi-component evaluation" }
 ];
 
+const accessibilityTargetOptions = [
+  { value: "none", label: "None" },
+  { value: "wcag-a", label: "WCAG A" },
+  { value: "wcag-aa", label: "WCAG AA" },
+  { value: "wcag-aaa-regulated", label: "WCAG AAA / regulated" }
+];
+
+const changeLeadTimeOptions = [
+  { value: "less-than-day", label: "Less than a day" },
+  { value: "one-day-to-one-week", label: "One day to one week" },
+  { value: "one-week-to-one-month", label: "One week to one month" },
+  { value: "more-than-month", label: "More than a month" },
+  { value: "unknown", label: "Unknown" }
+];
+
+const reworkFrequencyOptions = [
+  { value: "rare", label: "Rare" },
+  { value: "occasional", label: "Occasional" },
+  { value: "frequent", label: "Frequent" },
+  { value: "unknown", label: "Unknown" }
+];
+
+const expectedRowsOptions = [
+  { value: "under-1k", label: "Under 1k" },
+  { value: "1k-10k", label: "1k to 10k" },
+  { value: "10k-100k", label: "10k to 100k" },
+  { value: "over-100k", label: "Over 100k" }
+];
+
+const expectedColumnsOptions = [
+  { value: "under-10", label: "Under 10" },
+  { value: "10-30", label: "10 to 30" },
+  { value: "over-30", label: "Over 30" }
+];
+
 const pressureOptions = [
   { value: "low", label: "Low" },
   { value: "medium", label: "Medium" },
   { value: "high", label: "High" }
-];
-
-const capacityOptions = [
-  { value: "constrained", label: "Constrained" },
-  { value: "manageable", label: "Manageable" },
-  { value: "ample", label: "Ample" }
 ];
 
 const supportRequirementOptions = [
@@ -92,25 +135,25 @@ const advancedFeatureOptions = [
 
 const steps = [
   {
-    label: "Team context",
+    label: "Organization and ownership",
     title: "Map the team and platform baseline",
     description:
-      "Capture the React footprint, current MUI familiarity, and the environment this component would land in."
+      "Capture the React footprint, current MUI familiarity, and how ownership is distributed across teams."
   },
   {
-    label: "Use case",
+    label: "UI complexity",
     title: "Describe the component workload",
     description:
-      "Define the primary UI category and the advanced behaviors that are likely to raise delivery and maintenance risk."
+      "Define the primary UI category, row and column scale, and the advanced behaviors that are likely to raise delivery and maintenance risk."
   },
   {
-    label: "Delivery constraints",
-    title: "Set the delivery pressure and long-term burden",
+    label: "Quality and delivery baseline",
+    title: "Set the delivery pressure and quality bar",
     description:
-      "These inputs frame the schedule tolerance, staffing flexibility, and maintenance expectations for the effort."
+      "These inputs frame accessibility expectations, change lead time, rework frequency, and schedule pressure."
   },
   {
-    label: "Commercial inputs",
+    label: "Support and assumptions",
     title: "Capture the commercial comparison inputs",
     description:
       "Collect the cost and licensing assumptions needed later for the build-versus-buy comparison model."
@@ -120,18 +163,21 @@ const steps = [
 const defaultFormValues = {
   frontendDevelopers: "",
   reactApps: "",
+  dependentTeams: "",
+  ownershipModel: "",
   existingMuiUsage: "",
   designSystemMaturity: "",
   primaryUseCase: "",
   dataHeavyScreens: "",
+  expectedRows: "",
+  expectedColumns: "",
   advancedFeatures: [],
+  accessibilityTarget: "",
+  changeLeadTime: "",
+  reworkFrequency: "",
   deadlinePressure: "",
-  internalCapacity: "",
-  delayImpact: "",
-  accessibilityStrictness: "",
   maintenanceHorizonMonths: "",
   supportRequirement: "",
-  turnoverRisk: "",
   engineerCostPerDay: "",
   licensedDevelopers: "",
   comparedMuiPlan: ""
@@ -140,17 +186,22 @@ const defaultFormValues = {
 const optionLabelMaps = {
   existingMuiUsage: toLabelMap(existingMuiUsageOptions),
   designSystemMaturity: toLabelMap(designSystemMaturityOptions),
+  dependentTeams: toLabelMap(dependentTeamsOptions),
+  ownershipModel: toLabelMap(ownershipModelOptions),
   primaryUseCase: toLabelMap(primaryUseCaseOptions),
+  accessibilityTarget: toLabelMap(accessibilityTargetOptions),
+  changeLeadTime: toLabelMap(changeLeadTimeOptions),
+  reworkFrequency: toLabelMap(reworkFrequencyOptions),
   deadlinePressure: toLabelMap(pressureOptions),
-  internalCapacity: toLabelMap(capacityOptions),
-  delayImpact: toLabelMap(pressureOptions),
-  accessibilityStrictness: toLabelMap(pressureOptions),
+  expectedRows: toLabelMap(expectedRowsOptions),
+  expectedColumns: toLabelMap(expectedColumnsOptions),
   maintenanceHorizonMonths: toLabelMap(maintenanceHorizonOptions),
   supportRequirement: toLabelMap(supportRequirementOptions),
-  turnoverRisk: toLabelMap(pressureOptions),
   comparedMuiPlan: toLabelMap(comparedMuiPlanOptions),
   advancedFeatures: toLabelMap(advancedFeatureOptions)
 };
+
+const assessmentStorageKeys = Object.keys(defaultFormValues);
 
 function toLabelMap(options) {
   return Object.fromEntries(
@@ -172,19 +223,21 @@ function readStoredAssessmentInput() {
 
     const parsed = JSON.parse(raw);
 
-    return {
-      ...defaultFormValues,
-      ...parsed,
-      frontendDevelopers: stringifyValue(parsed.frontendDevelopers),
-      reactApps: stringifyValue(parsed.reactApps),
-      dataHeavyScreens: stringifyValue(parsed.dataHeavyScreens),
-      maintenanceHorizonMonths: stringifyValue(parsed.maintenanceHorizonMonths),
-      engineerCostPerDay: stringifyValue(parsed.engineerCostPerDay),
-      licensedDevelopers: stringifyValue(parsed.licensedDevelopers),
-      advancedFeatures: Array.isArray(parsed.advancedFeatures)
-        ? parsed.advancedFeatures
-        : []
-    };
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return defaultFormValues;
+    }
+
+    return assessmentStorageKeys.reduce((accumulator, key) => {
+      if (key === "advancedFeatures") {
+        accumulator[key] = Array.isArray(parsed.advancedFeatures)
+          ? parsed.advancedFeatures.filter((feature) => typeof feature === "string")
+          : [];
+        return accumulator;
+      }
+
+      accumulator[key] = stringifyValue(parsed[key]);
+      return accumulator;
+    }, { ...defaultFormValues });
   } catch {
     return defaultFormValues;
   }
@@ -252,6 +305,14 @@ function validateStep(stepIndex, formValues) {
       formValues.reactApps,
       "React apps"
     );
+    errors.dependentTeams = validateRequired(
+      formValues.dependentTeams,
+      "Dependent teams"
+    );
+    errors.ownershipModel = validateRequired(
+      formValues.ownershipModel,
+      "Ownership model"
+    );
     errors.existingMuiUsage = validateRequired(
       formValues.existingMuiUsage,
       "Existing MUI usage"
@@ -259,14 +320,6 @@ function validateStep(stepIndex, formValues) {
     errors.designSystemMaturity = validateRequired(
       formValues.designSystemMaturity,
       "Design system maturity"
-    );
-    errors.accessibilityStrictness = validateRequired(
-      formValues.accessibilityStrictness,
-      "Accessibility strictness"
-    );
-    errors.turnoverRisk = validateRequired(
-      formValues.turnoverRisk,
-      "Turnover risk"
     );
   }
 
@@ -279,32 +332,44 @@ function validateStep(stepIndex, formValues) {
       formValues.dataHeavyScreens,
       "Data-heavy screens"
     );
+    errors.expectedRows = validateRequired(
+      formValues.expectedRows,
+      "Expected rows"
+    );
+    errors.expectedColumns = validateRequired(
+      formValues.expectedColumns,
+      "Expected columns"
+    );
   }
 
   if (stepIndex === 2) {
+    errors.accessibilityTarget = validateRequired(
+      formValues.accessibilityTarget,
+      "Accessibility target"
+    );
+    errors.changeLeadTime = validateRequired(
+      formValues.changeLeadTime,
+      "Change lead time"
+    );
+    errors.reworkFrequency = validateRequired(
+      formValues.reworkFrequency,
+      "Rework frequency"
+    );
     errors.deadlinePressure = validateRequired(
       formValues.deadlinePressure,
       "Deadline pressure"
     );
-    errors.internalCapacity = validateRequired(
-      formValues.internalCapacity,
-      "Internal capacity"
-    );
-    errors.delayImpact = validateRequired(
-      formValues.delayImpact,
-      "Delay impact"
+  }
+
+  if (stepIndex === 3) {
+    errors.supportRequirement = validateRequired(
+      formValues.supportRequirement,
+      "Support requirement"
     );
     errors.maintenanceHorizonMonths = validateRequired(
       formValues.maintenanceHorizonMonths,
       "Maintenance horizon"
     );
-    errors.supportRequirement = validateRequired(
-      formValues.supportRequirement,
-      "Support requirement"
-    );
-  }
-
-  if (stepIndex === 3) {
     errors.engineerCostPerDay = validatePositiveNumber(
       formValues.engineerCostPerDay,
       "Engineer cost per day"
@@ -329,10 +394,21 @@ function normalizeAssessmentInput(formValues) {
     ...formValues,
     frontendDevelopers: Number(formValues.frontendDevelopers),
     reactApps: Number(formValues.reactApps),
+    dependentTeams: formValues.dependentTeams,
+    ownershipModel: formValues.ownershipModel,
     dataHeavyScreens: Number(formValues.dataHeavyScreens),
+    expectedRows: formValues.expectedRows,
+    expectedColumns: formValues.expectedColumns,
+    accessibilityTarget: formValues.accessibilityTarget,
+    changeLeadTime: formValues.changeLeadTime,
+    reworkFrequency: formValues.reworkFrequency,
+    deadlinePressure: formValues.deadlinePressure,
     maintenanceHorizonMonths: Number(formValues.maintenanceHorizonMonths),
+    supportRequirement: formValues.supportRequirement,
     engineerCostPerDay: Number(formValues.engineerCostPerDay),
-    licensedDevelopers: Number(formValues.licensedDevelopers)
+    licensedDevelopers: Number(formValues.licensedDevelopers),
+    comparedMuiPlan: formValues.comparedMuiPlan,
+    advancedFeatures: [...new Set(formValues.advancedFeatures)]
   };
 }
 
@@ -446,6 +522,7 @@ function AssessPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const currentStep = steps[activeStep];
+  const isFinalStep = activeStep === steps.length - 1;
   const selectedAdvancedFeatures = formValues.advancedFeatures.map(
     (feature) => optionLabelMaps.advancedFeatures[feature] ?? feature
   );
@@ -495,9 +572,7 @@ function AssessPage() {
     setActiveStep((currentStepIndex) => currentStepIndex - 1);
   };
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-
+  const submitAssessment = async () => {
     const validationResults = steps.map((_, stepIndex) =>
       validateStep(stepIndex, formValues)
     );
@@ -543,6 +618,26 @@ function AssessPage() {
     }
   };
 
+  const handlePrimaryAction = () => {
+    if (!isFinalStep) {
+      handleNext();
+      return;
+    }
+
+    void submitAssessment();
+  };
+
+  const handleFormSubmit = (event) => {
+    event.preventDefault();
+
+    if (!isFinalStep) {
+      handleNext();
+      return;
+    }
+
+    void submitAssessment();
+  };
+
   return (
     <Stack spacing={4}>
       <PageHero
@@ -560,7 +655,7 @@ function AssessPage() {
         <Grid size={{ xs: 12, lg: 8 }}>
           <Card elevation={0} sx={{ border: 1, borderColor: "divider" }}>
             <CardContent sx={{ p: { xs: 2.5, md: 4 } }}>
-              <Stack component="form" spacing={4} onSubmit={handleSubmit}>
+              <Stack component="form" noValidate spacing={4} onSubmit={handleFormSubmit}>
                 <Box sx={{ overflowX: "auto", pb: 1 }}>
                   <Stepper activeStep={activeStep} sx={{ minWidth: 640 }}>
                     {steps.map((step) => (
@@ -622,6 +717,50 @@ function AssessPage() {
                         inputProps={{ min: 1, step: 1 }}
                       />
                     </Grid>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <TextField
+                        select
+                        fullWidth
+                        required
+                        name="dependentTeams"
+                        label="Dependent teams"
+                        value={formValues.dependentTeams}
+                        onChange={handleFieldChange}
+                        error={Boolean(errors.dependentTeams)}
+                        helperText={
+                          errors.dependentTeams ||
+                          "Count the teams that would directly depend on this component or pattern."
+                        }
+                      >
+                        {dependentTeamsOptions.map((option) => (
+                          <MenuItem key={option.value} value={option.value}>
+                            {option.label}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <TextField
+                        select
+                        fullWidth
+                        required
+                        name="ownershipModel"
+                        label="Ownership model"
+                        value={formValues.ownershipModel}
+                        onChange={handleFieldChange}
+                        error={Boolean(errors.ownershipModel)}
+                        helperText={
+                          errors.ownershipModel ||
+                          "Choose the most realistic ownership pattern for the component after launch."
+                        }
+                      >
+                        {ownershipModelOptions.map((option) => (
+                          <MenuItem key={option.value} value={option.value}>
+                            {option.label}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </Grid>
                     <Grid size={{ xs: 12 }}>
                       <TextField
                         select
@@ -653,30 +792,6 @@ function AssessPage() {
                         options={designSystemMaturityOptions}
                         error={errors.designSystemMaturity}
                         helperText="Assess the consistency of your design tokens, patterns, and governance."
-                        row
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12 }}>
-                      <RadioField
-                        label="Accessibility strictness"
-                        name="accessibilityStrictness"
-                        value={formValues.accessibilityStrictness}
-                        onChange={handleFieldChange}
-                        options={pressureOptions}
-                        error={errors.accessibilityStrictness}
-                        helperText="Use high when audits, regulated workflows, or strict accessibility acceptance criteria apply."
-                        row
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12 }}>
-                      <RadioField
-                        label="Turnover risk"
-                        name="turnoverRisk"
-                        value={formValues.turnoverRisk}
-                        onChange={handleFieldChange}
-                        options={pressureOptions}
-                        error={errors.turnoverRisk}
-                        helperText="Estimate the likelihood that maintenance ownership changes over the next year."
                         row
                       />
                     </Grid>
@@ -723,6 +838,50 @@ function AssessPage() {
                         }
                         inputProps={{ min: 0, step: 1 }}
                       />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <TextField
+                        select
+                        fullWidth
+                        required
+                        name="expectedRows"
+                        label="Expected rows"
+                        value={formValues.expectedRows}
+                        onChange={handleFieldChange}
+                        error={Boolean(errors.expectedRows)}
+                        helperText={
+                          errors.expectedRows ||
+                          "Estimate the typical row scale for the main data-intensive scenario."
+                        }
+                      >
+                        {expectedRowsOptions.map((option) => (
+                          <MenuItem key={option.value} value={option.value}>
+                            {option.label}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <TextField
+                        select
+                        fullWidth
+                        required
+                        name="expectedColumns"
+                        label="Expected columns"
+                        value={formValues.expectedColumns}
+                        onChange={handleFieldChange}
+                        error={Boolean(errors.expectedColumns)}
+                        helperText={
+                          errors.expectedColumns ||
+                          "Estimate the typical column scale for the main data-intensive scenario."
+                        }
+                      >
+                        {expectedColumnsOptions.map((option) => (
+                          <MenuItem key={option.value} value={option.value}>
+                            {option.label}
+                          </MenuItem>
+                        ))}
+                      </TextField>
                     </Grid>
                     <Grid size={{ xs: 12 }}>
                       <FormControl fullWidth>
@@ -779,6 +938,42 @@ function AssessPage() {
                   <Grid container spacing={3}>
                     <Grid size={{ xs: 12 }}>
                       <RadioField
+                        label="Accessibility target"
+                        name="accessibilityTarget"
+                        value={formValues.accessibilityTarget}
+                        onChange={handleFieldChange}
+                        options={accessibilityTargetOptions}
+                        error={errors.accessibilityTarget}
+                        helperText="Pick the strongest accessibility target the component must reliably meet."
+                        row
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12 }}>
+                      <RadioField
+                        label="Change lead time"
+                        name="changeLeadTime"
+                        value={formValues.changeLeadTime}
+                        onChange={handleFieldChange}
+                        options={changeLeadTimeOptions}
+                        error={errors.changeLeadTime}
+                        helperText="Use the shortest realistic lead time for accepted product changes."
+                        row
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12 }}>
+                      <RadioField
+                        label="Rework frequency"
+                        name="reworkFrequency"
+                        value={formValues.reworkFrequency}
+                        onChange={handleFieldChange}
+                        options={reworkFrequencyOptions}
+                        error={errors.reworkFrequency}
+                        helperText="Estimate how often the implementation is likely to need repeated rework cycles."
+                        row
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12 }}>
+                      <RadioField
                         label="Deadline pressure"
                         name="deadlinePressure"
                         value={formValues.deadlinePressure}
@@ -789,40 +984,17 @@ function AssessPage() {
                         row
                       />
                     </Grid>
+                  </Grid>
+                )}
+
+                {activeStep === 3 && (
+                  <Grid container spacing={3}>
                     <Grid size={{ xs: 12 }}>
-                      <RadioField
-                        label="Internal capacity"
-                        name="internalCapacity"
-                        value={formValues.internalCapacity}
-                        onChange={handleFieldChange}
-                        options={capacityOptions}
-                        error={errors.internalCapacity}
-                        helperText="This reflects real available bandwidth, not ideal staffing on paper."
-                        row
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12 }}>
-                      <RadioField
-                        label="Delay impact"
-                        name="delayImpact"
-                        value={formValues.delayImpact}
-                        onChange={handleFieldChange}
-                        options={pressureOptions}
-                        error={errors.delayImpact}
-                        helperText="Estimate the business cost if delivery slips because the component runs longer than expected."
-                        row
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6 }}>
-                      <RadioField
-                        label="Maintenance horizon"
-                        name="maintenanceHorizonMonths"
-                        value={formValues.maintenanceHorizonMonths}
-                        onChange={handleFieldChange}
-                        options={maintenanceHorizonOptions}
-                        error={errors.maintenanceHorizonMonths}
-                        helperText="How long should the recommendation account for likely maintenance work?"
-                      />
+                      <Alert severity="info" variant="outlined">
+                        Submitting from this step sends the assessment to the
+                        Netlify simulation function, stores the response
+                        locally, and then opens the report route.
+                      </Alert>
                     </Grid>
                     <Grid size={{ xs: 12, sm: 6 }}>
                       <TextField
@@ -846,17 +1018,27 @@ function AssessPage() {
                         ))}
                       </TextField>
                     </Grid>
-                  </Grid>
-                )}
-
-                {activeStep === 3 && (
-                  <Grid container spacing={3}>
-                    <Grid size={{ xs: 12 }}>
-                      <Alert severity="info" variant="outlined">
-                        Submitting from this step sends the assessment to the
-                        Netlify simulation function, stores the response
-                        locally, and then opens the report route.
-                      </Alert>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <TextField
+                        select
+                        fullWidth
+                        required
+                        name="maintenanceHorizonMonths"
+                        label="Maintenance horizon"
+                        value={formValues.maintenanceHorizonMonths}
+                        onChange={handleFieldChange}
+                        error={Boolean(errors.maintenanceHorizonMonths)}
+                        helperText={
+                          errors.maintenanceHorizonMonths ||
+                          "How long should the recommendation account for likely maintenance work?"
+                        }
+                      >
+                        {maintenanceHorizonOptions.map((option) => (
+                          <MenuItem key={option.value} value={option.value}>
+                            {option.label}
+                          </MenuItem>
+                        ))}
+                      </TextField>
                     </Grid>
                     <Grid size={{ xs: 12, sm: 6 }}>
                       <TextField
@@ -938,28 +1120,19 @@ function AssessPage() {
                     >
                       Review methodology
                     </Button>
-                    {activeStep != steps.length - 1 ? (
-                      <Button
-                        type="button"
-                        variant="contained"
-                        onClick={handleNext}
-                        size="large"
-                        disabled={isSubmitting}
-                      >
-                        Next section
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="contained"
-                        type="submit"
-                        size="large"
-                        disabled={isSubmitting}
-                      >
-                        {isSubmitting
+                    <Button
+                      type="button"
+                      variant="contained"
+                      onClick={handlePrimaryAction}
+                      size="large"
+                      disabled={isSubmitting}
+                    >
+                      {isFinalStep
+                        ? isSubmitting
                           ? "Running simulation..."
-                          : "Submit and open report"}
-                      </Button>
-                    )}
+                          : "Submit and open report"
+                        : "Next section"}
+                    </Button>
                   </Stack>
                 </Stack>
               </Stack>
@@ -987,10 +1160,31 @@ function AssessPage() {
                     value={formValues.reactApps || "Not set"}
                   />
                   <SummaryRow
+                    label="Dependent teams"
+                    value={formatValue(
+                      formValues.dependentTeams,
+                      optionLabelMaps.dependentTeams
+                    )}
+                  />
+                  <SummaryRow
+                    label="Ownership model"
+                    value={formatValue(
+                      formValues.ownershipModel,
+                      optionLabelMaps.ownershipModel
+                    )}
+                  />
+                  <SummaryRow
                     label="Existing MUI usage"
                     value={formatValue(
                       formValues.existingMuiUsage,
                       optionLabelMaps.existingMuiUsage
+                    )}
+                  />
+                  <SummaryRow
+                    label="UI/platform maturity"
+                    value={formatValue(
+                      formValues.designSystemMaturity,
+                      optionLabelMaps.designSystemMaturity
                     )}
                   />
                   <SummaryRow
@@ -1001,6 +1195,20 @@ function AssessPage() {
                     )}
                   />
                   <SummaryRow
+                    label="Expected rows"
+                    value={formatValue(
+                      formValues.expectedRows,
+                      optionLabelMaps.expectedRows
+                    )}
+                  />
+                  <SummaryRow
+                    label="Expected columns"
+                    value={formatValue(
+                      formValues.expectedColumns,
+                      optionLabelMaps.expectedColumns
+                    )}
+                  />
+                  <SummaryRow
                     label="Deadline pressure"
                     value={formatValue(
                       formValues.deadlinePressure,
@@ -1008,10 +1216,24 @@ function AssessPage() {
                     )}
                   />
                   <SummaryRow
-                    label="Internal capacity"
+                    label="Accessibility target"
                     value={formatValue(
-                      formValues.internalCapacity,
-                      optionLabelMaps.internalCapacity
+                      formValues.accessibilityTarget,
+                      optionLabelMaps.accessibilityTarget
+                    )}
+                  />
+                  <SummaryRow
+                    label="Change lead time"
+                    value={formatValue(
+                      formValues.changeLeadTime,
+                      optionLabelMaps.changeLeadTime
+                    )}
+                  />
+                  <SummaryRow
+                    label="Rework frequency"
+                    value={formatValue(
+                      formValues.reworkFrequency,
+                      optionLabelMaps.reworkFrequency
                     )}
                   />
                   <SummaryRow
