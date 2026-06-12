@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState } from "react";
 import {
   Alert,
   Box,
@@ -22,115 +22,119 @@ import {
   StepLabel,
   Stepper,
   TextField,
-  Typography,
-} from '@mui/material';
-import { NavLink, useNavigate } from 'react-router-dom';
-import PageHero from '../components/PageHero.jsx';
+  Typography
+} from "@mui/material";
+import { NavLink, useNavigate } from "react-router-dom";
+import PageHero from "../components/PageHero.jsx";
 
 const existingMuiUsageOptions = [
-  { value: 'none', label: 'None' },
-  { value: 'some', label: 'Some usage' },
-  { value: 'standardized', label: 'Standardized' },
+  { value: "none", label: "None" },
+  { value: "some", label: "Some usage" },
+  { value: "standardized", label: "Standardized" }
 ];
 
 const designSystemMaturityOptions = [
-  { value: 'low', label: 'Low' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'high', label: 'High' },
+  { value: "low", label: "Low" },
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High" }
 ];
 
 const primaryUseCaseOptions = [
-  { value: 'data-grid', label: 'Data grid' },
-  { value: 'charts', label: 'Charts' },
-  { value: 'date-pickers', label: 'Date pickers' },
-  { value: 'tree-view', label: 'Tree view' },
-  { value: 'scheduler', label: 'Scheduler' },
-  { value: 'multi-component', label: 'Multi-component evaluation' },
+  { value: "data-grid", label: "Data grid" },
+  { value: "charts", label: "Charts" },
+  { value: "date-pickers", label: "Date pickers" },
+  { value: "tree-view", label: "Tree view" },
+  { value: "scheduler", label: "Scheduler" },
+  { value: "multi-component", label: "Multi-component evaluation" }
 ];
 
 const pressureOptions = [
-  { value: 'low', label: 'Low' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'high', label: 'High' },
+  { value: "low", label: "Low" },
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High" }
 ];
 
 const capacityOptions = [
-  { value: 'constrained', label: 'Constrained' },
-  { value: 'manageable', label: 'Manageable' },
-  { value: 'ample', label: 'Ample' },
+  { value: "constrained", label: "Constrained" },
+  { value: "manageable", label: "Manageable" },
+  { value: "ample", label: "Ample" }
 ];
 
 const supportRequirementOptions = [
-  { value: 'community', label: 'Community' },
-  { value: 'standard', label: 'Standard' },
-  { value: 'priority', label: 'Priority' },
-  { value: 'procurement-sla', label: 'Procurement-backed SLA' },
+  { value: "community", label: "Community" },
+  { value: "standard", label: "Standard" },
+  { value: "priority", label: "Priority" },
+  { value: "procurement-sla", label: "Procurement-backed SLA" }
 ];
 
 const maintenanceHorizonOptions = [
-  { value: '12', label: '12 months' },
-  { value: '24', label: '24 months' },
-  { value: '36', label: '36 months' },
+  { value: "12", label: "12 months" },
+  { value: "24", label: "24 months" },
+  { value: "36", label: "36 months" }
 ];
 
 const comparedMuiPlanOptions = [
-  { value: 'premium', label: 'Premium' },
-  { value: 'enterprise', label: 'Enterprise' },
-  { value: 'auto', label: 'Auto-select later' },
+  { value: "premium", label: "Premium" },
+  { value: "enterprise", label: "Enterprise" },
+  { value: "auto", label: "Auto-select later" }
 ];
 
 const advancedFeatureOptions = [
-  { value: 'virtualization', label: 'Virtualization at scale' },
-  { value: 'inline-editing', label: 'Inline editing workflows' },
-  { value: 'server-side-data', label: 'Server-side data operations' },
-  { value: 'keyboard-navigation', label: 'Deep keyboard navigation' },
-  { value: 'exporting', label: 'Export or print requirements' },
-  { value: 'drag-and-drop', label: 'Drag-and-drop interactions' },
-  { value: 'custom-rendering', label: 'Complex custom cell or item rendering' },
-  { value: 'timezone-logic', label: 'Timezone and localization logic' },
+  { value: "virtualization", label: "Virtualization at scale" },
+  { value: "inline-editing", label: "Inline editing workflows" },
+  { value: "server-side-data", label: "Server-side data operations" },
+  { value: "keyboard-navigation", label: "Deep keyboard navigation" },
+  { value: "exporting", label: "Export or print requirements" },
+  { value: "drag-and-drop", label: "Drag-and-drop interactions" },
+  { value: "custom-rendering", label: "Complex custom cell or item rendering" },
+  { value: "timezone-logic", label: "Timezone and localization logic" }
 ];
 
 const steps = [
   {
-    label: 'Team context',
-    title: 'Map the team and platform baseline',
-    description: 'Capture the React footprint, current MUI familiarity, and the environment this component would land in.',
+    label: "Team context",
+    title: "Map the team and platform baseline",
+    description:
+      "Capture the React footprint, current MUI familiarity, and the environment this component would land in."
   },
   {
-    label: 'Use case',
-    title: 'Describe the component workload',
-    description: 'Define the primary UI category and the advanced behaviors that are likely to raise delivery and maintenance risk.',
+    label: "Use case",
+    title: "Describe the component workload",
+    description:
+      "Define the primary UI category and the advanced behaviors that are likely to raise delivery and maintenance risk."
   },
   {
-    label: 'Delivery constraints',
-    title: 'Set the delivery pressure and long-term burden',
-    description: 'These inputs frame the schedule tolerance, staffing flexibility, and maintenance expectations for the effort.',
+    label: "Delivery constraints",
+    title: "Set the delivery pressure and long-term burden",
+    description:
+      "These inputs frame the schedule tolerance, staffing flexibility, and maintenance expectations for the effort."
   },
   {
-    label: 'Commercial inputs',
-    title: 'Capture the commercial comparison inputs',
-    description: 'Collect the cost and licensing assumptions needed later for the build-versus-buy comparison model.',
-  },
+    label: "Commercial inputs",
+    title: "Capture the commercial comparison inputs",
+    description:
+      "Collect the cost and licensing assumptions needed later for the build-versus-buy comparison model."
+  }
 ];
 
 const defaultFormValues = {
-  frontendDevelopers: '',
-  reactApps: '',
-  existingMuiUsage: '',
-  designSystemMaturity: '',
-  primaryUseCase: '',
-  dataHeavyScreens: '',
+  frontendDevelopers: "",
+  reactApps: "",
+  existingMuiUsage: "",
+  designSystemMaturity: "",
+  primaryUseCase: "",
+  dataHeavyScreens: "",
   advancedFeatures: [],
-  deadlinePressure: '',
-  internalCapacity: '',
-  delayImpact: '',
-  accessibilityStrictness: '',
-  maintenanceHorizonMonths: '',
-  supportRequirement: '',
-  turnoverRisk: '',
-  engineerCostPerDay: '',
-  licensedDevelopers: '',
-  comparedMuiPlan: '',
+  deadlinePressure: "",
+  internalCapacity: "",
+  delayImpact: "",
+  accessibilityStrictness: "",
+  maintenanceHorizonMonths: "",
+  supportRequirement: "",
+  turnoverRisk: "",
+  engineerCostPerDay: "",
+  licensedDevelopers: "",
+  comparedMuiPlan: ""
 };
 
 const optionLabelMaps = {
@@ -145,20 +149,22 @@ const optionLabelMaps = {
   supportRequirement: toLabelMap(supportRequirementOptions),
   turnoverRisk: toLabelMap(pressureOptions),
   comparedMuiPlan: toLabelMap(comparedMuiPlanOptions),
-  advancedFeatures: toLabelMap(advancedFeatureOptions),
+  advancedFeatures: toLabelMap(advancedFeatureOptions)
 };
 
 function toLabelMap(options) {
-  return Object.fromEntries(options.map((option) => [option.value, option.label]));
+  return Object.fromEntries(
+    options.map((option) => [option.value, option.label])
+  );
 }
 
 function readStoredAssessmentInput() {
-  if (typeof window === 'undefined') {
+  if (typeof window === "undefined") {
     return defaultFormValues;
   }
 
   try {
-    const raw = window.localStorage.getItem('assessmentInput');
+    const raw = window.localStorage.getItem("assessmentInput");
 
     if (!raw) {
       return defaultFormValues;
@@ -175,7 +181,9 @@ function readStoredAssessmentInput() {
       maintenanceHorizonMonths: stringifyValue(parsed.maintenanceHorizonMonths),
       engineerCostPerDay: stringifyValue(parsed.engineerCostPerDay),
       licensedDevelopers: stringifyValue(parsed.licensedDevelopers),
-      advancedFeatures: Array.isArray(parsed.advancedFeatures) ? parsed.advancedFeatures : [],
+      advancedFeatures: Array.isArray(parsed.advancedFeatures)
+        ? parsed.advancedFeatures
+        : []
     };
   } catch {
     return defaultFormValues;
@@ -183,11 +191,11 @@ function readStoredAssessmentInput() {
 }
 
 function stringifyValue(value) {
-  return value === undefined || value === null ? '' : String(value);
+  return value === undefined || value === null ? "" : String(value);
 }
 
 function validatePositiveInteger(value, label) {
-  if (value === '') {
+  if (value === "") {
     return `${label} is required.`;
   }
 
@@ -197,11 +205,11 @@ function validatePositiveInteger(value, label) {
     return `${label} must be a whole number greater than 0.`;
   }
 
-  return '';
+  return "";
 }
 
 function validateNonNegativeInteger(value, label) {
-  if (value === '') {
+  if (value === "") {
     return `${label} is required.`;
   }
 
@@ -211,11 +219,11 @@ function validateNonNegativeInteger(value, label) {
     return `${label} must be a whole number of 0 or more.`;
   }
 
-  return '';
+  return "";
 }
 
 function validatePositiveNumber(value, label) {
-  if (value === '') {
+  if (value === "") {
     return `${label} is required.`;
   }
 
@@ -225,48 +233,95 @@ function validatePositiveNumber(value, label) {
     return `${label} must be greater than 0.`;
   }
 
-  return '';
+  return "";
 }
 
 function validateRequired(value, label) {
-  return value ? '' : `${label} is required.`;
+  return value ? "" : `${label} is required.`;
 }
 
 function validateStep(stepIndex, formValues) {
   const errors = {};
 
   if (stepIndex === 0) {
-    errors.frontendDevelopers = validatePositiveInteger(formValues.frontendDevelopers, 'Frontend developers');
-    errors.reactApps = validatePositiveInteger(formValues.reactApps, 'React apps');
-    errors.existingMuiUsage = validateRequired(formValues.existingMuiUsage, 'Existing MUI usage');
-    errors.designSystemMaturity = validateRequired(formValues.designSystemMaturity, 'Design system maturity');
-    errors.accessibilityStrictness = validateRequired(formValues.accessibilityStrictness, 'Accessibility strictness');
-    errors.turnoverRisk = validateRequired(formValues.turnoverRisk, 'Turnover risk');
+    errors.frontendDevelopers = validatePositiveInteger(
+      formValues.frontendDevelopers,
+      "Frontend developers"
+    );
+    errors.reactApps = validatePositiveInteger(
+      formValues.reactApps,
+      "React apps"
+    );
+    errors.existingMuiUsage = validateRequired(
+      formValues.existingMuiUsage,
+      "Existing MUI usage"
+    );
+    errors.designSystemMaturity = validateRequired(
+      formValues.designSystemMaturity,
+      "Design system maturity"
+    );
+    errors.accessibilityStrictness = validateRequired(
+      formValues.accessibilityStrictness,
+      "Accessibility strictness"
+    );
+    errors.turnoverRisk = validateRequired(
+      formValues.turnoverRisk,
+      "Turnover risk"
+    );
   }
 
   if (stepIndex === 1) {
-    errors.primaryUseCase = validateRequired(formValues.primaryUseCase, 'Primary use case');
-    errors.dataHeavyScreens = validateNonNegativeInteger(formValues.dataHeavyScreens, 'Data-heavy screens');
+    errors.primaryUseCase = validateRequired(
+      formValues.primaryUseCase,
+      "Primary use case"
+    );
+    errors.dataHeavyScreens = validateNonNegativeInteger(
+      formValues.dataHeavyScreens,
+      "Data-heavy screens"
+    );
   }
 
   if (stepIndex === 2) {
-    errors.deadlinePressure = validateRequired(formValues.deadlinePressure, 'Deadline pressure');
-    errors.internalCapacity = validateRequired(formValues.internalCapacity, 'Internal capacity');
-    errors.delayImpact = validateRequired(formValues.delayImpact, 'Delay impact');
+    errors.deadlinePressure = validateRequired(
+      formValues.deadlinePressure,
+      "Deadline pressure"
+    );
+    errors.internalCapacity = validateRequired(
+      formValues.internalCapacity,
+      "Internal capacity"
+    );
+    errors.delayImpact = validateRequired(
+      formValues.delayImpact,
+      "Delay impact"
+    );
     errors.maintenanceHorizonMonths = validateRequired(
       formValues.maintenanceHorizonMonths,
-      'Maintenance horizon',
+      "Maintenance horizon"
     );
-    errors.supportRequirement = validateRequired(formValues.supportRequirement, 'Support requirement');
+    errors.supportRequirement = validateRequired(
+      formValues.supportRequirement,
+      "Support requirement"
+    );
   }
 
   if (stepIndex === 3) {
-    errors.engineerCostPerDay = validatePositiveNumber(formValues.engineerCostPerDay, 'Engineer cost per day');
-    errors.licensedDevelopers = validatePositiveInteger(formValues.licensedDevelopers, 'Licensed developers');
-    errors.comparedMuiPlan = validateRequired(formValues.comparedMuiPlan, 'Compared MUI plan');
+    errors.engineerCostPerDay = validatePositiveNumber(
+      formValues.engineerCostPerDay,
+      "Engineer cost per day"
+    );
+    errors.licensedDevelopers = validatePositiveInteger(
+      formValues.licensedDevelopers,
+      "Licensed developers"
+    );
+    errors.comparedMuiPlan = validateRequired(
+      formValues.comparedMuiPlan,
+      "Compared MUI plan"
+    );
   }
 
-  return Object.fromEntries(Object.entries(errors).filter(([, message]) => message));
+  return Object.fromEntries(
+    Object.entries(errors).filter(([, message]) => message)
+  );
 }
 
 function normalizeAssessmentInput(formValues) {
@@ -277,13 +332,13 @@ function normalizeAssessmentInput(formValues) {
     dataHeavyScreens: Number(formValues.dataHeavyScreens),
     maintenanceHorizonMonths: Number(formValues.maintenanceHorizonMonths),
     engineerCostPerDay: Number(formValues.engineerCostPerDay),
-    licensedDevelopers: Number(formValues.licensedDevelopers),
+    licensedDevelopers: Number(formValues.licensedDevelopers)
   };
 }
 
 function formatValue(value, labelMap) {
-  if (value === '' || value === undefined || value === null) {
-    return 'Not set';
+  if (value === "" || value === undefined || value === null) {
+    return "Not set";
   }
 
   return labelMap?.[value] ?? value;
@@ -291,24 +346,43 @@ function formatValue(value, labelMap) {
 
 function SummaryRow({ label, value }) {
   return (
-    <Stack direction="row" spacing={2} justifyContent="space-between" alignItems="flex-start">
+    <Stack
+      direction="row"
+      spacing={2}
+      justifyContent="space-between"
+      alignItems="flex-start"
+    >
       <Typography variant="body2" color="text.secondary">
         {label}
       </Typography>
-      <Typography variant="body2" sx={{ textAlign: 'right', fontWeight: 600 }}>
+      <Typography variant="body2" sx={{ textAlign: "right", fontWeight: 600 }}>
         {value}
       </Typography>
     </Stack>
   );
 }
 
-function RadioField({ label, name, value, onChange, options, error, helperText, row = false }) {
+function RadioField({
+  label,
+  name,
+  value,
+  onChange,
+  options,
+  error,
+  helperText,
+  row = false
+}) {
   return (
     <FormControl error={Boolean(error)}>
       <FormLabel>{label}</FormLabel>
       <RadioGroup name={name} value={value} onChange={onChange} row={row}>
         {options.map((option) => (
-          <FormControlLabel key={option.value} value={option.value} control={<Radio />} label={option.label} />
+          <FormControlLabel
+            key={option.value}
+            value={option.value}
+            control={<Radio />}
+            label={option.label}
+          />
         ))}
       </RadioGroup>
       <FormHelperText>{error || helperText}</FormHelperText>
@@ -324,7 +398,7 @@ function AssessPage() {
 
   const currentStep = steps[activeStep];
   const selectedAdvancedFeatures = formValues.advancedFeatures.map(
-    (feature) => optionLabelMaps.advancedFeatures[feature] ?? feature,
+    (feature) => optionLabelMaps.advancedFeatures[feature] ?? feature
   );
 
   const handleFieldChange = (event) => {
@@ -332,7 +406,7 @@ function AssessPage() {
 
     setFormValues((currentValues) => ({
       ...currentValues,
-      [name]: value,
+      [name]: value
     }));
 
     setErrors((currentErrors) => {
@@ -351,7 +425,7 @@ function AssessPage() {
 
     setFormValues((currentValues) => ({
       ...currentValues,
-      advancedFeatures: typeof value === 'string' ? value.split(',') : value,
+      advancedFeatures: typeof value === "string" ? value.split(",") : value
     }));
   };
 
@@ -375,7 +449,11 @@ function AssessPage() {
   const handleSubmit = (event) => {
     event.preventDefault();
 
-    const nextErrors = validateStep(activeStep, formValues);
+    const nextErrors = Object.fromEntries(
+      [0, 1, 2, 3]
+        .map((stepIndex) => validateStep(stepIndex, formValues))
+        .flatMap((stepErrors) => Object.entries(stepErrors))
+    );
 
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors);
@@ -383,25 +461,32 @@ function AssessPage() {
     }
 
     const normalizedInput = normalizeAssessmentInput(formValues);
-    window.localStorage.setItem('assessmentInput', JSON.stringify(normalizedInput));
-    navigate('/report');
+    window.localStorage.setItem(
+      "assessmentInput",
+      JSON.stringify(normalizedInput)
+    );
+    navigate("/report");
   };
-
+  console.log(activeStep, steps.length);
   return (
     <Stack spacing={4}>
       <PageHero
         eyebrow="Assess"
         title="Capture the inputs for a build-vs-buy recommendation"
         description="Work through the wizard to describe your React team, the component workload, and the commercial assumptions. Submitting this form only saves the input locally and opens the report route."
-        chips={['MUI stepper flow', 'Local-only save', 'Simulation not run yet']}
+        chips={[
+          "MUI stepper flow",
+          "Local-only save",
+          "Simulation not run yet"
+        ]}
       />
 
       <Grid container spacing={3} alignItems="flex-start">
         <Grid size={{ xs: 12, lg: 8 }}>
-          <Card elevation={0} sx={{ border: 1, borderColor: 'divider' }}>
+          <Card elevation={0} sx={{ border: 1, borderColor: "divider" }}>
             <CardContent sx={{ p: { xs: 2.5, md: 4 } }}>
               <Stack component="form" spacing={4} onSubmit={handleSubmit}>
-                <Box sx={{ overflowX: 'auto', pb: 1 }}>
+                <Box sx={{ overflowX: "auto", pb: 1 }}>
                   <Stepper activeStep={activeStep} sx={{ minWidth: 640 }}>
                     {steps.map((step) => (
                       <Step key={step.label}>
@@ -432,7 +517,10 @@ function AssessPage() {
                         value={formValues.frontendDevelopers}
                         onChange={handleFieldChange}
                         error={Boolean(errors.frontendDevelopers)}
-                        helperText={errors.frontendDevelopers || 'Count the developers likely to contribute to this UI area.'}
+                        helperText={
+                          errors.frontendDevelopers ||
+                          "Count the developers likely to contribute to this UI area."
+                        }
                         inputProps={{ min: 1, step: 1 }}
                       />
                     </Grid>
@@ -446,7 +534,10 @@ function AssessPage() {
                         value={formValues.reactApps}
                         onChange={handleFieldChange}
                         error={Boolean(errors.reactApps)}
-                        helperText={errors.reactApps || 'How many active React products would need the component or pattern?'}
+                        helperText={
+                          errors.reactApps ||
+                          "How many active React products would need the component or pattern?"
+                        }
                         inputProps={{ min: 1, step: 1 }}
                       />
                     </Grid>
@@ -460,7 +551,10 @@ function AssessPage() {
                         value={formValues.existingMuiUsage}
                         onChange={handleFieldChange}
                         error={Boolean(errors.existingMuiUsage)}
-                        helperText={errors.existingMuiUsage || 'Use the level that best describes today’s MUI footprint.'}
+                        helperText={
+                          errors.existingMuiUsage ||
+                          "Use the level that best describes today’s MUI footprint."
+                        }
                       >
                         {existingMuiUsageOptions.map((option) => (
                           <MenuItem key={option.value} value={option.value}>
@@ -520,7 +614,10 @@ function AssessPage() {
                         value={formValues.primaryUseCase}
                         onChange={handleFieldChange}
                         error={Boolean(errors.primaryUseCase)}
-                        helperText={errors.primaryUseCase || 'Pick the category that best represents the evaluation target.'}
+                        helperText={
+                          errors.primaryUseCase ||
+                          "Pick the category that best represents the evaluation target."
+                        }
                       >
                         {primaryUseCaseOptions.map((option) => (
                           <MenuItem key={option.value} value={option.value}>
@@ -539,7 +636,10 @@ function AssessPage() {
                         value={formValues.dataHeavyScreens}
                         onChange={handleFieldChange}
                         error={Boolean(errors.dataHeavyScreens)}
-                        helperText={errors.dataHeavyScreens || 'Enter 0 if the component is not used in data-dense product surfaces.'}
+                        helperText={
+                          errors.dataHeavyScreens ||
+                          "Enter 0 if the component is not used in data-dense product surfaces."
+                        }
                         inputProps={{ min: 0, step: 1 }}
                       />
                     </Grid>
@@ -554,13 +654,26 @@ function AssessPage() {
                           displayEmpty
                           renderValue={(selected) => {
                             if (selected.length === 0) {
-                              return 'Select any advanced requirements that apply';
+                              return "Select any advanced requirements that apply";
                             }
 
                             return (
-                              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                              <Stack
+                                direction="row"
+                                spacing={1}
+                                flexWrap="wrap"
+                                useFlexGap
+                              >
                                 {selected.map((feature) => (
-                                  <Chip key={feature} label={optionLabelMaps.advancedFeatures[feature] ?? feature} size="small" />
+                                  <Chip
+                                    key={feature}
+                                    label={
+                                      optionLabelMaps.advancedFeatures[
+                                        feature
+                                      ] ?? feature
+                                    }
+                                    size="small"
+                                  />
                                 ))}
                               </Stack>
                             );
@@ -572,7 +685,10 @@ function AssessPage() {
                             </MenuItem>
                           ))}
                         </Select>
-                        <FormHelperText>Optional. Choose every feature likely to increase implementation or support complexity.</FormHelperText>
+                        <FormHelperText>
+                          Optional. Choose every feature likely to increase
+                          implementation or support complexity.
+                        </FormHelperText>
                       </FormControl>
                     </Grid>
                   </Grid>
@@ -637,7 +753,10 @@ function AssessPage() {
                         value={formValues.supportRequirement}
                         onChange={handleFieldChange}
                         error={Boolean(errors.supportRequirement)}
-                        helperText={errors.supportRequirement || 'Choose the support posture your procurement or delivery team expects.'}
+                        helperText={
+                          errors.supportRequirement ||
+                          "Choose the support posture your procurement or delivery team expects."
+                        }
                       >
                         {supportRequirementOptions.map((option) => (
                           <MenuItem key={option.value} value={option.value}>
@@ -653,8 +772,9 @@ function AssessPage() {
                   <Grid container spacing={3}>
                     <Grid size={{ xs: 12 }}>
                       <Alert severity="info" variant="outlined">
-                        Submitting this step saves the assessment locally and opens the report scaffold. No Netlify function call
-                        or simulation runs yet.
+                        Submitting from this step saves the assessment locally
+                        and opens the report route. The submission only runs
+                        when the user explicitly clicks the submit button.
                       </Alert>
                     </Grid>
                     <Grid size={{ xs: 12, sm: 6 }}>
@@ -667,10 +787,15 @@ function AssessPage() {
                         value={formValues.engineerCostPerDay}
                         onChange={handleFieldChange}
                         error={Boolean(errors.engineerCostPerDay)}
-                        helperText={errors.engineerCostPerDay || 'Use your fully loaded internal estimate for one engineer day.'}
+                        helperText={
+                          errors.engineerCostPerDay ||
+                          "Use your fully loaded internal estimate for one engineer day."
+                        }
                         inputProps={{ min: 1, step: 1 }}
                         InputProps={{
-                          startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                          startAdornment: (
+                            <InputAdornment position="start">$</InputAdornment>
+                          )
                         }}
                       />
                     </Grid>
@@ -684,7 +809,10 @@ function AssessPage() {
                         value={formValues.licensedDevelopers}
                         onChange={handleFieldChange}
                         error={Boolean(errors.licensedDevelopers)}
-                        helperText={errors.licensedDevelopers || 'Enter the likely number of developer seats that would need licensing.'}
+                        helperText={
+                          errors.licensedDevelopers ||
+                          "Enter the likely number of developer seats that would need licensing."
+                        }
                         inputProps={{ min: 1, step: 1 }}
                       />
                     </Grid>
@@ -705,22 +833,41 @@ function AssessPage() {
 
                 <Divider />
 
-                <Stack direction={{ xs: 'column-reverse', sm: 'row' }} spacing={2} justifyContent="space-between">
-                  <Button disabled={activeStep === 0} onClick={handleBack} size="large">
+                <Stack
+                  direction={{ xs: "column-reverse", sm: "row" }}
+                  spacing={2}
+                  justifyContent="space-between"
+                >
+                  <Button
+                    type="button"
+                    disabled={activeStep === 0}
+                    onClick={handleBack}
+                    size="large"
+                  >
                     Back
                   </Button>
 
-                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                    <Button component={NavLink} to="/methodology" variant="text" size="large">
+                  <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                    <Button
+                      component={NavLink}
+                      to="/methodology"
+                      variant="text"
+                      size="large"
+                    >
                       Review methodology
                     </Button>
-                    {activeStep < steps.length - 1 ? (
-                      <Button variant="contained" onClick={handleNext} size="large">
+                    {activeStep != steps.length - 1 ? (
+                      <Button
+                        type="button"
+                        variant="contained"
+                        onClick={handleNext}
+                        size="large"
+                      >
                         Next section
                       </Button>
                     ) : (
                       <Button variant="contained" type="submit" size="large">
-                        Save and open report
+                        Submit and open report
                       </Button>
                     )}
                   </Stack>
@@ -731,50 +878,89 @@ function AssessPage() {
         </Grid>
 
         <Grid size={{ xs: 12, lg: 4 }}>
-          <Stack spacing={3} sx={{ position: { lg: 'sticky' }, top: { lg: 24 } }}>
-            <Card elevation={0} sx={{ border: 1, borderColor: 'divider' }}>
+          <Stack
+            spacing={3}
+            sx={{ position: { lg: "sticky" }, top: { lg: 24 } }}
+          >
+            <Card elevation={0} sx={{ border: 1, borderColor: "divider" }}>
               <CardContent>
                 <Stack spacing={2}>
                   <Typography variant="h6" component="h2">
                     Assessment snapshot
                   </Typography>
-                  <SummaryRow label="Frontend developers" value={formValues.frontendDevelopers || 'Not set'} />
-                  <SummaryRow label="React apps" value={formValues.reactApps || 'Not set'} />
+                  <SummaryRow
+                    label="Frontend developers"
+                    value={formValues.frontendDevelopers || "Not set"}
+                  />
+                  <SummaryRow
+                    label="React apps"
+                    value={formValues.reactApps || "Not set"}
+                  />
                   <SummaryRow
                     label="Existing MUI usage"
-                    value={formatValue(formValues.existingMuiUsage, optionLabelMaps.existingMuiUsage)}
+                    value={formatValue(
+                      formValues.existingMuiUsage,
+                      optionLabelMaps.existingMuiUsage
+                    )}
                   />
                   <SummaryRow
                     label="Primary use case"
-                    value={formatValue(formValues.primaryUseCase, optionLabelMaps.primaryUseCase)}
+                    value={formatValue(
+                      formValues.primaryUseCase,
+                      optionLabelMaps.primaryUseCase
+                    )}
                   />
-                  <SummaryRow label="Deadline pressure" value={formatValue(formValues.deadlinePressure, optionLabelMaps.deadlinePressure)} />
+                  <SummaryRow
+                    label="Deadline pressure"
+                    value={formatValue(
+                      formValues.deadlinePressure,
+                      optionLabelMaps.deadlinePressure
+                    )}
+                  />
                   <SummaryRow
                     label="Internal capacity"
-                    value={formatValue(formValues.internalCapacity, optionLabelMaps.internalCapacity)}
+                    value={formatValue(
+                      formValues.internalCapacity,
+                      optionLabelMaps.internalCapacity
+                    )}
                   />
                   <SummaryRow
                     label="Support requirement"
-                    value={formatValue(formValues.supportRequirement, optionLabelMaps.supportRequirement)}
+                    value={formatValue(
+                      formValues.supportRequirement,
+                      optionLabelMaps.supportRequirement
+                    )}
                   />
                   <SummaryRow
                     label="Compared plan"
-                    value={formatValue(formValues.comparedMuiPlan, optionLabelMaps.comparedMuiPlan)}
+                    value={formatValue(
+                      formValues.comparedMuiPlan,
+                      optionLabelMaps.comparedMuiPlan
+                    )}
                   />
                 </Stack>
               </CardContent>
             </Card>
 
-            <Card elevation={0} sx={{ border: 1, borderColor: 'divider' }}>
+            <Card elevation={0} sx={{ border: 1, borderColor: "divider" }}>
               <CardContent>
                 <Stack spacing={2}>
                   <Typography variant="h6" component="h2">
                     Advanced features
                   </Typography>
                   {selectedAdvancedFeatures.length > 0 ? (
-                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                    <Stack
+                      direction="row"
+                      spacing={1}
+                      flexWrap="wrap"
+                      useFlexGap
+                    >
                       {selectedAdvancedFeatures.map((feature) => (
-                        <Chip key={feature} label={feature} variant="outlined" />
+                        <Chip
+                          key={feature}
+                          label={feature}
+                          variant="outlined"
+                        />
                       ))}
                     </Stack>
                   ) : (
