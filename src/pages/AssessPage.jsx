@@ -336,6 +336,53 @@ function normalizeAssessmentInput(formValues) {
   };
 }
 
+function writeStorageItem(key, value) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem(key, JSON.stringify(value));
+}
+
+function removeStorageItem(key) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.removeItem(key);
+}
+
+async function runSimulationRequest(input) {
+  const response = await fetch("/.netlify/functions/simulate", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json"
+    },
+    body: JSON.stringify(input)
+  });
+
+  let payload = null;
+
+  try {
+    payload = await response.json();
+  } catch {
+    payload = null;
+  }
+
+  if (!response.ok) {
+    const details = Array.isArray(payload?.details)
+      ? ` ${payload.details.join(" ")}`
+      : "";
+    const message =
+      payload?.error ??
+      `Simulation request failed with status ${response.status}.`;
+
+    throw new Error(`${message}${details}`);
+  }
+
+  return payload;
+}
+
 function formatValue(value, labelMap) {
   if (value === "" || value === undefined || value === null) {
     return "Not set";
@@ -395,6 +442,8 @@ function AssessPage() {
   const [activeStep, setActiveStep] = useState(0);
   const [formValues, setFormValues] = useState(readStoredAssessmentInput);
   const [errors, setErrors] = useState({});
+  const [submitError, setSubmitError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const currentStep = steps[activeStep];
   const selectedAdvancedFeatures = formValues.advancedFeatures.map(
@@ -446,38 +495,64 @@ function AssessPage() {
     setActiveStep((currentStepIndex) => currentStepIndex - 1);
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
 
+    const validationResults = steps.map((_, stepIndex) =>
+      validateStep(stepIndex, formValues)
+    );
     const nextErrors = Object.fromEntries(
-      [0, 1, 2, 3]
-        .map((stepIndex) => validateStep(stepIndex, formValues))
-        .flatMap((stepErrors) => Object.entries(stepErrors))
+      validationResults.flatMap((stepErrors) => Object.entries(stepErrors))
     );
 
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors);
+      const firstInvalidStep = validationResults.findIndex(
+        (stepErrors) => Object.keys(stepErrors).length > 0
+      );
+
+      if (firstInvalidStep >= 0) {
+        setActiveStep(firstInvalidStep);
+      }
+
       return;
     }
 
     const normalizedInput = normalizeAssessmentInput(formValues);
-    window.localStorage.setItem(
-      "assessmentInput",
-      JSON.stringify(normalizedInput)
-    );
-    navigate("/report");
+
+    setErrors({});
+    setSubmitError("");
+    setIsSubmitting(true);
+
+    try {
+      writeStorageItem("assessmentInput", normalizedInput);
+      removeStorageItem("simulationResult");
+
+      const simulationResult = await runSimulationRequest(normalizedInput);
+
+      writeStorageItem("simulationResult", simulationResult);
+      navigate("/report");
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error
+          ? error.message
+          : "Unable to run the simulation right now."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
-  console.log(activeStep, steps.length);
+
   return (
     <Stack spacing={4}>
       <PageHero
         eyebrow="Assess"
         title="Capture the inputs for a build-vs-buy recommendation"
-        description="Work through the wizard to describe your React team, the component workload, and the commercial assumptions. Submitting this form only saves the input locally and opens the report route."
+        description="Work through the wizard to describe your React team, the component workload, and the commercial assumptions. Submitting this form runs the simulator, saves the input and result locally, and opens the report route."
         chips={[
           "MUI stepper flow",
-          "Local-only save",
-          "Simulation not run yet"
+          "Netlify function submit",
+          "Local result cache"
         ]}
       />
 
@@ -504,6 +579,12 @@ function AssessPage() {
                     {currentStep.description}
                   </Typography>
                 </Stack>
+
+                {submitError ? (
+                  <Alert severity="error" variant="outlined">
+                    {submitError}
+                  </Alert>
+                ) : null}
 
                 {activeStep === 0 && (
                   <Grid container spacing={3}>
@@ -772,9 +853,9 @@ function AssessPage() {
                   <Grid container spacing={3}>
                     <Grid size={{ xs: 12 }}>
                       <Alert severity="info" variant="outlined">
-                        Submitting from this step saves the assessment locally
-                        and opens the report route. The submission only runs
-                        when the user explicitly clicks the submit button.
+                        Submitting from this step sends the assessment to the
+                        Netlify simulation function, stores the response
+                        locally, and then opens the report route.
                       </Alert>
                     </Grid>
                     <Grid size={{ xs: 12, sm: 6 }}>
@@ -840,7 +921,7 @@ function AssessPage() {
                 >
                   <Button
                     type="button"
-                    disabled={activeStep === 0}
+                    disabled={activeStep === 0 || isSubmitting}
                     onClick={handleBack}
                     size="large"
                   >
@@ -853,6 +934,7 @@ function AssessPage() {
                       to="/methodology"
                       variant="text"
                       size="large"
+                      disabled={isSubmitting}
                     >
                       Review methodology
                     </Button>
@@ -862,12 +944,20 @@ function AssessPage() {
                         variant="contained"
                         onClick={handleNext}
                         size="large"
+                        disabled={isSubmitting}
                       >
                         Next section
                       </Button>
                     ) : (
-                      <Button variant="contained" type="submit" size="large">
-                        Submit and open report
+                      <Button
+                        variant="contained"
+                        type="submit"
+                        size="large"
+                        disabled={isSubmitting}
+                      >
+                        {isSubmitting
+                          ? "Running simulation..."
+                          : "Submit and open report"}
                       </Button>
                     )}
                   </Stack>
