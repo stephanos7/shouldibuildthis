@@ -138,7 +138,7 @@ const steps = [
     label: "UI complexity",
     title: "Describe the component workload",
     description:
-      "Define the primary UI category, row and column scale, and the advanced behaviors that are likely to raise delivery and maintenance risk."
+      "Define the primary UI category, row and column scale, and the advanced behaviors that can raise delivery, quality, integration, and maintenance uncertainty."
   },
   {
     label: "Quality and delivery baseline",
@@ -907,8 +907,7 @@ function AssessPage() {
                           ))}
                         </Select>
                         <FormHelperText>
-                          Optional. Choose every feature likely to increase
-                          implementation or support complexity.
+                          Optional. Choose every feature likely to increase effort, quality, integration, and maintenance uncertainty.
                         </FormHelperText>
                       </FormControl>
                     </Grid>
@@ -937,7 +936,7 @@ function AssessPage() {
                         onChange={handleFieldChange}
                         options={changeLeadTimeOptions}
                         error={errors.changeLeadTime}
-                        helperText="Use the shortest realistic lead time for accepted product changes."
+                        helperText="Unknown or slower delivery cadence widens the simulation band."
                         row
                       />
                     </Grid>
@@ -949,7 +948,7 @@ function AssessPage() {
                         onChange={handleFieldChange}
                         options={reworkFrequencyOptions}
                         error={errors.reworkFrequency}
-                        helperText="Estimate how often the implementation is likely to need repeated rework cycles."
+                        helperText="Unknown or slower delivery cadence widens the simulation band."
                         row
                       />
                     </Grid>
@@ -989,7 +988,7 @@ function AssessPage() {
                         error={Boolean(errors.supportRequirement)}
                         helperText={
                           errors.supportRequirement ||
-                          "Choose the support posture your procurement or delivery team expects."
+                          "Higher support expectations increase the value of packaged or vendor-backed paths."
                         }
                       >
                         {supportRequirementOptions.map((option) => (

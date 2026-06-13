@@ -1,3 +1,5 @@
+import { PUBLIC_BENCHMARK_SOURCES } from "../../src/data/publicSources.js";
+
 const ITERATIONS = 10000;
 const MODEL_VERSION = "benchmark-informed-v3";
 
@@ -156,6 +158,26 @@ const MATURITY_INDEX = {
   medium: 2,
   high: 3
 };
+
+function countLabel(count, singular, plural = `${singular}s`) {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
+function describeList(items, emptyLabel = "No additional items selected") {
+  if (!Array.isArray(items) || items.length === 0) {
+    return emptyLabel;
+  }
+
+  if (items.length === 1) {
+    return items[0];
+  }
+
+  if (items.length === 2) {
+    return `${items[0]} and ${items[1]}`;
+  }
+
+  return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
+}
 
 const PLAN_CONFIG = {
   core: {
@@ -338,6 +360,47 @@ function randomNormal(rng, mean = 0, deviation = 1) {
   const standard =
     Math.sqrt(-2 * Math.log(first)) * Math.cos(2 * Math.PI * second);
   return mean + standard * deviation;
+}
+
+function randomTriangular(rng, min, mode, max) {
+  const sample = rng();
+  const breakpoint = (mode - min) / (max - min);
+
+  if (sample < breakpoint) {
+    return min + Math.sqrt(sample * (max - min) * (mode - min));
+  }
+
+  return max - Math.sqrt((1 - sample) * (max - min) * (max - mode));
+}
+
+function sampleBoundedMultiplier(
+  rng,
+  { mean = 1, deviation = 0.03, min = 0.94, max = 1.08 } = {}
+) {
+  return clamp(mean + randomNormal(rng, 0, deviation), min, max);
+}
+
+function sampleCappedFatTailMultiplier(
+  rng,
+  { exposure = 0, threshold = 0.58, probabilityCap = 0.16, maxImpact = 0.18 } = {}
+) {
+  if (exposure <= threshold) {
+    return 1;
+  }
+
+  const normalizedExposure = clamp(
+    (exposure - threshold) / (1 - threshold),
+    0,
+    1
+  );
+  const eventProbability = normalizedExposure * probabilityCap;
+
+  if (rng() >= eventProbability) {
+    return 1;
+  }
+
+  const severity = randomTriangular(rng, 0.2, 0.48, 1);
+  return 1 + normalizedExposure * maxImpact * (0.45 + severity * 0.55);
 }
 
 function parseJsonBody(event) {
@@ -650,22 +713,105 @@ function buildDerivedFactors(input) {
   const dependentTeams = DEPENDENT_TEAMS_INDEX[input.dependentTeams];
   const ownershipModel = OWNERSHIP_MODEL_INDEX[input.ownershipModel];
   const muiUsage = MUI_USAGE_INDEX[input.existingMuiUsage];
-  const maturity = MATURITY_INDEX[input.designSystemMaturity];
+  const rowsUnder1k = input.expectedRows === "under-1k";
+  const columnsUnder10 = input.expectedColumns === "under-10";
+  const noAdvancedBehaviors = input.advancedFeatures.length === 0;
+  const selectedAdvancedBehaviors = describeList(
+    input.advancedFeatures.map((feature) => {
+      const labels = {
+        virtualization: "virtualization at scale",
+        "inline-editing": "inline editing",
+        "server-side-data": "server-side data",
+        "keyboard-navigation": "keyboard navigation",
+        exporting: "exporting or print support",
+        "drag-and-drop": "drag and drop",
+        "custom-rendering": "custom rendering",
+        "timezone-logic": "timezone logic"
+      };
+
+      return labels[feature] ?? feature;
+    })
+  );
+  const accessibilityTargetLabel = {
+    none: "No formal accessibility target was selected, so the model does not add WCAG-specific verification burden.",
+    "wcag-a": "The WCAG A target adds accessibility verification burden because the implementation still needs formal keyboard and interaction checks.",
+    "wcag-aa": "The WCAG AA target adds accessibility verification burden because the implementation needs broader keyboard, focus, and semantic validation.",
+    "wcag-aaa-regulated": "The WCAG AAA / regulated target adds heavier accessibility verification burden because the implementation needs stricter compliance checks."
+  }[input.accessibilityTarget];
+  const changeLeadTimeLabel = {
+    "less-than-day": "Less-than-day change lead time indicates strong delivery flow.",
+    "one-day-to-one-week": "One-day-to-one-week change lead time indicates healthy delivery flow with some release coordination.",
+    "one-week-to-one-month": "One-week-to-one-month change lead time indicates slower delivery flow and more schedule variance.",
+    "more-than-month": "More-than-month change lead time indicates a slow delivery cadence and a wider uncertainty band.",
+    unknown: "Unknown change lead time widens the delivery uncertainty band."
+  }[input.changeLeadTime];
+  const reworkLabel = {
+    rare: "Rare rework suggests the team usually absorbs changes without heavy churn.",
+    occasional: "Occasional rework suggests the team can absorb changes, but with some churn.",
+    frequent: "Frequent rework suggests the team is likely to spend more time revisiting prior decisions.",
+    unknown: "Unknown rework frequency widens the delivery uncertainty band."
+  }[input.reworkFrequency];
+  const deadlinePressureLabel = {
+    low: "Low deadline pressure reduces schedule-compression risk.",
+    medium: "Medium deadline pressure leaves some schedule compression risk in play.",
+    high: "High deadline pressure increases schedule-compression risk."
+  }[input.deadlinePressure];
+  const ownershipLeadLabel = {
+    one: "One dependent team and same-product-team ownership keep coordination load low.",
+    "two-three": "Two to three dependent teams and the current ownership model keep coordination load manageable but no longer trivial.",
+    "four-seven": "Four to seven dependent teams and the current ownership model raise coordination load.",
+    "eight-plus": "Eight or more dependent teams make coordination load high unless ownership is very tightly managed."
+  }[input.dependentTeams];
+  const dependentTeamLabel = {
+    one: "one dependent team",
+    "two-three": "two to three dependent teams",
+    "four-seven": "four to seven dependent teams",
+    "eight-plus": "eight or more dependent teams"
+  }[input.dependentTeams];
+  const appSurfaceLabel = {
+    1: "One React app keeps the rollout and maintenance surface contained.",
+    2: "Two React apps broaden the rollout and maintenance surface.",
+    3: "Three React apps broaden the rollout and maintenance surface further.",
+    4: "Four React apps make the rollout and maintenance surface substantial.",
+    5: "Five React apps make the rollout and maintenance surface broad.",
+    6: "Six React apps make the rollout and maintenance surface broad.",
+    7: "Seven React apps make the rollout and maintenance surface broad.",
+    8: "Eight or more React apps make the rollout and maintenance surface wide."
+  }[Math.min(input.reactApps, 8)] ?? `${countLabel(input.reactApps, "React app")} widen the rollout and maintenance surface.`;
+  const developerCapacityLabel = `${countLabel(input.frontendDevelopers, "frontend developer")} ${
+    input.frontendDevelopers === 1 ? "increases" : "increase"
+  } internal capacity for build and maintenance.`;
+  const maturityLabel = {
+    low: "Low UI/platform maturity leaves more shared groundwork to establish.",
+    medium: "Medium UI/platform maturity provides some shared patterns, but not enough to remove ownership burden.",
+    high: "High UI/platform maturity reduces ownership burden because shared patterns and groundwork already exist."
+  }[input.designSystemMaturity];
+  const scaleLabel = rowsUnder1k && columnsUnder10
+    ? "Small data volume keeps the complexity contained: under 1k rows and under 10 columns."
+    : `Expected volume sits in the ${input.expectedRows} row band and the ${input.expectedColumns} column band, which expands the component surface as scale rises.`;
+  const functionalFeatureLabel = noAdvancedBehaviors
+    ? "No advanced behaviors were selected, so the model does not add extra interaction or data-state complexity."
+    : `Selected advanced behaviors (${selectedAdvancedBehaviors}) expand interaction, state, and integration complexity.`;
+  const qualityScaleLabel = rowsUnder1k && columnsUnder10
+    ? "Small row and column counts keep performance and regression risk low."
+    : `Larger row and column counts increase performance and regression risk as scale rises.`;
+  const qualityFeatureLabel = noAdvancedBehaviors
+    ? "No advanced behaviors were selected, so keyboard, virtualization, server-side data, and custom-rendering QA are not added."
+    : `Selected advanced behaviors (${selectedAdvancedBehaviors}) add keyboard, virtualization, server-side data, or custom-rendering QA burden where relevant.`;
 
   const functionalDrivers = [
-    `${input.primaryUseCase} is the primary use case, which sets the baseline interaction complexity.`,
-    `Expected volume sits in the ${input.expectedRows} row band and the ${input.expectedColumns} column band.`
+    input.primaryUseCase === "multi-component"
+      ? "Multi-component evaluation creates moderate implementation scope because more than one UI pattern may need to work together."
+      : `${input.primaryUseCase} is the primary use case, which sets the baseline interaction complexity.`,
+    scaleLabel,
+    functionalFeatureLabel
   ];
-
-  if (input.advancedFeatures.length > 0) {
-    functionalDrivers.push(
-      `${input.advancedFeatures.length} advanced feature${input.advancedFeatures.length === 1 ? "" : "s"} expand the component surface area.`
-    );
-  }
 
   if (screenLoad > 0) {
     functionalDrivers.push(
-      `${screenLoad} data-heavy screen${screenLoad === 1 ? "" : "s"} add state and edge-case pressure.`
+      `${countLabel(screenLoad, "data-heavy screen")} ${
+        screenLoad === 1 ? "adds" : "add"
+      } state and edge-case pressure.`
     );
   }
 
@@ -681,23 +827,10 @@ function buildDerivedFactors(input) {
   );
 
   const qualityDrivers = [
-    `${input.accessibilityTarget} accessibility target sets the baseline QA and interaction burden.`,
-    `Expected volume at ${input.expectedRows} rows by ${input.expectedColumns} columns increases regression risk.`
+    accessibilityTargetLabel,
+    qualityScaleLabel,
+    qualityFeatureLabel
   ];
-  const qualityFeatures = [
-    "keyboard-navigation",
-    "virtualization",
-    "custom-rendering",
-    "server-side-data",
-    "timezone-logic",
-    "drag-and-drop"
-  ].filter((feature) => input.advancedFeatures.includes(feature));
-
-  if (qualityFeatures.length > 0) {
-    qualityDrivers.push(
-      `${qualityFeatures.join(", ")} require deeper behavior coverage and regression checking.`
-    );
-  }
 
   const qualityBurden = buildFactor(
     accessibilityTarget * 18 +
@@ -713,19 +846,10 @@ function buildDerivedFactors(input) {
   );
 
   const deliveryDrivers = [
-    `${input.changeLeadTime} change lead time is the main delivery throughput input.`,
-    `${input.reworkFrequency} rework frequency affects how much churn the team should expect.`,
-    `${input.deadlinePressure} deadline pressure affects how much schedule slack the team has.`
+    changeLeadTimeLabel,
+    reworkLabel,
+    deadlinePressureLabel
   ];
-
-  if (
-    input.changeLeadTime === "unknown" ||
-    input.reworkFrequency === "unknown"
-  ) {
-    deliveryDrivers.push(
-      "Unknown cadence inputs widen the delivery uncertainty band."
-    );
-  }
 
   const deliveryMaturity = buildFactor(
     28 +
@@ -736,28 +860,25 @@ function buildDerivedFactors(input) {
   );
 
   const ownershipDrivers = [
-    `${input.dependentTeams} dependent team band and ${input.ownershipModel} ownership model shape the coordination load.`,
-    `${input.reactApps} React app${input.reactApps === 1 ? "" : "s"} widen the long-term component ownership surface.`,
-    `${input.frontendDevelopers} frontend developer${input.frontendDevelopers === 1 ? "" : "s"} influence coordination and onboarding cost.`
+    ownershipLeadLabel,
+    appSurfaceLabel,
+    developerCapacityLabel,
+    maturityLabel
   ];
 
-  ownershipDrivers.push(
-    `${input.designSystemMaturity} design-system maturity changes how much shared groundwork already exists.`
-  );
-
   const ownershipBurden = buildFactor(
-    dependentTeams * 14 +
-      ownershipModel * 10 +
-      Math.min(input.reactApps, 8) * 4.5 +
-      Math.min(input.frontendDevelopers, 12) * 2.2 +
-      (4 - maturity) * 9,
+    12 +
+      dependentTeams * 7.5 +
+      ownershipModel * 6.5 +
+      Math.min(input.reactApps, 8) * 3.5 +
+      { low: 12, medium: 7, high: 0 }[input.designSystemMaturity],
     ownershipDrivers
   );
 
   const enterpriseDrivers = [
     `${input.supportRequirement} support expectations drive the need for vendor-backed response and procurement paths.`,
     `${input.maintenanceHorizonMonths} months of planned maintenance raises the value of durable support and upgrades.`,
-    `${input.dependentTeams} dependent team band and ${input.reactApps} React app${input.reactApps === 1 ? "" : "s"} define the rollout footprint.`
+    `${dependentTeamLabel} and ${countLabel(input.reactApps, "React app")} define the rollout footprint.`
   ];
 
   if (muiUsage > 0) {
@@ -1362,6 +1483,23 @@ function runSimulation(input, scorecard) {
     downsideTailRisk >= 0.45 ? (downsideTailRisk - 0.45) * 0.22 : 0;
   const muiLeverageShield = clamp(muiLeverage * 0.22, 0, 0.18);
   const muiAdoptionLoad = clamp(muiAdoptionBurden * 0.26, 0.02, 0.18);
+  const buildFatTailExposure = clamp(
+    downsideTailRisk * 0.82 +
+      (scorecard.deliveryRisk >= 0.45 ? 0.06 : 0) +
+      (scorecard.ownershipRisk >= 0.55 ? 0.05 : 0) +
+      (scaleDemand >= 5 ? 0.04 : 0) -
+      internalAbsorption * 0.1,
+    0,
+    1
+  );
+  const muiFatTailExposure = clamp(
+    (muiAdoptionBurden >= 0.42 ? muiAdoptionBurden * 0.58 : 0) +
+      (planFit.coverageGap >= 0.28 ? planFit.coverageGap * 0.34 : 0) +
+      (planFit.integrationRisk >= 0.42 ? planFit.integrationRisk * 0.28 : 0) -
+      muiLeverage * 0.08,
+    0,
+    0.82
+  );
 
   const buildVelocity = clamp(
     0.84 +
@@ -1404,6 +1542,28 @@ function runSimulation(input, scorecard) {
   let muiExceeds20WeeksCount = 0;
 
   for (let iteration = 0; iteration < ITERATIONS; iteration += 1) {
+    const buildBaselineSampler = sampleBoundedMultiplier(rng, {
+      deviation: 0.024 + buildTailPenalty * 0.1,
+      min: 0.95,
+      max: 1.07
+    });
+    const muiBaselineSampler = sampleBoundedMultiplier(rng, {
+      deviation: 0.02 + muiAdoptionLoad * 0.06,
+      min: 0.96,
+      max: 1.06
+    });
+    const buildFatTailMultiplier = sampleCappedFatTailMultiplier(rng, {
+      exposure: buildFatTailExposure,
+      threshold: 0.58,
+      probabilityCap: 0.16,
+      maxImpact: 0.18
+    });
+    const muiFatTailMultiplier = sampleCappedFatTailMultiplier(rng, {
+      exposure: muiFatTailExposure,
+      threshold: 0.62,
+      probabilityCap: 0.1,
+      maxImpact: 0.1
+    });
     const buildEngineeringMean =
       3.4 +
       scorecard.functionalRisk * 11.8 +
@@ -1414,8 +1574,10 @@ function runSimulation(input, scorecard) {
       (scaleDemand >= 5 ? 0.9 : 0);
     const buildEngineeringMeanCalibrated = Math.max(
       2.4,
-      buildEngineeringMean * (1 - buildAbsorptionShield) +
-        downsideTailRisk * 0.9
+      (buildEngineeringMean * (1 - buildAbsorptionShield) +
+        downsideTailRisk * 0.9) *
+        buildBaselineSampler *
+        buildFatTailMultiplier
     );
     const buildEngineeringVariance =
       0.08 +
@@ -1438,8 +1600,14 @@ function runSimulation(input, scorecard) {
       (scaleDemand >= 5 ? 0.4 : 0);
     const buildReworkMeanCalibrated = Math.max(
       0.35,
-      buildReworkMean * (1 - buildAbsorptionShield * 0.85) +
-        downsideTailRisk * 0.28
+      (buildReworkMean * (1 - buildAbsorptionShield * 0.85) +
+        downsideTailRisk * 0.28) *
+        sampleBoundedMultiplier(rng, {
+          deviation: 0.022 + buildTailPenalty * 0.08,
+          min: 0.96,
+          max: 1.08
+        }) *
+        (1 + (buildFatTailMultiplier - 1) * 0.65)
     );
     const buildRework = Math.max(
       0,
@@ -1469,8 +1637,14 @@ function runSimulation(input, scorecard) {
       (scaleDemand >= 5 ? 0.3 : 0);
     const buildSlipMeanCalibrated = Math.max(
       0.5,
-      buildSlipMean * (1 - buildAbsorptionShield * 0.72) +
-        buildTailPenalty * 3.6
+      (buildSlipMean * (1 - buildAbsorptionShield * 0.72) +
+        buildTailPenalty * 3.6) *
+        sampleBoundedMultiplier(rng, {
+          deviation: 0.02 + buildTailPenalty * 0.06,
+          min: 0.97,
+          max: 1.09
+        }) *
+        (1 + (buildFatTailMultiplier - 1) * 0.82)
     );
     const buildSlip = Math.max(
       0.6,
@@ -1499,11 +1673,13 @@ function runSimulation(input, scorecard) {
       coverageShield * 0.18;
     const muiEngineeringMeanCalibrated = Math.max(
       1.6,
-      muiEngineeringMean +
+      (muiEngineeringMean +
         1 +
         muiAdoptionBurden * 2.4 -
         muiLeverage * 1.6 -
-        coverageShield * 0.15
+        coverageShield * 0.15) *
+        muiBaselineSampler *
+        muiFatTailMultiplier
     );
     const muiEngineeringVariance =
       0.06 +
@@ -1527,10 +1703,16 @@ function runSimulation(input, scorecard) {
       coverageShield * 0.08;
     const muiReworkMeanCalibrated = Math.max(
       0.18,
-      muiReworkMean +
+      (muiReworkMean +
         muiAdoptionBurden * 0.85 -
         muiLeverage * 0.58 -
-        coverageShield * 0.1
+        coverageShield * 0.1) *
+        sampleBoundedMultiplier(rng, {
+          deviation: 0.018 + muiAdoptionLoad * 0.05,
+          min: 0.97,
+          max: 1.07
+        }) *
+        (1 + (muiFatTailMultiplier - 1) * 0.55)
     );
     const muiRework = Math.max(
       0,
@@ -1559,10 +1741,16 @@ function runSimulation(input, scorecard) {
       coverageShield * 0.1;
     const muiSlipMeanCalibrated = Math.max(
       0.25,
-      muiSlipMean +
+      (muiSlipMean +
         muiAdoptionBurden * 0.8 -
         muiLeverage * 0.52 -
-        coverageShield * 0.08
+        coverageShield * 0.08) *
+        sampleBoundedMultiplier(rng, {
+          deviation: 0.017 + muiAdoptionLoad * 0.04,
+          min: 0.97,
+          max: 1.06
+        }) *
+        (1 + (muiFatTailMultiplier - 1) * 0.62)
     );
     const muiSlip = Math.max(
       0.3,
@@ -1590,8 +1778,14 @@ function runSimulation(input, scorecard) {
         (scaleDemand >= 5 ? 0.18 : 0));
     const buildMaintenanceBaseCalibrated = Math.max(
       0.75,
-      buildMaintenanceBase * (1 - buildAbsorptionShield * 0.68) +
-        downsideTailRisk * 0.32 * horizonYears
+      (buildMaintenanceBase * (1 - buildAbsorptionShield * 0.68) +
+        downsideTailRisk * 0.32 * horizonYears) *
+        sampleBoundedMultiplier(rng, {
+          deviation: 0.018 + buildTailPenalty * 0.05,
+          min: 0.97,
+          max: 1.08
+        }) *
+        (1 + (buildFatTailMultiplier - 1) * 0.58)
     );
     const buildMaintenance = Math.max(
       0.8,
@@ -1618,10 +1812,16 @@ function runSimulation(input, scorecard) {
         coverageShield * 0.12);
     const muiMaintenanceBaseCalibrated = Math.max(
       0.42,
-      muiMaintenanceBase +
+      (muiMaintenanceBase +
         muiAdoptionBurden * 0.42 * horizonYears -
         muiLeverage * 0.32 * horizonYears -
-        coverageShield * 0.08
+        coverageShield * 0.08) *
+        sampleBoundedMultiplier(rng, {
+          deviation: 0.016 + muiAdoptionLoad * 0.03,
+          min: 0.98,
+          max: 1.06
+        }) *
+        (1 + (muiFatTailMultiplier - 1) * 0.42)
     );
     const muiMaintenance = Math.max(
       0.4,
@@ -1721,7 +1921,20 @@ function runSimulation(input, scorecard) {
     muiPath,
     comparison,
     estimatedLicensedDevelopers,
-    modelLevers: scorecard.scenarioLevers
+    modelLevers: scorecard.scenarioLevers,
+    riskLayer: {
+      methodology: "conservative-capped-fat-tail-v1",
+      buildFatTailExposure: roundTo(buildFatTailExposure, 2),
+      muiFatTailExposure: roundTo(muiFatTailExposure, 2),
+      buildTailImpactCap: roundTo(0.18, 2),
+      muiTailImpactCap: roundTo(0.1, 2),
+      sourceKeys: [
+        "dora-metrics",
+        "wcag-22",
+        "aria-apg",
+        "webdev-virtualization"
+      ]
+    }
   };
 }
 
@@ -1781,7 +1994,7 @@ function buildRecommendation(input, scorecard, simulation) {
   if (muiDominatesSimulation) {
     option = selectedPlan.recommendationLabel;
     summary =
-      `${selectedPlan.label} is both faster and lower in modeled total cost across the simulation, so the packaged path now has the stronger recommendation signal. Build still remains credible only as a higher-control tradeoff, not the favored path.`;
+      `${selectedPlan.label} is both faster and lower in modeled total cost across the simulation, so the packaged path now has the stronger recommendation case. Build still remains credible only as a higher-control tradeoff, not the favored path.`;
   } else if (buildDominatesSimulation) {
     option = "Build in-house";
     summary =
@@ -1907,13 +2120,13 @@ function buildRecommendation(input, scorecard, simulation) {
     confidence: {
       score: confidenceScore,
       level:
-        confidenceScore >= 80
+      confidenceScore >= 80
           ? "high"
           : confidenceScore >= 62
             ? "moderate"
             : "qualified",
       rationale:
-        "Confidence reflects whether the selected recommendation is supported by the same-direction delivery and cost evidence, together with the rule-based fit signals. It is not a guarantee of outcome."
+        "Confidence reflects whether the selected recommendation is supported by the same-direction delivery and cost evidence, together with the rule-based fit scores. It is not a guarantee of outcome."
     }
   };
 }
@@ -1923,41 +2136,55 @@ function buildEvidenceBasis(input, scorecard) {
     {
       factor: "functionalComplexity",
       basis: "benchmark-informed",
+      sourceKeys: ["cocomo-ii"],
       explanation:
-        "Primary use case, expected row and column scale, data-heavy screens, and advanced features raise effort because complex component programs typically expand integration and QA scope."
+        "Primary use case, expected row and column scale, data-heavy screens, and advanced features raise effort because component work expands scope, integration, and verification effort."
     },
     {
       factor: "qualityBurden",
       basis: "standard-backed",
+      sourceKeys: ["nist-software-errors"],
       explanation:
-        "Accessibility target, expected scale, keyboard support, virtualization, custom rendering, and similar behaviors increase the verification burden because they expand behavioral requirements."
+        "Accessibility target, expected scale, keyboard support, virtualization, custom rendering, and similar behaviors increase the verification burden because they expand defect exposure and rework cost."
     },
     {
       factor: "deliveryMaturity",
-      basis: "practice-backed",
+      basis: "benchmark-informed",
+      sourceKeys: ["cocomo-ii", "isbsg"],
       explanation:
-        "Change lead time, rework frequency, and deadline pressure are used as delivery health signals because teams with faster change cycles and less churn absorb change with less schedule variance."
+        "Change lead time, rework frequency, and deadline pressure are used as delivery health inputs because faster change cycles and less churn usually absorb work with less schedule variance."
     },
     {
       factor: "ownershipBurden",
       basis: "practice-backed",
+      sourceKeys: ["cocomo-ii"],
       explanation:
-        "Dependent teams, ownership model, React footprint, and design-system maturity shape long-term ownership cost because shared components create maintenance and onboarding obligations."
+        "Dependent teams, ownership model, React footprint, and design-system maturity shape long-term ownership cost because shared components create maintenance, rollout, and coordination obligations."
     },
     {
       factor: "enterpriseReadiness",
       basis: "benchmark-informed",
+      sourceKeys: [],
       explanation:
         "Support expectations, maintenance horizon, existing MUI usage, and organizational footprint raise enterprise fit because vendor-backed procurement and response matter more in larger or longer-lived programs."
     },
     {
+      factor: "implementationInterdependency",
+      basis: "benchmark-informed",
+      sourceKeys: ["flyvbjerg-it-overruns"],
+      explanation:
+        "Feature coupling, custom rendering, and integration-heavy behavior create interdependency risk because large programs tend to accumulate downside from linked work streams."
+    },
+    {
       factor: `${PLAN_CONFIG[scorecard.effectiveMuiPlan].label} plan fit`,
       basis: "product-specific heuristic",
+      sourceKeys: [],
       explanation: `The model estimates ${PLAN_CONFIG[scorecard.effectiveMuiPlan].label} fit from this payload's use case, feature demand, support need, and existing MUI usage.`
     },
     {
       factor: "recommendation synthesis",
       basis: "product-specific heuristic",
+      sourceKeys: [],
       explanation: `The final recommendation combines the factor model with seeded scenario simulation instead of using a single threshold for ${input.primaryUseCase}.`
     }
   ];
@@ -1979,7 +2206,10 @@ function buildResult(input) {
   ];
 
   assumptions.push(
-    "Derived factors are benchmark-informed heuristics meant to keep the model transparent and evolvable, not to imply precise industry averages."
+    "Public sources inform variable selection and risk-shape choices; they are not used as exact licensed benchmark parameters."
+  );
+  assumptions.push(
+    "Numerical outputs are scenario estimates based on user input and transparent heuristics."
   );
   assumptions.push(
     "The latest model version is benchmark-informed-v3, and older saved reports may not reflect the current input schema."
@@ -1988,6 +2218,7 @@ function buildResult(input) {
   return {
     ...recommendation,
     modelVersion: MODEL_VERSION,
+    publicSources: PUBLIC_BENCHMARK_SOURCES,
     derivedFactors,
     evidenceBasis,
     modeledMuiPathFit: {
@@ -2015,6 +2246,7 @@ function buildResult(input) {
     muiPath: simulation.muiPath,
     comparison: simulation.comparison,
     modelLevers: simulation.modelLevers,
+    riskLayer: simulation.riskLayer,
     assumptions
   };
 }

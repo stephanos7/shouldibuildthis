@@ -19,6 +19,11 @@ import {
 } from "@mui/material";
 import { NavLink } from "react-router-dom";
 import PageHero from "../components/PageHero.jsx";
+import {
+  PUBLIC_SOURCES,
+  PUBLIC_BENCHMARK_SOURCES,
+  getPublicSourceMap
+} from "../data/publicSources.js";
 
 const CURRENT_MODEL_VERSION = "benchmark-informed-v3";
 
@@ -230,6 +235,173 @@ function summarizeAdvancedFeatures(features) {
   return `${labels[0]}, ${labels[1]}, and ${labels.length - 2} more`;
 }
 
+const factorDisplayConfig = {
+  functionalComplexity: {
+    title: "Functional complexity",
+    scaleType: "burden",
+    labelNoun: "scope complexity"
+  },
+  qualityBurden: {
+    title: "Quality burden",
+    scaleType: "burden",
+    labelNoun: "quality burden"
+  },
+  deliveryMaturity: {
+    title: "Delivery maturity",
+    scaleType: "strength",
+    labelNoun: "delivery strength"
+  },
+  ownershipBurden: {
+    title: "Ownership burden",
+    scaleType: "burden",
+    labelNoun: "ownership burden"
+  },
+  enterpriseReadiness: {
+    title: "Enterprise readiness",
+    scaleType: "readiness",
+    labelNoun: "enterprise readiness"
+  },
+  implementationInterdependency: {
+    title: "Implementation interdependency",
+    scaleType: "burden",
+    labelNoun: "implementation interdependency"
+  }
+};
+
+function getBand(score) {
+  if (!Number.isFinite(score)) {
+    return "unknown";
+  }
+
+  if (score >= 67) {
+    return "high";
+  }
+
+  if (score >= 34) {
+    return "medium";
+  }
+
+  return "low";
+}
+
+function capitalize(value) {
+  return value ? value.charAt(0).toUpperCase() + value.slice(1) : value;
+}
+
+function getFactorDisplayLabel(factorKey, score) {
+  const config = factorDisplayConfig[factorKey];
+  const band = getBand(score);
+
+  if (!config) {
+    return capitalize(band);
+  }
+
+  return `${capitalize(band)} ${config.labelNoun}`;
+}
+
+function getFactorTitle(factorKey) {
+  return factorDisplayConfig[factorKey]?.title ?? factorKey ?? "Factor";
+}
+
+function getFactorTone(factorKey, score) {
+  const config = factorDisplayConfig[factorKey];
+  const band = getBand(score);
+
+  if (!config) {
+    return "neutral";
+  }
+
+  if (config.scaleType === "strength") {
+    if (band === "high") {
+      return "positive";
+    }
+
+    if (band === "medium") {
+      return "caution";
+    }
+
+    return "risk";
+  }
+
+  if (config.scaleType === "burden") {
+    if (band === "high") {
+      return "risk";
+    }
+
+    if (band === "medium") {
+      return "caution";
+    }
+
+    return "positive";
+  }
+
+  if (band === "high") {
+    return "positive";
+  }
+
+  if (band === "medium") {
+    return "caution";
+  }
+
+  return "neutral";
+}
+
+function getToneColor(tone) {
+  return {
+    positive: "success.main",
+    caution: "warning.main",
+    risk: "error.main",
+    neutral: "grey.500"
+  }[tone] ?? "grey.500";
+}
+
+function getToneChipColor(tone) {
+  return {
+    positive: "success",
+    caution: "warning",
+    risk: "error",
+    neutral: "default"
+  }[tone] ?? "default";
+}
+
+function getDecisionFactorTone(title, score) {
+  const band = getBand(score);
+
+  if (title === "Scope burden") {
+    if (band === "high") {
+      return "risk";
+    }
+
+    if (band === "medium") {
+      return "caution";
+    }
+
+    return "positive";
+  }
+
+  if (title === "Internal absorption") {
+    if (band === "high") {
+      return "positive";
+    }
+
+    if (band === "medium") {
+      return "caution";
+    }
+
+    return "risk";
+  }
+
+  if (band === "high") {
+    return "positive";
+  }
+
+  if (band === "medium") {
+    return "caution";
+  }
+
+  return "neutral";
+}
+
 function buildProbabilityMetrics(result) {
   const comparison = result.comparison ?? {};
   const muiLabel = result.muiPath?.label ?? "Selected MUI path";
@@ -256,22 +428,6 @@ function buildProbabilityMetrics(result) {
       detail: `This shows how much schedule overrun risk remains even with the packaged path.`
     }
   ];
-}
-
-function getSignalLabel(score) {
-  if (!Number.isFinite(score)) {
-    return "Not available";
-  }
-
-  if (score >= 70) {
-    return "High";
-  }
-
-  if (score >= 40) {
-    return "Moderate";
-  }
-
-  return "Low";
 }
 
 function buildDecisionFactors(result, assessmentInput) {
@@ -304,7 +460,7 @@ function buildDecisionFactors(result, assessmentInput) {
     {
       title: "Scope burden",
       score: scopeBurdenScore,
-      label: "Rule-based signal",
+      label: "Rule-based fit",
       summary:
         "How much work the UI requirement creates before delivery timing and TCO are modeled.",
       details: [
@@ -315,7 +471,7 @@ function buildDecisionFactors(result, assessmentInput) {
     {
       title: "Internal absorption",
       score: internalAbsorptionScore,
-      label: "Rule-based signal",
+      label: "Rule-based fit",
       summary:
         "How well the team can absorb custom build work with the current delivery and ownership setup.",
       details: [
@@ -374,7 +530,6 @@ function buildRiskDrivers(result, assessmentInput) {
   const qualityScore = Number(derived.qualityBurden?.score) || 0;
   const deliveryScore = Number(derived.deliveryMaturity?.score) || 0;
   const ownershipScore = Number(derived.ownershipBurden?.score) || 0;
-  const enterpriseScore = Number(derived.enterpriseReadiness?.score) || 0;
   const rowWeights = {
     "under-1k": 2,
     "1k-10k": 8,
@@ -466,32 +621,38 @@ function buildRiskDrivers(result, assessmentInput) {
     {
       title: "Advanced scope complexity",
       score: advancedScopeScore,
-      detail: `${formatLabel("primaryUseCase", primaryUseCase)} currently carries ${advancedFeatureCount || "no"} additional advanced behavior${advancedFeatureCount === 1 ? "" : "s"}, ${dataHeavyScreens} data-heavy screen${dataHeavyScreens === 1 ? "" : "s"}, and a ${formatLabel("expectedRows", expectedRows)} by ${formatLabel("expectedColumns", expectedColumns)} scale profile.`,
-      implication: "This expands the edge-case surface area and makes a clean custom build harder to keep predictable."
+      detail:
+        `${formatLabel("primaryUseCase", primaryUseCase)} currently carries ${advancedFeatureCount || "no"} additional advanced behavior${advancedFeatureCount === 1 ? "" : "s"}, ${dataHeavyScreens} data-heavy screen${dataHeavyScreens === 1 ? "" : "s"}, and a ${formatLabel("expectedRows", expectedRows)} by ${formatLabel("expectedColumns", expectedColumns)} scale profile.`,
+      implication:
+        "More advanced behaviors and larger data scale raise implementation, integration, and QA risk."
     },
     {
       title: "Schedule overrun exposure",
       score: scheduleRiskScore,
       detail: `The model puts the in-house path above 20 weeks in about ${formatProbability(comparison.probabilityBuildExceeds20Weeks)}, versus ${formatProbability(comparison.probabilityMuiExceeds20Weeks)} for ${result.muiPath?.label ?? "the packaged path"}.`,
-      implication: "This is the clearest delivery-risk signal in the result."
+      implication:
+        "Higher schedule pressure increases the chance that the build path slips beyond the preferred window."
     },
     {
       title: "Support and accessibility expectations",
       score: supportScore,
       detail: `Current support need is ${formatLabel("supportRequirement", supportRequirement)} with a ${formatLabel("accessibilityTarget", accessibilityTarget)} accessibility target.`,
-      implication: "Higher assurance requirements increase the value of vendor-backed behavior, fixes, and support channels."
+      implication:
+        "Higher assurance requirements increase the value of vendor-backed behavior, fixes, and support channels."
     },
     {
       title: "Maintenance continuity",
       score: maintenanceScore,
       detail: `The model assumes a ${formatLabel("maintenanceHorizonMonths", assessmentInput?.maintenanceHorizonMonths)} horizon with ${formatLabel("dependentTeams", dependentTeams)} dependent teams and ${formatLabel("ownershipModel", ownershipModel)} ownership.`,
-      implication: "Longer ownership windows and staffing churn make ongoing custom maintenance more consequential."
+      implication:
+        "Longer ownership windows and staffing churn make ongoing custom maintenance more consequential."
     },
     {
       title: "Rollout footprint and reuse",
       score: rolloutScore,
       detail: `${frontendDevelopers || "A small number of"} frontend developer${frontendDevelopers === 1 ? "" : "s"} support ${reactApps || "a limited number of"} React app${reactApps === 1 ? "" : "s"}, with ${formatLabel("existingMuiUsage", existingMuiUsage)} MUI usage and ${formatLabel("designSystemMaturity", assessmentInput?.designSystemMaturity)} maturity today.`,
-      implication: "As more teams and apps share the component, consistency and standardization matter more."
+      implication:
+        "More shared usage increases the value of consistency, but also raises the cost of a poorly governed component layer."
     }
   ];
 
@@ -732,14 +893,6 @@ function DriverCard({ title, score, detail, implication }) {
   );
 }
 
-const derivedFactorLabels = {
-  functionalComplexity: "Functional complexity",
-  qualityBurden: "Quality burden",
-  deliveryMaturity: "Delivery maturity",
-  ownershipBurden: "Ownership burden",
-  enterpriseReadiness: "Enterprise readiness"
-};
-
 const modelLeverLabels = {
   internalAbsorption: "Internal absorption",
   buildReuseLeverage: "Build reuse leverage",
@@ -794,10 +947,42 @@ function groupEvidenceBasis(items) {
     .filter((group) => group.items.length > 0);
 }
 
+function SourceChipRow({ sourceKeys, sourceMap }) {
+  const sources = (Array.isArray(sourceKeys) ? sourceKeys : [])
+    .map((key) => sourceMap[key])
+    .filter(Boolean);
+
+  if (sources.length === 0) {
+    return null;
+  }
+
+  return (
+    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+      {sources.map((source) => (
+        <Chip
+          key={source.key}
+          label={source.shortLabel}
+          size="small"
+          component="a"
+          clickable
+          href={source.url}
+          target="_blank"
+          rel="noreferrer"
+          variant="outlined"
+        />
+      ))}
+    </Stack>
+  );
+}
+
 function FactorCard({ title, factor }) {
   const score = Number(factor?.score);
   const drivers = Array.isArray(factor?.drivers) ? factor.drivers.slice(0, 4) : [];
-  const level = factor?.level ?? "unknown";
+  const key = factor?.key;
+  const config = factorDisplayConfig[key] ?? null;
+  const tone = getFactorTone(key, score);
+  const label = getFactorDisplayLabel(key, score);
+  const barColor = getToneColor(tone);
 
   return (
     <Card elevation={0} sx={{ height: "100%", border: 1, borderColor: "divider" }}>
@@ -809,7 +994,7 @@ function FactorCard({ title, factor }) {
                 {title}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                {level.charAt(0).toUpperCase() + level.slice(1)} signal
+                {config ? label : "Model factor"}
               </Typography>
             </Box>
             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap justifyContent="flex-end">
@@ -817,10 +1002,10 @@ function FactorCard({ title, factor }) {
                 <Chip label={`${formatNumber(score)}/100`} size="small" />
               ) : null}
               <Chip
-                label={level}
+                label={config ? label : (factor?.level ?? "unknown")}
                 size="small"
-                color={level === "high" ? "primary" : "secondary"}
-                variant={level === "high" ? "filled" : "outlined"}
+                color={getToneChipColor(tone)}
+                variant={tone === "neutral" ? "outlined" : "filled"}
               />
             </Stack>
           </Stack>
@@ -834,7 +1019,7 @@ function FactorCard({ title, factor }) {
               bgcolor: "action.hover",
               "& .MuiLinearProgress-bar": {
                 borderRadius: 999,
-                bgcolor: level === "high" ? "primary.main" : "secondary.main"
+                bgcolor: barColor
               }
             }}
           />
@@ -856,14 +1041,14 @@ function FactorCard({ title, factor }) {
   );
 }
 
-function EvidenceItem({ item }) {
+function EvidenceItem({ item, sourceMap }) {
   const appliesBecause = Array.isArray(item?.appliesBecause) ? item.appliesBecause.filter(Boolean) : [];
 
   return (
     <Stack spacing={1.25}>
       <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
         <Typography variant="subtitle2" component="h4">
-          {derivedFactorLabels[item?.factor] ?? item?.factor ?? "Factor"}
+          {getFactorTitle(item?.factor)}
         </Typography>
         {item?.basis ? <Chip label={evidenceBasisLabels[item.basis] ?? item.basis} size="small" variant="outlined" /> : null}
       </Stack>
@@ -877,11 +1062,12 @@ function EvidenceItem({ item }) {
           ))}
         </Stack>
       ) : null}
+      <SourceChipRow sourceKeys={item?.sourceKeys} sourceMap={sourceMap} />
     </Stack>
   );
 }
 
-function EvidenceBasisGroup({ basis, items }) {
+function EvidenceBasisGroup({ basis, items, sourceMap }) {
   return (
     <Card elevation={0} sx={{ height: "100%", border: 1, borderColor: "divider" }}>
       <CardContent sx={{ p: 2.5 }}>
@@ -898,7 +1084,7 @@ function EvidenceBasisGroup({ basis, items }) {
             {items.map((item, index) => (
               <Box key={`${item?.factor ?? basis}-${index}`}>
                 {index > 0 ? <Divider sx={{ mb: 2 }} /> : null}
-                <EvidenceItem item={item} />
+                <EvidenceItem item={item} sourceMap={sourceMap} />
               </Box>
             ))}
           </Stack>
@@ -958,6 +1144,15 @@ function ReportPage() {
   const scenarioSnapshot = buildScenarioSnapshot(assessmentInput, simulationResult);
   const derivedFactors = simulationResult.derivedFactors ?? null;
   const modelLevers = simulationResult.modelLevers ?? null;
+  const publicSourceMap = getPublicSourceMap(
+    [
+      ...(Array.isArray(simulationResult.publicSources)
+        ? simulationResult.publicSources
+        : []),
+      ...PUBLIC_SOURCES,
+      ...PUBLIC_BENCHMARK_SOURCES
+    ]
+  );
   const derivedFactorEntries = derivedFactors
     ? [
         ["functionalComplexity", derivedFactors.functionalComplexity],
@@ -1077,7 +1272,7 @@ function ReportPage() {
       {showModelExplanation ? (
         <SectionCard
           title="2. Why the model reached this view"
-          description="This is a scenario model, not a guarantee. The evidence basis explains why each factor is included, not that the numeric coefficient is externally certified."
+          description="This is a scenario model, not a guarantee. Public sources inform variable selection and risk direction, not the exact coefficients used in the simulation."
         >
           <Stack spacing={4}>
             {derivedFactorEntries.length > 0 ? (
@@ -1087,15 +1282,15 @@ function ReportPage() {
                     Derived factors
                   </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                    These summarize the input set into the five signals used by the recommendation and simulation.
+                    These summarize the input set into the five derived factors used by the recommendation and simulation.
                   </Typography>
                 </Box>
                 <Grid container spacing={2.5}>
                   {derivedFactorEntries.map(([key, factor]) => (
                     <Grid key={key} size={{ xs: 12, md: 6 }}>
                       <FactorCard
-                        title={derivedFactorLabels[key] ?? key}
-                        factor={factor}
+                        title={getFactorTitle(key)}
+                        factor={{ ...factor, key }}
                       />
                     </Grid>
                   ))}
@@ -1136,16 +1331,27 @@ function ReportPage() {
               <Stack spacing={2.5}>
                 <Box>
                   <Typography variant="h6" component="h3">
-                    Evidence basis
+                    Benchmark-informed assumptions
                   </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                    Standard-backed means a recognized standard or formal practice area. Benchmark-informed means an industry measurement pattern. Practice-backed means a widely used engineering concern. Product-specific heuristic means an MUI adoption or model-specific path-fit assumption.
+                    Public sources justify the uncertainty families included in the model. The numeric ranges are calibrated by the assessment inputs and product heuristics.
                   </Typography>
                 </Box>
+                <SourceChipRow
+                  sourceKeys={(simulationResult.publicSources ?? PUBLIC_BENCHMARK_SOURCES).map((source) => source.key)}
+                  sourceMap={publicSourceMap}
+                />
+                <Typography variant="caption" color="text.secondary">
+                  Public sources inform variable selection and risk-shape choices; they are not used as exact certified coefficients.
+                </Typography>
                 <Grid container spacing={2.5}>
                   {evidenceBasisGroups.map((group) => (
                     <Grid key={group.basis} size={{ xs: 12, md: 6 }}>
-                      <EvidenceBasisGroup basis={group.basis} items={group.items} />
+                      <EvidenceBasisGroup
+                        basis={group.basis}
+                        items={group.items}
+                        sourceMap={publicSourceMap}
+                      />
                     </Grid>
                   ))}
                 </Grid>
@@ -1174,7 +1380,7 @@ function ReportPage() {
               </Stack>
 
               <MeterRow
-                label="Overall recommendation signal"
+                label="Overall recommendation fit"
                 valueLabel={`${confidence.score ?? 0}/100`}
                 progress={confidence.score ?? 0}
                 helper={confidence.rationale}
@@ -1190,7 +1396,7 @@ function ReportPage() {
                 label="Cost evidence separation"
                 valueLabel={formatProbability(comparison.probabilityMuiLowerTco)}
                 progress={Math.abs((comparison.probabilityMuiLowerTco ?? 50) - 50) * 2}
-                helper="Useful context, but deliberately not the dominant signal."
+                helper="Useful context, but deliberately not the dominant factor."
               />
             </Stack>
           </SectionCard>
@@ -1213,7 +1419,7 @@ function ReportPage() {
                   Path fit before simulation
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  These scores are rule-based fit signals only. The final recommendation also
+                  These scores are rule-based fit scores only. The final recommendation also
                   considers simulated launch time, TCO, support context, and ownership credibility.
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
@@ -1247,10 +1453,12 @@ function ReportPage() {
                             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap justifyContent="flex-end">
                               <Chip label={factor.label} size="small" variant="outlined" />
                               <Chip
-                                label={`${getSignalLabel(factor.score)} fit`}
+                                label={`${getBand(factor.score)} fit`}
                                 size="small"
-                                color={factor.score >= 70 ? "primary" : "secondary"}
-                                variant={factor.score >= 70 ? "filled" : "outlined"}
+                                color={getToneChipColor(
+                                  getDecisionFactorTone(factor.title, factor.score)
+                                )}
+                                variant="outlined"
                               />
                             </Stack>
                           </Stack>
@@ -1259,8 +1467,10 @@ function ReportPage() {
                             label={factor.title}
                             valueLabel={`${formatNumber(factor.score)}/100`}
                             progress={factor.score}
-                            helper="Rule-based signal only"
-                            barColor={factor.score >= 70 ? "primary.main" : "secondary.main"}
+                            helper="Rule-based fit score only"
+                            barColor={getToneColor(
+                              getDecisionFactorTone(factor.title, factor.score)
+                            )}
                           />
 
                           <Stack spacing={1}>
@@ -1380,6 +1590,9 @@ function ReportPage() {
 
           <Typography variant="caption" color="text.secondary">
             The table shows modeled ranges, not guarantees. P90 values are useful for spotting long-tail delivery and cost exposure.
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            P90 TCO includes downside risk from overrun, rework, integration, and maintenance uncertainty.
           </Typography>
         </Stack>
       </SectionCard>

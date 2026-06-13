@@ -1,5 +1,9 @@
 import { Box, Card, CardContent, Chip, Grid, Stack, Typography } from "@mui/material";
 import PageHero from "../components/PageHero.jsx";
+import {
+  PUBLIC_BENCHMARK_SOURCES,
+  PUBLIC_SOURCES
+} from "../data/publicSources.js";
 
 const benchmarkInputChips = [
   "Accessibility target (accessibilityTarget)",
@@ -26,10 +30,33 @@ const limitationRows = [
   "TCO excludes revenue impact, negotiated pricing, and broader migration work unless the user inputs represent them."
 ];
 
+const benchmarkSourceCards = [
+  {
+    key: "cocomo-ii",
+    title: "COCOMO II",
+    note: "Effort drivers, schedule pressure, and reuse/COTS adjustment."
+  },
+  {
+    key: "flyvbjerg-it-overruns",
+    title: "Flyvbjerg et al.",
+    note: "Fat-tailed overrun risk and interdependency risk."
+  },
+  {
+    key: "nist-software-errors",
+    title: "NIST software errors",
+    note: "Defect remediation and quality/rework burden."
+  },
+  {
+    key: "isbsg",
+    title: "ISBSG",
+    note: "Software productivity and effort benchmarking."
+  }
+];
+
 const workflowRows = [
   "User inputs capture the delivery context, UI scale, and support assumptions.",
   "The model derives five factors from those inputs to keep the recommendation readable.",
-  "The simulation then applies calibrated internal levers for build absorption, reuse, packaged leverage, adoption burden, and downside tail risk before estimating outcomes.",
+  "The simulation then applies calibrated internal levers for build absorption, reuse, packaged leverage, adoption burden, and a capped downside-tail layer before estimating outcomes.",
   "Monte Carlo simulation then estimates median and p90 outcomes for build-in-house and MUI paths.",
   "Recommendation rules combine the user inputs, derived factors, simulation output, and internally inferred MUI path fit."
 ];
@@ -77,6 +104,10 @@ function SectionCard({ title, description, children }) {
 }
 
 function MethodologyPage() {
+  const benchmarkSourceMap = Object.fromEntries(
+    [...PUBLIC_BENCHMARK_SOURCES, ...PUBLIC_SOURCES].map((source) => [source.key, source])
+  );
+
   return (
     <Stack spacing={4}>
       <PageHero
@@ -173,6 +204,59 @@ function MethodologyPage() {
               ))}
             </Stack>
           </Grid>
+        </Grid>
+      </SectionCard>
+
+      <SectionCard
+        title="Selected public sources"
+        description="Public sources inform which uncertainty families are modeled. They do not define the exact coefficients used in the simulation."
+      >
+        <Grid container spacing={2}>
+          {benchmarkSourceCards.map((card) => {
+            const source = benchmarkSourceMap[card.key];
+
+            if (!source) {
+              return null;
+            }
+
+            return (
+              <Grid key={card.key} size={{ xs: 12, md: 6 }}>
+                <Card elevation={0} sx={{ height: "100%", border: 1, borderColor: "divider" }}>
+                  <CardContent sx={{ p: 2.25 }}>
+                    <Stack spacing={1.5}>
+                      <Box>
+                        <Typography variant="subtitle1" component="h3">
+                          {card.title}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {card.note}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {source.publisher}
+                        </Typography>
+                      </Box>
+                      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                        {(source.supports ?? []).map((support) => (
+                          <Chip key={support} label={support} size="small" variant="outlined" />
+                        ))}
+                      </Stack>
+                      <Chip
+                        label="Open source"
+                        component="a"
+                        clickable
+                        href={source.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        size="small"
+                        variant="outlined"
+                        sx={{ alignSelf: "flex-start" }}
+                      />
+                    </Stack>
+                  </CardContent>
+                </Card>
+              </Grid>
+            );
+          })}
         </Grid>
       </SectionCard>
 
