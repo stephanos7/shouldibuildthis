@@ -29,6 +29,7 @@ const limitationRows = [
 const workflowRows = [
   "User inputs capture the delivery context, UI scale, and support assumptions.",
   "The model derives five factors from those inputs to keep the recommendation readable.",
+  "The simulation then applies calibrated internal levers for build absorption, reuse, packaged leverage, adoption burden, and downside tail risk before estimating outcomes.",
   "Monte Carlo simulation then estimates median and p90 outcomes for build-in-house and MUI paths.",
   "Recommendation rules combine the user inputs, derived factors, simulation output, and internally inferred MUI path fit."
 ];
@@ -137,6 +138,7 @@ function MethodologyPage() {
           >
             <Stack spacing={1.25}>
               <Bullet>Build-in-house and MUI paths are both simulated under the same input set.</Bullet>
+              <Bullet>The simulation uses public software-estimation concepts such as effort drivers, delivery maturity, integration/adoption risk, rework, and lifecycle maintenance. The coefficients are product heuristics calibrated to the assessment inputs; they are not claimed as externally certified benchmark coefficients.</Bullet>
               <Bullet>Median and p90 ranges help expose long-tail delivery and cost risk.</Bullet>
               <Bullet>Probability outputs summarize how often each path wins across repeated modeled scenarios.</Bullet>
             </Stack>

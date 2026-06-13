@@ -20,6 +20,8 @@ import {
 import { NavLink } from "react-router-dom";
 import PageHero from "../components/PageHero.jsx";
 
+const CURRENT_MODEL_VERSION = "benchmark-informed-v3";
+
 const optionLabelMaps = {
   existingMuiUsage: {
     none: "None",
@@ -256,6 +258,97 @@ function buildProbabilityMetrics(result) {
   ];
 }
 
+function getSignalLabel(score) {
+  if (!Number.isFinite(score)) {
+    return "Not available";
+  }
+
+  if (score >= 70) {
+    return "High";
+  }
+
+  if (score >= 40) {
+    return "Moderate";
+  }
+
+  return "Low";
+}
+
+function buildDecisionFactors(result, assessmentInput) {
+  const comparison = result.comparison ?? {};
+  const derived = result.derivedFactors ?? {};
+  const modeledMuiPathFit = result.modeledMuiPathFit ?? {};
+  const functionalScore = Number(derived.functionalComplexity?.score) || 0;
+  const qualityScore = Number(derived.qualityBurden?.score) || 0;
+  const deliveryScore = Number(derived.deliveryMaturity?.score) || 0;
+  const ownershipScore = Number(derived.ownershipBurden?.score) || 0;
+  const existingMuiUsage = assessmentInput?.existingMuiUsage;
+  const coverageScore = Number(modeledMuiPathFit.coverageScore);
+  const coverageGap = Number(modeledMuiPathFit.coverageGap);
+  const supportGap = Number(modeledMuiPathFit.supportGap);
+
+  const scopeBurdenScore = clamp(functionalScore * 0.58 + qualityScore * 0.42, 0, 100);
+  const internalAbsorptionScore = clamp(
+    deliveryScore * 0.55 + (100 - ownershipScore) * 0.45,
+    0,
+    100
+  );
+  const muiLeverageScore = Number.isFinite(coverageScore) ? coverageScore : 0;
+  const tradeoffScore = clamp(
+    ((comparison.probabilityMuiFaster ?? 0) + (comparison.probabilityMuiLowerTco ?? 0)) / 2,
+    0,
+    100
+  );
+
+  return [
+    {
+      title: "Scope burden",
+      score: scopeBurdenScore,
+      label: "Rule-based signal",
+      summary:
+        "How much work the UI requirement creates before delivery timing and TCO are modeled.",
+      details: [
+        `Functional complexity is ${formatNumber(functionalScore)}/100 and quality burden is ${formatNumber(qualityScore)}/100.`,
+        "Higher scope burden makes a custom build harder to keep predictable."
+      ]
+    },
+    {
+      title: "Internal absorption",
+      score: internalAbsorptionScore,
+      label: "Rule-based signal",
+      summary:
+        "How well the team can absorb custom build work with the current delivery and ownership setup.",
+      details: [
+        `Delivery maturity is ${formatNumber(deliveryScore)}/100 and ownership burden is ${formatNumber(ownershipScore)}/100.`,
+        "Higher delivery maturity and lower ownership burden make in-house work easier to absorb."
+      ]
+    },
+    {
+      title: "MUI leverage",
+      score: muiLeverageScore,
+      label: `Modeled MUI comparison path: ${modeledMuiPathFit.label ?? "MUI Core"}`,
+      summary:
+        "How much the modeled MUI path reduces effort, risk, or support burden for this input set.",
+      details: [
+        `Coverage score is ${formatNumber(coverageScore)}/100 with a coverage gap of ${formatNumber(Number.isFinite(coverageGap) ? coverageGap * 100 : NaN)}/100 and a support gap of ${formatNumber(Number.isFinite(supportGap) ? supportGap * 100 : NaN)}/100.`,
+        `Existing MUI usage is ${formatLabel("existingMuiUsage", existingMuiUsage)}.`,
+        "This is the MUI path used for the Build vs MUI simulation, not automatically the recommended path."
+      ]
+    },
+    {
+      title: "Modeled tradeoff",
+      score: tradeoffScore,
+      label: "Simulation comparison",
+      summary:
+        "How the Build and MUI paths compare across repeated simulated scenarios.",
+      details: [
+        `MUI is faster in ${formatProbability(comparison.probabilityMuiFaster)} of modeled scenarios and lower in TCO in ${formatProbability(comparison.probabilityMuiLowerTco)}.`,
+        `Median launch delta is ${formatSignedWeeks(comparison.launchWeekDeltaMedian)} and median TCO delta is ${formatSignedCurrency(comparison.tcoDeltaMedian)}.`
+      ]
+    }
+  ];
+}
+
 function buildRiskDrivers(result, assessmentInput) {
   const comparison = result.comparison ?? {};
   const derived = result.derivedFactors ?? {};
@@ -300,7 +393,7 @@ function buildRiskDrivers(result, assessmentInput) {
       (useCaseWeightMap[primaryUseCase] ?? 10) +
       (rowWeights[expectedRows] ?? 0) +
       (columnWeights[expectedColumns] ?? 0) +
-      (result.icpFit?.score ?? functionalScore) * 0.18,
+      functionalScore * 0.18,
     0,
     100
   );
@@ -647,6 +740,14 @@ const derivedFactorLabels = {
   enterpriseReadiness: "Enterprise readiness"
 };
 
+const modelLeverLabels = {
+  internalAbsorption: "Internal absorption",
+  buildReuseLeverage: "Build reuse leverage",
+  muiLeverage: "MUI leverage",
+  muiAdoptionBurden: "MUI adoption burden",
+  downsideTailRisk: "Downside tail risk"
+};
+
 const evidenceBasisOrder = [
   "standard-backed",
   "benchmark-informed",
@@ -669,7 +770,7 @@ const evidenceBasisDescriptions = {
   "practice-backed":
     "Reflects widely used engineering practice, such as concerns that rise with large data tables or complex interactions.",
   "product-specific heuristic":
-    "A product assumption specific to MUI adoption, licensing, support, or tier fit."
+    "A product assumption specific to MUI adoption, licensing, support, or model-specific path fit."
 };
 
 function groupEvidenceBasis(items) {
@@ -812,7 +913,7 @@ function ReportPage() {
   const assessmentInput = readStoredObject("assessmentInput");
   const isLegacyReport =
     Boolean(simulationResult) &&
-    simulationResult.modelVersion !== "benchmark-informed-v2";
+    simulationResult.modelVersion !== CURRENT_MODEL_VERSION;
 
   if (!simulationResult) {
     return (
@@ -844,7 +945,7 @@ function ReportPage() {
 
   const recommendation = simulationResult.recommendation ?? {};
   const confidence = simulationResult.confidence ?? {};
-  const icpFit = simulationResult.icpFit ?? {};
+  const modeledMuiPathFit = simulationResult.modeledMuiPathFit ?? {};
   const buildPath = simulationResult.buildPath ?? {};
   const muiPath = simulationResult.muiPath ?? {};
   const comparison = simulationResult.comparison ?? {};
@@ -856,6 +957,7 @@ function ReportPage() {
   );
   const scenarioSnapshot = buildScenarioSnapshot(assessmentInput, simulationResult);
   const derivedFactors = simulationResult.derivedFactors ?? null;
+  const modelLevers = simulationResult.modelLevers ?? null;
   const derivedFactorEntries = derivedFactors
     ? [
         ["functionalComplexity", derivedFactors.functionalComplexity],
@@ -865,15 +967,31 @@ function ReportPage() {
         ["enterpriseReadiness", derivedFactors.enterpriseReadiness]
       ].filter(([, factor]) => factor)
     : [];
+  const modelLeverEntries = modelLevers
+    ? [
+        ["internalAbsorption", modelLevers.internalAbsorption],
+        ["buildReuseLeverage", modelLevers.buildReuseLeverage],
+        ["muiLeverage", modelLevers.muiLeverage],
+        ["muiAdoptionBurden", modelLevers.muiAdoptionBurden],
+        ["downsideTailRisk", modelLevers.downsideTailRisk]
+      ]
+        .filter(([, lever]) => lever)
+        .map(([key, lever]) => [
+          key,
+          {
+            ...lever,
+            score: Number.isFinite(Number(lever?.score))
+              ? Number(lever.score) * 100
+              : lever?.score
+          }
+        ])
+    : [];
   const evidenceBasisGroups = groupEvidenceBasis(simulationResult.evidenceBasis);
   const showModelExplanation =
-    derivedFactorEntries.length > 0 || evidenceBasisGroups.length > 0;
-  const tierScores = [
-    { label: "Build in-house", value: icpFit.tierScores?.build ?? 0 },
-    { label: "MUI Core", value: icpFit.tierScores?.core ?? 0 },
-    { label: "Premium", value: icpFit.tierScores?.premium ?? 0 },
-    { label: "Enterprise", value: icpFit.tierScores?.enterprise ?? 0 }
-  ];
+    derivedFactorEntries.length > 0 ||
+    modelLeverEntries.length > 0 ||
+    evidenceBasisGroups.length > 0;
+  const decisionFactors = buildDecisionFactors(simulationResult, assessmentInput);
 
   return (
     <Stack spacing={4}>
@@ -985,7 +1103,32 @@ function ReportPage() {
               </Stack>
             ) : null}
 
-            {derivedFactorEntries.length > 0 && evidenceBasisGroups.length > 0 ? (
+            {modelLeverEntries.length > 0 ? (
+              <Stack spacing={2.5}>
+                <Box>
+                  <Typography variant="h6" component="h3">
+                    Model levers
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                    These show the internal heuristics the simulation used to give Build and the modeled MUI path their explicit sources of advantage and drag.
+                  </Typography>
+                </Box>
+                <Grid container spacing={2.5}>
+                  {modelLeverEntries.map(([key, lever]) => (
+                    <Grid key={key} size={{ xs: 12, md: 6 }}>
+                      <FactorCard
+                        title={modelLeverLabels[key] ?? key}
+                        factor={lever}
+                      />
+                    </Grid>
+                  ))}
+                </Grid>
+              </Stack>
+            ) : null}
+
+            {(
+              derivedFactorEntries.length > 0 || modelLeverEntries.length > 0
+            ) && evidenceBasisGroups.length > 0 ? (
               <Divider />
             ) : null}
 
@@ -996,7 +1139,7 @@ function ReportPage() {
                     Evidence basis
                   </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                    Standard-backed means a recognized standard or formal practice area. Benchmark-informed means an industry measurement pattern. Practice-backed means a widely used engineering concern. Product-specific heuristic means an MUI adoption or tier-fit assumption.
+                    Standard-backed means a recognized standard or formal practice area. Benchmark-informed means an industry measurement pattern. Practice-backed means a widely used engineering concern. Product-specific heuristic means an MUI adoption or model-specific path-fit assumption.
                   </Typography>
                 </Box>
                 <Grid container spacing={2.5}>
@@ -1055,8 +1198,8 @@ function ReportPage() {
 
         <Grid size={{ xs: 12, md: 7 }}>
           <SectionCard
-            title="4. ICP fit score and reasons"
-            description="This score reflects how strongly the workload matches an advanced packaged-component decision profile."
+            title="4. Decision factors"
+            description="These scores show how the input profile fits each path before timing and TCO simulation are applied. They are not the final recommendation."
           >
             <Stack spacing={3}>
               <Stack
@@ -1065,58 +1208,72 @@ function ReportPage() {
                 alignItems={{ xs: "flex-start", sm: "center" }}
                 justifyContent="space-between"
               >
-                <Stack direction="row" spacing={2} alignItems="baseline">
-                  <Typography variant="h2" component="div">
-                    {formatNumber(icpFit.score ?? 0)}
-                  </Typography>
-                  <Chip
-                    label={`${icpFit.segment ?? "limited"} fit`}
-                    color={icpFit.segment === "strong" ? "primary" : "secondary"}
-                    variant={icpFit.segment === "strong" ? "filled" : "outlined"}
-                  />
-                </Stack>
-                <Chip
-                  label={`Compared with ${muiPath.label ?? "selected MUI path"}`}
-                  variant="outlined"
-                />
-              </Stack>
-
-              <MeterRow
-                label="ICP fit score"
-                valueLabel={`${formatNumber(icpFit.score ?? 0)}/100`}
-                progress={icpFit.score ?? 0}
-                helper="A higher fit score means the component profile aligns more closely with advanced packaged paths."
-              />
-
-              <Stack spacing={1.5}>
-                {(icpFit.reasons ?? []).map((reason) => (
-                  <BulletItem key={reason}>{reason}</BulletItem>
-                ))}
-              </Stack>
-
-              <Divider />
-
-              <Stack spacing={2}>
-                <Typography variant="body2" color="text.secondary">
-                  Relative tier fit
+              <Stack spacing={0.5}>
+                <Typography variant="overline" color="secondary.main">
+                  Path fit before simulation
                 </Typography>
-                {tierScores.map((tier) => (
-                  <MeterRow
-                    key={tier.label}
-                    label={tier.label}
-                    valueLabel={`${formatNumber(tier.value)}/100`}
-                    progress={tier.value}
-                    barColor={
-                      tier.label === buildPath.label ||
-                      tier.label === recommendation.option ||
-                      (tier.label === "Premium" && recommendation.option === "Premium") ||
-                      (tier.label === "Enterprise" && recommendation.option === "Enterprise")
-                        ? "primary.main"
-                        : "secondary.main"
-                    }
-                  />
-                ))}
+                <Typography variant="body2" color="text.secondary">
+                  These scores are rule-based fit signals only. The final recommendation also
+                  considers simulated launch time, TCO, support context, and ownership credibility.
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Modeled MUI comparison path: {modeledMuiPathFit.label ?? "MUI Core"}. This is the
+                  MUI path used for the Build vs MUI simulation, not automatically the recommended
+                  path.
+                </Typography>
               </Stack>
+              </Stack>
+
+              <Grid container spacing={2.5}>
+                {decisionFactors.map((factor) => (
+                  <Grid key={factor.title} size={{ xs: 12, md: 6 }}>
+                    <Card elevation={0} sx={{ height: "100%", border: 1, borderColor: "divider" }}>
+                      <CardContent sx={{ p: 2.5 }}>
+                        <Stack spacing={2}>
+                          <Stack
+                            direction="row"
+                            justifyContent="space-between"
+                            spacing={2}
+                            alignItems="flex-start"
+                          >
+                            <Box>
+                              <Typography variant="h6" component="h3">
+                                {factor.title}
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary">
+                                {factor.summary}
+                              </Typography>
+                            </Box>
+                            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap justifyContent="flex-end">
+                              <Chip label={factor.label} size="small" variant="outlined" />
+                              <Chip
+                                label={`${getSignalLabel(factor.score)} fit`}
+                                size="small"
+                                color={factor.score >= 70 ? "primary" : "secondary"}
+                                variant={factor.score >= 70 ? "filled" : "outlined"}
+                              />
+                            </Stack>
+                          </Stack>
+
+                          <MeterRow
+                            label={factor.title}
+                            valueLabel={`${formatNumber(factor.score)}/100`}
+                            progress={factor.score}
+                            helper="Rule-based signal only"
+                            barColor={factor.score >= 70 ? "primary.main" : "secondary.main"}
+                          />
+
+                          <Stack spacing={1}>
+                            {factor.details.map((detail) => (
+                              <BulletItem key={detail}>{detail}</BulletItem>
+                            ))}
+                          </Stack>
+                        </Stack>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                ))}
+              </Grid>
             </Stack>
           </SectionCard>
         </Grid>
@@ -1229,7 +1386,7 @@ function ReportPage() {
 
       <SectionCard
         title="6. Probability metrics"
-        description="These probabilities support the recommendation by showing how often each path wins under repeated modeled scenarios."
+        description="These probabilities show how the modeled Build and MUI paths compare across repeated simulated scenarios."
       >
         <Grid container spacing={2.5}>
           {probabilityMetrics.map((metric) => (

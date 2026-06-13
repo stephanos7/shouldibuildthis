@@ -1,5 +1,5 @@
 const ITERATIONS = 10000;
-const MODEL_VERSION = "benchmark-informed-v2";
+const MODEL_VERSION = "benchmark-informed-v3";
 
 const EXISTING_MUI_USAGE = new Set(["none", "some", "standardized"]);
 const DESIGN_SYSTEM_MATURITY = new Set(["low", "medium", "high"]);
@@ -280,6 +280,16 @@ function buildFactor(score, drivers) {
   return {
     score: normalizedScore,
     level: levelFromScore(normalizedScore),
+    drivers
+  };
+}
+
+function buildLever(score, drivers) {
+  const normalizedScore = clamp(score, 0, 1);
+
+  return {
+    score: roundTo(normalizedScore, 2),
+    level: levelFromScore(normalizedScore * 100),
     drivers
   };
 }
@@ -1009,6 +1019,19 @@ function buildScorecard(input, derivedFactors) {
 
   const effectiveMuiPlan = autoSelectedMuiPlan;
   const effectivePlanFit = planFits[effectiveMuiPlan];
+  const scenarioLevers = buildScenarioLevers(input, {
+    functionalRisk,
+    qualityRisk,
+    deliveryStrength,
+    deliveryRisk,
+    ownershipRisk,
+    enterpriseNeed,
+    supportNeed,
+    muiUsage,
+    maturity,
+    effectiveMuiPlan,
+    effectivePlanFit
+  });
   const buildCompetitiveIndex = clamp(
     100 -
       functionalRisk * 36 -
@@ -1084,10 +1107,199 @@ function buildScorecard(input, derivedFactors) {
     muiAdoptionUseful,
     autoSelectedMuiPlan,
     effectiveMuiPlan,
+    scenarioLevers,
+    internalAbsorption: scenarioLevers.internalAbsorption.score,
+    buildReuseLeverage: scenarioLevers.buildReuseLeverage.score,
+    muiLeverage: scenarioLevers.muiLeverage.score,
+    muiAdoptionBurden: scenarioLevers.muiAdoptionBurden.score,
+    downsideTailRisk: scenarioLevers.downsideTailRisk.score,
     buildCompetitiveIndex,
     icpFitSegment:
       icpScore >= 70 ? "strong" : icpScore >= 50 ? "moderate" : "limited",
     icpReasons
+  };
+}
+
+function buildScenarioLevers(input, scorecard) {
+  const planFit = scorecard.effectivePlanFit;
+  const featureCount = input.advancedFeatures.length;
+  const rowScale = EXPECTED_ROWS_INDEX[input.expectedRows];
+  const columnScale = EXPECTED_COLUMNS_INDEX[input.expectedColumns];
+  const ownershipClarity = {
+    "same-product-team": 1,
+    "frontend-platform-team": 0.84,
+    "several-teams-informal": 0.48,
+    unclear: 0.24
+  }[input.ownershipModel];
+  const teamFocus = {
+    one: 1,
+    "two-three": 0.74,
+    "four-seven": 0.42,
+    "eight-plus": 0.18
+  }[input.dependentTeams];
+  const reworkStability = {
+    rare: 1,
+    occasional: 0.62,
+    frequent: 0.22,
+    unknown: 0.44
+  }[input.reworkFrequency];
+  const deadlineSlack = {
+    low: 1,
+    medium: 0.62,
+    high: 0.26
+  }[input.deadlinePressure];
+  const supportLightness = {
+    community: 1,
+    standard: 0.74,
+    priority: 0.46,
+    "procurement-sla": 0.18
+  }[input.supportRequirement];
+  const appFocus = clamp(1 - Math.max(0, input.reactApps - 1) * 0.16, 0.42, 1);
+  const maturityStrength = {
+    low: 0.3,
+    medium: 0.62,
+    high: 1
+  }[input.designSystemMaturity];
+  const scopeSimplicity = clamp(
+    1 -
+      ((featureCount / 6) * 0.42 +
+        ((rowScale - 1) / 3) * 0.2 +
+        ((columnScale - 1) / 2) * 0.14 +
+        {
+          "date-pickers": 0.08,
+          charts: 0.14,
+          "multi-component": 0.2,
+          "tree-view": 0.24,
+          "data-grid": 0.32,
+          scheduler: 0.38
+        }[input.primaryUseCase]),
+    0.12,
+    1
+  );
+  const packagedAffinity = {
+    "date-pickers": 0.66,
+    charts: 0.58,
+    "multi-component": 0.62,
+    "tree-view": 0.62,
+    "data-grid": 0.72,
+    scheduler: 0.78
+  }[input.primaryUseCase];
+
+  const internalAbsorption = buildLever(
+    scorecard.deliveryStrength * 0.28 +
+      maturityStrength * 0.18 +
+      ownershipClarity * 0.18 +
+      teamFocus * 0.13 +
+      reworkStability * 0.1 +
+      deadlineSlack * 0.08 +
+      supportLightness * 0.03 +
+      appFocus * 0.02,
+    [
+      `${input.changeLeadTime} lead time, ${input.reworkFrequency} rework, and ${input.deadlinePressure} pressure set the delivery absorption baseline.`,
+      `${input.designSystemMaturity} design-system maturity and ${input.ownershipModel} ownership determine how much custom work the team can absorb cleanly.`,
+      `${input.dependentTeams} dependent teams and ${input.reactApps} React app${input.reactApps === 1 ? "" : "s"} limit how much coordination drag the build path has to carry.`
+    ]
+  );
+
+  const buildReuseBonus =
+    input.existingMuiUsage === "none"
+      ? input.designSystemMaturity === "high"
+        ? 0.16
+        : input.designSystemMaturity === "medium"
+          ? 0.09
+          : 0.04
+      : input.existingMuiUsage === "some"
+        ? 0.02
+        : -0.08;
+  const buildReuseLeverage = buildLever(
+    maturityStrength * 0.28 +
+      ownershipClarity * 0.16 +
+      teamFocus * 0.1 +
+      scopeSimplicity * 0.26 +
+      clamp(1 - featureCount / 7, 0.18, 1) * 0.1 +
+      clamp(1 - (rowScale + columnScale - 2) / 5, 0.18, 1) * 0.1 +
+      buildReuseBonus,
+    [
+      `${input.designSystemMaturity} design-system maturity and ${input.ownershipModel} ownership determine how much prior UI investment can be reused.`,
+      `${input.existingMuiUsage} MUI usage ${input.existingMuiUsage === "standardized" ? "reduces build-side reuse leverage because packaged standards already exist" : "keeps more room for internal reuse to matter on the build path"}.`,
+      `${input.primaryUseCase}, ${featureCount} advanced feature${featureCount === 1 ? "" : "s"}, and the ${input.expectedRows}/${input.expectedColumns} scale profile still limit how much reuse can offset complexity.`
+    ]
+  );
+
+  const muiLeverage = buildLever(
+    clamp(planFit.coverageScore / 100, 0, 1) * 0.42 +
+      clamp(1 - planFit.coverageGap, 0, 1) * 0.2 +
+      clamp(1 - planFit.supportGap, 0, 1) * 0.14 +
+      { none: 0.22, some: 0.58, standardized: 1 }[input.existingMuiUsage] *
+        0.12 +
+      packagedAffinity * 0.07 +
+      clamp(featureCount / 6, 0.08, 1) * 0.05,
+    [
+      `${PLAN_CONFIG[scorecard.effectiveMuiPlan].label} coverage is ${roundTo(planFit.coverageScore)}/100, which sets the main packaged leverage baseline.`,
+      `${input.existingMuiUsage} MUI usage and ${input.primaryUseCase} determine how much implementation work the packaged path can realistically absorb.`,
+      `${featureCount} advanced feature${featureCount === 1 ? "" : "s"} and the remaining coverage/support gaps limit leverage when fit is incomplete.`
+    ]
+  );
+
+  const muiAdoptionBurden = buildLever(
+    { none: 0.34, some: 0.16, standardized: 0.05 }[input.existingMuiUsage] +
+      (input.existingMuiUsage === "none" &&
+      input.designSystemMaturity === "high"
+        ? 0.1
+        : input.existingMuiUsage === "none" &&
+            input.designSystemMaturity === "medium"
+          ? 0.05
+          : 0) +
+      {
+        "same-product-team": 0.05,
+        "frontend-platform-team": 0.09,
+        "several-teams-informal": 0.13,
+        unclear: 0.15
+      }[input.ownershipModel] +
+      (input.advancedFeatures.includes("custom-rendering") ? 0.1 : 0) +
+      (input.advancedFeatures.includes("drag-and-drop") ? 0.08 : 0) +
+      (input.advancedFeatures.includes("timezone-logic") ? 0.06 : 0) +
+      planFit.coverageGap * 0.12,
+    [
+      `${input.existingMuiUsage} current MUI usage sets the base adoption burden.`,
+      `${input.designSystemMaturity} design-system maturity ${input.existingMuiUsage === "none" && input.designSystemMaturity === "high" ? "adds modest adaptation work because existing internal patterns still need to be preserved" : "changes how much theming and adaptation work remains"}.`,
+      `${["custom-rendering", "drag-and-drop", "timezone-logic"].filter((feature) => input.advancedFeatures.includes(feature)).join(", ") || "No major customization-heavy features"} affect how much integration work the packaged path still carries.`
+    ]
+  );
+
+  const downsideTailRisk = buildLever(
+    scorecard.ownershipRisk * 0.22 +
+      scorecard.deliveryRisk * 0.2 +
+      scorecard.qualityRisk * 0.17 +
+      scorecard.functionalRisk * 0.16 +
+      {
+        one: 0.12,
+        "two-three": 0.32,
+        "four-seven": 0.58,
+        "eight-plus": 0.78
+      }[input.dependentTeams] *
+        0.08 +
+      clamp(input.reactApps / 5, 0.08, 1) * 0.04 +
+      { none: 0.08, "wcag-a": 0.18, "wcag-aa": 0.38, "wcag-aaa-regulated": 0.62 }[
+        input.accessibilityTarget
+      ] *
+        0.04 +
+      clamp(featureCount / 6, 0, 1) * 0.03 +
+      clamp((rowScale + columnScale - 2) / 5, 0, 1) * 0.03 +
+      { low: 0.08, medium: 0.36, high: 0.72 }[input.deadlinePressure] * 0.03,
+    [
+      `Functional, quality, delivery, and ownership risk still dominate the downside tail in the model.`,
+      `${input.dependentTeams} dependent teams, ${input.reactApps} React app${input.reactApps === 1 ? "" : "s"}, and ${input.accessibilityTarget} accessibility increase long-tail coordination and QA exposure.`,
+      `${featureCount} advanced feature${featureCount === 1 ? "" : "s"}, ${input.expectedRows}/${input.expectedColumns} scale, and ${input.deadlinePressure} deadline pressure determine whether variance should widen materially.`
+    ]
+  );
+
+  return {
+    internalAbsorption,
+    buildReuseLeverage,
+    muiLeverage,
+    muiAdoptionBurden,
+    downsideTailRisk
   };
 }
 
@@ -1136,11 +1348,26 @@ function runSimulation(input, scorecard) {
   const coverageStrength = clamp(planFit.coverageScore / 100, 0, 1);
   const coverageShield =
     coverageStrength >= 0.72 ? 0.14 : coverageStrength >= 0.58 ? 0.08 : 0;
+  const internalAbsorption = scorecard.internalAbsorption;
+  const buildReuseLeverage = scorecard.buildReuseLeverage;
+  const muiLeverage = scorecard.muiLeverage;
+  const muiAdoptionBurden = scorecard.muiAdoptionBurden;
+  const downsideTailRisk = scorecard.downsideTailRisk;
+  const buildAbsorptionShield = clamp(
+    internalAbsorption * 0.18 + buildReuseLeverage * 0.12,
+    0,
+    0.24
+  );
+  const buildTailPenalty =
+    downsideTailRisk >= 0.45 ? (downsideTailRisk - 0.45) * 0.22 : 0;
+  const muiLeverageShield = clamp(muiLeverage * 0.22, 0, 0.18);
+  const muiAdoptionLoad = clamp(muiAdoptionBurden * 0.26, 0.02, 0.18);
 
   const buildVelocity = clamp(
     0.84 +
       scorecard.deliveryStrength * 0.36 -
       scorecard.ownershipRisk * 0.06 +
+      internalAbsorption * 0.08 +
       (input.frontendDevelopers >= 8
         ? 0.08
         : input.frontendDevelopers >= 4
@@ -1153,6 +1380,8 @@ function runSimulation(input, scorecard) {
     0.96 +
       scorecard.deliveryStrength * 0.18 -
       scorecard.ownershipRisk * 0.03 +
+      muiLeverage * 0.06 -
+      muiAdoptionBurden * 0.04 +
       (input.frontendDevelopers >= 8
         ? 0.06
         : input.frontendDevelopers >= 4
@@ -1183,12 +1412,23 @@ function runSimulation(input, scorecard) {
       scorecard.deliveryRisk * 5.2 +
       scorecard.enterpriseNeed * 1.1 +
       (scaleDemand >= 5 ? 0.9 : 0);
+    const buildEngineeringMeanCalibrated = Math.max(
+      2.4,
+      buildEngineeringMean * (1 - buildAbsorptionShield) +
+        downsideTailRisk * 0.9
+    );
     const buildEngineeringVariance =
       0.08 +
       scorecard.functionalRisk * 0.11 +
       scorecard.qualityRisk * 0.08 +
       scorecard.ownershipRisk * 0.07 +
       scorecard.deliveryRisk * 0.06;
+    const buildEngineeringVarianceCalibrated = clamp(
+      buildEngineeringVariance * (1 - buildAbsorptionShield * 0.7) +
+        buildTailPenalty,
+      0.06,
+      0.36
+    );
     const buildReworkMean =
       0.7 +
       scorecard.functionalRisk * 2.6 +
@@ -1196,14 +1436,26 @@ function runSimulation(input, scorecard) {
       scorecard.ownershipRisk * 1.5 +
       scorecard.deliveryRisk * 1 +
       (scaleDemand >= 5 ? 0.4 : 0);
+    const buildReworkMeanCalibrated = Math.max(
+      0.35,
+      buildReworkMean * (1 - buildAbsorptionShield * 0.85) +
+        downsideTailRisk * 0.28
+    );
     const buildRework = Math.max(
       0,
-      randomNormal(rng, buildReworkMean, 0.72 + scorecard.functionalRisk * 0.35)
+      randomNormal(
+        rng,
+        buildReworkMeanCalibrated,
+        0.68 +
+          scorecard.functionalRisk * 0.3 +
+          buildTailPenalty * 1.8 -
+          buildAbsorptionShield * 0.45
+      )
     );
     const buildEngineering = Math.max(
       2,
-      buildEngineeringMean *
-        (1 + randomNormal(rng, 0, buildEngineeringVariance)) +
+      buildEngineeringMeanCalibrated *
+        (1 + randomNormal(rng, 0, buildEngineeringVarianceCalibrated)) +
         buildRework
     );
 
@@ -1215,9 +1467,21 @@ function runSimulation(input, scorecard) {
       scorecard.ownershipRisk * 0.6 +
       scorecard.enterpriseNeed * 0.2 +
       (scaleDemand >= 5 ? 0.3 : 0);
+    const buildSlipMeanCalibrated = Math.max(
+      0.5,
+      buildSlipMean * (1 - buildAbsorptionShield * 0.72) +
+        buildTailPenalty * 3.6
+    );
     const buildSlip = Math.max(
       0.6,
-      randomNormal(rng, buildSlipMean, 0.82 + scorecard.deliveryRisk * 0.25)
+      randomNormal(
+        rng,
+        buildSlipMeanCalibrated,
+        0.74 +
+          scorecard.deliveryRisk * 0.22 +
+          buildTailPenalty * 1.6 -
+          internalAbsorption * 0.12
+      )
     );
     const buildLaunch = Math.max(
       2,
@@ -1233,12 +1497,27 @@ function runSimulation(input, scorecard) {
       planFit.coverageGap * 3.8 +
       planFit.supportGap * 1.5 -
       coverageShield * 0.18;
+    const muiEngineeringMeanCalibrated = Math.max(
+      1.6,
+      muiEngineeringMean +
+        1 +
+        muiAdoptionBurden * 2.4 -
+        muiLeverage * 1.6 -
+        coverageShield * 0.15
+    );
     const muiEngineeringVariance =
       0.06 +
       scorecard.functionalRisk * 0.05 +
       planFit.integrationRisk * 0.05 +
       planFit.coverageGap * 0.05 -
       coverageShield * 0.01;
+    const muiEngineeringVarianceCalibrated = clamp(
+      muiEngineeringVariance +
+        muiAdoptionBurden * 0.04 -
+        muiLeverageShield * 0.18,
+      0.05,
+      0.24
+    );
     const muiReworkMean =
       0.35 +
       planFit.coverageGap * 1.3 +
@@ -1246,13 +1525,28 @@ function runSimulation(input, scorecard) {
       scorecard.qualityRisk * 0.65 +
       planFit.supportGap * 0.35 -
       coverageShield * 0.08;
+    const muiReworkMeanCalibrated = Math.max(
+      0.18,
+      muiReworkMean +
+        muiAdoptionBurden * 0.85 -
+        muiLeverage * 0.58 -
+        coverageShield * 0.1
+    );
     const muiRework = Math.max(
       0,
-      randomNormal(rng, muiReworkMean, 0.42 + planFit.coverageGap * 0.18)
+      randomNormal(
+        rng,
+        muiReworkMeanCalibrated,
+        0.36 +
+          planFit.coverageGap * 0.16 +
+          muiAdoptionLoad * 0.45 -
+          muiLeverageShield * 0.35
+      )
     );
     const muiEngineering = Math.max(
       1.5,
-      muiEngineeringMean * (1 + randomNormal(rng, 0, muiEngineeringVariance)) +
+      muiEngineeringMeanCalibrated *
+        (1 + randomNormal(rng, 0, muiEngineeringVarianceCalibrated)) +
         muiRework
     );
 
@@ -1263,9 +1557,23 @@ function runSimulation(input, scorecard) {
       planFit.integrationRisk * 0.7 +
       planFit.supportGap * 0.35 -
       coverageShield * 0.1;
+    const muiSlipMeanCalibrated = Math.max(
+      0.25,
+      muiSlipMean +
+        muiAdoptionBurden * 0.8 -
+        muiLeverage * 0.52 -
+        coverageShield * 0.08
+    );
     const muiSlip = Math.max(
       0.3,
-      randomNormal(rng, muiSlipMean, 0.46 + planFit.coverageGap * 0.14)
+      randomNormal(
+        rng,
+        muiSlipMeanCalibrated,
+        0.4 +
+          planFit.coverageGap * 0.12 +
+          muiAdoptionLoad * 0.3 -
+          muiLeverageShield * 0.25
+      )
     );
     const muiLaunch = Math.max(
       1.4,
@@ -1280,10 +1588,22 @@ function runSimulation(input, scorecard) {
         scorecard.ownershipRisk * 2 +
         scorecard.deliveryRisk * 0.55 +
         (scaleDemand >= 5 ? 0.18 : 0));
+    const buildMaintenanceBaseCalibrated = Math.max(
+      0.75,
+      buildMaintenanceBase * (1 - buildAbsorptionShield * 0.68) +
+        downsideTailRisk * 0.32 * horizonYears
+    );
     const buildMaintenance = Math.max(
       0.8,
-      buildMaintenanceBase *
-        (1 + randomNormal(rng, 0, 0.2 + scorecard.ownershipRisk * 0.06))
+      buildMaintenanceBaseCalibrated *
+        (1 +
+          randomNormal(
+            rng,
+            0,
+            0.18 +
+              scorecard.ownershipRisk * 0.05 +
+              buildTailPenalty * 0.42
+          ))
     );
 
     const muiMaintenanceBase =
@@ -1296,10 +1616,25 @@ function runSimulation(input, scorecard) {
         planFit.supportGap * 0.68 -
         scorecard.muiUsage * 0.08 -
         coverageShield * 0.12);
+    const muiMaintenanceBaseCalibrated = Math.max(
+      0.42,
+      muiMaintenanceBase +
+        muiAdoptionBurden * 0.42 * horizonYears -
+        muiLeverage * 0.32 * horizonYears -
+        coverageShield * 0.08
+    );
     const muiMaintenance = Math.max(
       0.4,
-      muiMaintenanceBase *
-        (1 + randomNormal(rng, 0, 0.14 + planFit.coverageGap * 0.03))
+      muiMaintenanceBaseCalibrated *
+        (1 +
+          randomNormal(
+            rng,
+            0,
+            0.13 +
+              planFit.coverageGap * 0.03 +
+              muiAdoptionLoad * 0.16 -
+              muiLeverageShield * 0.08
+          ))
     );
 
     const buildTotalCost =
@@ -1385,7 +1720,8 @@ function runSimulation(input, scorecard) {
     buildPath,
     muiPath,
     comparison,
-    estimatedLicensedDevelopers
+    estimatedLicensedDevelopers,
+    modelLevers: scorecard.scenarioLevers
   };
 }
 
@@ -1393,6 +1729,7 @@ function buildRecommendation(input, scorecard, simulation) {
   const comparison = simulation.comparison;
   const selectedPlan = PLAN_CONFIG[scorecard.effectiveMuiPlan];
   const planFit = scorecard.effectivePlanFit;
+  const internalAbsorption = scorecard.internalAbsorption;
   const deliveryRiskReduction =
     comparison.probabilityBuildExceeds20Weeks -
     comparison.probabilityMuiExceeds20Weeks;
@@ -1401,7 +1738,10 @@ function buildRecommendation(input, scorecard, simulation) {
   const muiCostFavored = comparison.probabilityMuiLowerTco >= 55;
   const packagedPathCostPenalty =
     comparison.probabilityMuiLowerTco <= 50 && comparison.tcoDeltaMedian >= 0;
-  const muiOnlyDeliveryFavored = muiDeliveryFavored && !muiCostFavored;
+  const deliveryOnlyMuiAdvantage =
+    comparison.probabilityMuiFaster >= 75 &&
+    comparison.launchWeekDeltaMedian < 0 &&
+    (comparison.probabilityMuiLowerTco < 60 || comparison.tcoDeltaMedian > 0);
   const buildStillCompetitive =
     simulation.buildPath.medianLaunchWeeks <=
       simulation.muiPath.medianLaunchWeeks + 1.5 &&
@@ -1412,12 +1752,41 @@ function buildRecommendation(input, scorecard, simulation) {
     input.dependentTeams !== "one" ||
     input.reactApps >= 2 ||
     (planFit.coverageScore >= 74 && scorecard.buildCompetitiveIndex < 58);
+  const muiDominatesSimulation =
+    comparison.probabilityMuiFaster >= 75 &&
+    comparison.probabilityMuiLowerTco >= 75 &&
+    comparison.launchWeekDeltaMedian < 0 &&
+    comparison.tcoDeltaMedian <= 0;
+  const buildDominatesSimulation =
+    comparison.probabilityMuiFaster <= 25 &&
+    comparison.probabilityMuiLowerTco <= 25 &&
+    comparison.launchWeekDeltaMedian >= 0 &&
+    comparison.tcoDeltaMedian >= 0;
+  const coreNeedsStrongerEvidence =
+    scorecard.effectiveMuiPlan === "core" &&
+    input.existingMuiUsage === "none" &&
+    input.dependentTeams === "one" &&
+    input.reactApps === 1 &&
+    input.supportRequirement === "community" &&
+    scorecard.buildFriendlyContext;
+  const coreMaterialAdvantage =
+    muiCostFavored &&
+    muiDeliveryFavored &&
+    comparison.launchWeekDeltaMedian <= -2;
 
   let option = "Build in-house";
   let summary =
     "The modeled tradeoff stays close enough that owning the component internally remains a credible option for this input set.";
 
-  if (
+  if (muiDominatesSimulation) {
+    option = selectedPlan.recommendationLabel;
+    summary =
+      `${selectedPlan.label} is both faster and lower in modeled total cost across the simulation, so the packaged path now has the stronger recommendation signal. Build still remains credible only as a higher-control tradeoff, not the favored path.`;
+  } else if (buildDominatesSimulation) {
+    option = "Build in-house";
+    summary =
+      "The custom path is at least as fast and as cheap in the modeled distribution, so the recommendation should stay with building in-house.";
+  } else if (
     scorecard.simpleScope &&
     scorecard.lowSupportNeed &&
     input.designSystemMaturity === "high" &&
@@ -1429,6 +1798,15 @@ function buildRecommendation(input, scorecard, simulation) {
     option = "Build in-house";
     summary =
       "The scope is controlled, support need is low, and the existing design-system baseline is strong enough that an internal build remains competitive.";
+  } else if (
+    deliveryOnlyMuiAdvantage &&
+    internalAbsorption >= 0.74 &&
+    scorecard.buildCompetitiveIndex >= 58 &&
+    !scorecard.enterpriseFitStrong
+  ) {
+    option = "Build in-house";
+    summary =
+      `${selectedPlan.label} is modeled to land sooner, but not to win clearly enough on total ownership cost. With strong internal absorption and build-friendly context, owning the component remains a credible recommendation with an explicit speed tradeoff.`;
   } else if (
     scorecard.enterpriseFitStrong &&
     scorecard.effectiveMuiPlan === "enterprise" &&
@@ -1452,20 +1830,19 @@ function buildRecommendation(input, scorecard, simulation) {
   ) {
     option = "Build in-house";
     summary =
-      muiOnlyDeliveryFavored || packagedPathCostPenalty
+      deliveryOnlyMuiAdvantage || packagedPathCostPenalty
         ? "The inputs show strong internal ownership, mature delivery conditions, and low support pressure. The modeled MUI path may be faster, but it is not cost-favored enough to outweigh the current build-friendly context."
         : "The inputs show strong internal ownership, mature delivery conditions, and low support pressure. Even with the Core path modeled as the faster comparison option, the context is internally credible enough that building in-house remains the better recommendation.";
   } else if (
     scorecard.effectiveMuiPlan === "core" &&
-    scorecard.simpleScope &&
-    !scorecard.buildFriendlyContext &&
-    nonSpeedMuiSignal &&
-    muiDeliveryFavored &&
-    muiCostFavored
+    ((muiDominatesSimulation || coreMaterialAdvantage) &&
+      (!coreNeedsStrongerEvidence || muiDominatesSimulation))
   ) {
     option = "MUI Core";
     summary =
-      "The scope stays relatively standard and existing MUI familiarity makes the lighter packaged path easier to absorb.";
+      coreNeedsStrongerEvidence && !muiDominatesSimulation
+        ? "The Core path only clears the recommendation bar because it is materially faster and lower in modeled cost, not just because it is the default packaged comparison."
+        : "The Core path is modeled to remove enough delivery and ownership work to justify the packaged recommendation here.";
   } else if (
     scorecard.buildCompetitiveIndex >= 62 &&
     !scorecard.enterpriseFitStrong &&
@@ -1485,24 +1862,40 @@ function buildRecommendation(input, scorecard, simulation) {
       "The simulation leans toward the selected MUI tier on delivery risk, cost, or both, so the packaged path is the safer default here.";
   }
 
+  const isBuildRecommendation = option === "Build in-house";
+  const deliverySupport = isBuildRecommendation
+    ? 100 - comparison.probabilityMuiFaster
+    : comparison.probabilityMuiFaster;
+  const costSupport = isBuildRecommendation
+    ? 100 - comparison.probabilityMuiLowerTco
+    : comparison.probabilityMuiLowerTco;
   const ruleAlignment =
-    (option === "Build in-house"
+    (isBuildRecommendation
       ? scorecard.buildTierScore
       : scorecard[`${scorecard.effectiveMuiPlan}TierScore`]) / 100;
-  const probabilitySeparation =
-    Math.abs(comparison.probabilityMuiFaster - 50) * 0.42 +
-    Math.abs(comparison.probabilityMuiLowerTco - 50) * 0.32 +
-    Math.abs(deliveryRiskReduction) * 0.45;
+  const recommendationAligned =
+    (isBuildRecommendation && buildDominatesSimulation) ||
+    (!isBuildRecommendation && muiDominatesSimulation);
+  const recommendationOpposed =
+    (isBuildRecommendation && muiDominatesSimulation) ||
+    (!isBuildRecommendation && buildDominatesSimulation);
+  const confidenceBase =
+    deliverySupport * 0.38 +
+    costSupport * 0.28 +
+    clamp(ruleAlignment * 100, 0, 100) * 0.18 +
+    clamp(Math.abs(deliveryRiskReduction) * 2.2, 0, 100) * 0.08 +
+    (recommendationAligned ? 10 : 0) -
+    (recommendationOpposed ? 28 : 0) -
+    (deliveryOnlyMuiAdvantage && isBuildRecommendation ? 6 : 0) -
+    (deliveryOnlyMuiAdvantage && !isBuildRecommendation && !muiCostFavored
+      ? 8
+      : 0) -
+    (coreNeedsStrongerEvidence && option === "MUI Core" && !muiDominatesSimulation
+      ? 6
+      : 0);
   const confidenceScore = clamp(
-    Math.round(
-      50 +
-        probabilitySeparation +
-        ruleAlignment * 14 +
-        (option === "Build in-house" && scorecard.simpleScope ? 5 : 0) +
-        (option === "Enterprise" && scorecard.enterpriseFitStrong ? 7 : 0) +
-        (option === "Build in-house" && scorecard.buildFriendlyContext ? 4 : 0)
-    ),
-    52,
+    Math.round(confidenceBase),
+    recommendationOpposed ? 42 : deliveryOnlyMuiAdvantage && isBuildRecommendation ? 62 : 48,
     96
   );
 
@@ -1514,13 +1907,13 @@ function buildRecommendation(input, scorecard, simulation) {
     confidence: {
       score: confidenceScore,
       level:
-        confidenceScore >= 78
+        confidenceScore >= 80
           ? "high"
-          : confidenceScore >= 64
+          : confidenceScore >= 62
             ? "moderate"
             : "qualified",
       rationale:
-        "Confidence reflects how strongly the rules-based tiering and the simulation point to the same path, not a guarantee of outcome."
+        "Confidence reflects whether the selected recommendation is supported by the same-direction delivery and cost evidence, together with the rule-based fit signals. It is not a guarantee of outcome."
     }
   };
 }
@@ -1589,7 +1982,7 @@ function buildResult(input) {
     "Derived factors are benchmark-informed heuristics meant to keep the model transparent and evolvable, not to imply precise industry averages."
   );
   assumptions.push(
-    "The latest model version is benchmark-informed-v2, and older saved reports may not reflect the current input schema."
+    "The latest model version is benchmark-informed-v3, and older saved reports may not reflect the current input schema."
   );
 
   return {
@@ -1597,6 +1990,14 @@ function buildResult(input) {
     modelVersion: MODEL_VERSION,
     derivedFactors,
     evidenceBasis,
+    modeledMuiPathFit: {
+      label: PLAN_CONFIG[scorecard.effectiveMuiPlan].label,
+      plan: scorecard.effectiveMuiPlan,
+      coverageScore: roundTo(scorecard.effectivePlanFit.coverageScore),
+      coverageGap: roundTo(scorecard.effectivePlanFit.coverageGap),
+      supportGap: roundTo(scorecard.effectivePlanFit.supportGap),
+      integrationRisk: roundTo(scorecard.effectivePlanFit.integrationRisk)
+    },
     icpFit: {
       score: roundTo(scorecard.icpScore),
       segment: scorecard.icpFitSegment,
@@ -1613,6 +2014,7 @@ function buildResult(input) {
     buildPath: simulation.buildPath,
     muiPath: simulation.muiPath,
     comparison: simulation.comparison,
+    modelLevers: simulation.modelLevers,
     assumptions
   };
 }
