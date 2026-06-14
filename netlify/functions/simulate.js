@@ -1,7 +1,7 @@
 import { PUBLIC_BENCHMARK_SOURCES } from "../../src/data/publicSources.js";
 
 const ITERATIONS = 10000;
-const MODEL_VERSION = "benchmark-informed-v3";
+const MODEL_VERSION = "benchmark-informed-v5";
 
 const EXISTING_MUI_USAGE = new Set(["none", "some", "standardized"]);
 const DESIGN_SYSTEM_MATURITY = new Set(["low", "medium", "high"]);
@@ -38,6 +38,36 @@ const CHANGE_LEAD_TIMES = new Set([
   "more-than-month",
   "unknown"
 ]);
+const PERFORMANCE_SENSITIVITY = new Set([
+  "not-critical",
+  "important",
+  "strict-budget",
+  "measured-core-web-vitals-target"
+]);
+const KNOWLEDGE_CONCENTRATION = new Set([
+  "shared",
+  "few-owners",
+  "single-owner",
+  "unknown"
+]);
+const DESIGN_DEV_HANDOFF_FRICTION = new Set([
+  "low",
+  "medium",
+  "high",
+  "unknown"
+]);
+const COMPONENT_STANDARDIZATION_GOALS = new Set([
+  "none",
+  "reduce-one-offs",
+  "shared-pattern",
+  "platform-standard"
+]);
+const PRODUCTION_CRITICALITY = new Set([
+  "internal-tool",
+  "customer-facing",
+  "revenue-critical",
+  "regulated-or-sla-backed"
+]);
 const REWORK_FREQUENCIES = new Set([
   "rare",
   "occasional",
@@ -62,7 +92,8 @@ const ADVANCED_FEATURES = new Set([
   "exporting",
   "drag-and-drop",
   "custom-rendering",
-  "timezone-logic"
+  "timezone-logic",
+  "i18n-localization"
 ]);
 
 const ACCESSIBILITY_TARGET_INDEX = {
@@ -85,6 +116,36 @@ const REWORK_FREQUENCY_INDEX = {
   occasional: 3,
   frequent: 1,
   unknown: 2
+};
+const PERFORMANCE_SENSITIVITY_INDEX = {
+  "not-critical": 0,
+  important: 1,
+  "strict-budget": 2,
+  "measured-core-web-vitals-target": 3
+};
+const KNOWLEDGE_CONCENTRATION_INDEX = {
+  shared: 0,
+  "few-owners": 1,
+  "single-owner": 2,
+  unknown: 1.4
+};
+const DESIGN_DEV_HANDOFF_FRICTION_INDEX = {
+  low: 0,
+  medium: 1,
+  high: 2,
+  unknown: 1.2
+};
+const COMPONENT_STANDARDIZATION_GOAL_INDEX = {
+  none: 0,
+  "reduce-one-offs": 1,
+  "shared-pattern": 2,
+  "platform-standard": 3
+};
+const PRODUCTION_CRITICALITY_INDEX = {
+  "internal-tool": 0,
+  "customer-facing": 1,
+  "revenue-critical": 2,
+  "regulated-or-sla-backed": 3
 };
 
 const DEPENDENT_TEAMS_INDEX = {
@@ -131,7 +192,8 @@ const ADVANCED_FEATURE_WEIGHTS = {
   exporting: 0.5,
   "drag-and-drop": 1.0,
   "custom-rendering": 1.2,
-  "timezone-logic": 0.9
+  "timezone-logic": 0.9,
+  "i18n-localization": 0.8
 };
 
 const PRESSURE_INDEX = {
@@ -450,10 +512,15 @@ function normalizeInput(payload) {
     advancedFeatures,
     accessibilityTarget: payload.accessibilityTarget,
     changeLeadTime: payload.changeLeadTime,
+    performanceSensitivity: payload.performanceSensitivity,
     reworkFrequency: payload.reworkFrequency,
+    knowledgeConcentration: payload.knowledgeConcentration,
+    designDevHandoffFriction: payload.designDevHandoffFriction,
+    componentStandardizationGoal: payload.componentStandardizationGoal,
     deadlinePressure: payload.deadlinePressure,
     maintenanceHorizonMonths: Number(payload.maintenanceHorizonMonths),
     supportRequirement: payload.supportRequirement,
+    productionCriticality: payload.productionCriticality,
     engineerCostPerDay: Number(payload.engineerCostPerDay)
   };
 }
@@ -630,6 +697,18 @@ function validatePayload(normalized, originalPayload) {
     );
   }
 
+  if (isBlank(originalPayload.performanceSensitivity)) {
+    errors.push("performanceSensitivity is required.");
+  } else {
+    errors.push(
+      validateEnum(
+        normalized.performanceSensitivity,
+        "performanceSensitivity",
+        PERFORMANCE_SENSITIVITY
+      )
+    );
+  }
+
   if (isBlank(originalPayload.reworkFrequency)) {
     errors.push("reworkFrequency is required.");
   } else {
@@ -638,6 +717,42 @@ function validatePayload(normalized, originalPayload) {
         normalized.reworkFrequency,
         "reworkFrequency",
         REWORK_FREQUENCIES
+      )
+    );
+  }
+
+  if (isBlank(originalPayload.knowledgeConcentration)) {
+    errors.push("knowledgeConcentration is required.");
+  } else {
+    errors.push(
+      validateEnum(
+        normalized.knowledgeConcentration,
+        "knowledgeConcentration",
+        KNOWLEDGE_CONCENTRATION
+      )
+    );
+  }
+
+  if (isBlank(originalPayload.designDevHandoffFriction)) {
+    errors.push("designDevHandoffFriction is required.");
+  } else {
+    errors.push(
+      validateEnum(
+        normalized.designDevHandoffFriction,
+        "designDevHandoffFriction",
+        DESIGN_DEV_HANDOFF_FRICTION
+      )
+    );
+  }
+
+  if (isBlank(originalPayload.componentStandardizationGoal)) {
+    errors.push("componentStandardizationGoal is required.");
+  } else {
+    errors.push(
+      validateEnum(
+        normalized.componentStandardizationGoal,
+        "componentStandardizationGoal",
+        COMPONENT_STANDARDIZATION_GOALS
       )
     );
   }
@@ -662,6 +777,18 @@ function validatePayload(normalized, originalPayload) {
         normalized.supportRequirement,
         "supportRequirement",
         SUPPORT_REQUIREMENTS
+      )
+    );
+  }
+
+  if (isBlank(originalPayload.productionCriticality)) {
+    errors.push("productionCriticality is required.");
+  } else {
+    errors.push(
+      validateEnum(
+        normalized.productionCriticality,
+        "productionCriticality",
+        PRODUCTION_CRITICALITY
       )
     );
   }
@@ -709,7 +836,17 @@ function buildDerivedFactors(input) {
   const accessibilityTarget =
     ACCESSIBILITY_TARGET_INDEX[input.accessibilityTarget];
   const changeLeadTime = CHANGE_LEAD_TIME_INDEX[input.changeLeadTime];
+  const performanceSensitivity =
+    PERFORMANCE_SENSITIVITY_INDEX[input.performanceSensitivity];
   const reworkFrequency = REWORK_FREQUENCY_INDEX[input.reworkFrequency];
+  const knowledgeConcentration =
+    KNOWLEDGE_CONCENTRATION_INDEX[input.knowledgeConcentration];
+  const handoffFriction =
+    DESIGN_DEV_HANDOFF_FRICTION_INDEX[input.designDevHandoffFriction];
+  const standardizationGoal =
+    COMPONENT_STANDARDIZATION_GOAL_INDEX[input.componentStandardizationGoal];
+  const productionCriticality =
+    PRODUCTION_CRITICALITY_INDEX[input.productionCriticality];
   const dependentTeams = DEPENDENT_TEAMS_INDEX[input.dependentTeams];
   const ownershipModel = OWNERSHIP_MODEL_INDEX[input.ownershipModel];
   const muiUsage = MUI_USAGE_INDEX[input.existingMuiUsage];
@@ -726,7 +863,8 @@ function buildDerivedFactors(input) {
         exporting: "exporting or print support",
         "drag-and-drop": "drag and drop",
         "custom-rendering": "custom rendering",
-        "timezone-logic": "timezone logic"
+        "timezone-logic": "timezone logic",
+        "i18n-localization": "i18n and localization"
       };
 
       return labels[feature] ?? feature;
@@ -745,12 +883,42 @@ function buildDerivedFactors(input) {
     "more-than-month": "More-than-month change lead time indicates a slow delivery cadence and a wider uncertainty band.",
     unknown: "Unknown change lead time widens the delivery uncertainty band."
   }[input.changeLeadTime];
+  const performanceSensitivityLabel = {
+    "not-critical": "Performance is not a critical constraint, so runtime and bundle pressure stay low.",
+    important: "Performance matters, but it is not being measured against a strict budget.",
+    "strict-budget": "A strict performance budget raises runtime and bundle-size pressure.",
+    "measured-core-web-vitals-target": "Measured Core Web Vitals targets create the strongest performance pressure."
+  }[input.performanceSensitivity];
   const reworkLabel = {
-    rare: "Rare rework suggests the team usually absorbs changes without heavy churn.",
-    occasional: "Occasional rework suggests the team can absorb changes, but with some churn.",
-    frequent: "Frequent rework suggests the team is likely to spend more time revisiting prior decisions.",
-    unknown: "Unknown rework frequency widens the delivery uncertainty band."
+    rare: "Rare UI rework or regression churn suggests the team usually absorbs changes without heavy churn.",
+    occasional: "Occasional UI rework or regression churn suggests the team can absorb changes, but with some follow-up work.",
+    frequent: "Frequent UI rework or regression churn suggests the team is likely to spend more time revisiting prior decisions.",
+    unknown: "Unknown UI rework or regression frequency widens the delivery uncertainty band."
   }[input.reworkFrequency];
+  const knowledgeConcentrationLabel = {
+    shared: "Knowledge is shared across the team, which reduces key-person risk.",
+    "few-owners": "A few owners know the area well, so key-person risk is moderate.",
+    "single-owner": "Knowledge is concentrated in a single owner, so continuity risk is high.",
+    unknown: "Unknown knowledge concentration widens the ownership risk band."
+  }[input.knowledgeConcentration];
+  const handoffFrictionLabel = {
+    low: "Low design-to-dev handoff friction keeps spec-to-code rework contained.",
+    medium: "Medium handoff friction adds some design and implementation rework risk.",
+    high: "High design-to-dev handoff friction raises spec-to-code rework and clarification risk.",
+    unknown: "Unknown handoff friction widens the quality-risk band."
+  }[input.designDevHandoffFriction];
+  const standardizationGoalLabel = {
+    none: "There is no active standardization goal, so reuse pressure stays low.",
+    "reduce-one-offs": "The goal is to reduce one-off components and trim custom variation.",
+    "shared-pattern": "The goal is to create a shared pattern that multiple screens can reuse.",
+    "platform-standard": "The goal is platform standardization, which raises the value of a reusable component layer."
+  }[input.componentStandardizationGoal];
+  const productionCriticalityLabel = {
+    "internal-tool": "Internal-tool criticality keeps production pressure relatively contained.",
+    "customer-facing": "Customer-facing production criticality raises the operational bar.",
+    "revenue-critical": "Revenue-critical production criticality raises the cost of regressions and downtime.",
+    "regulated-or-sla-backed": "Regulated or SLA-backed criticality creates the strongest operating pressure."
+  }[input.productionCriticality];
   const deadlinePressureLabel = {
     low: "Low deadline pressure reduces schedule-compression risk.",
     medium: "Medium deadline pressure leaves some schedule compression risk in play.",
@@ -804,7 +972,8 @@ function buildDerivedFactors(input) {
       ? "Multi-component evaluation creates moderate implementation scope because more than one UI pattern may need to work together."
       : `${input.primaryUseCase} is the primary use case, which sets the baseline interaction complexity.`,
     scaleLabel,
-    functionalFeatureLabel
+    functionalFeatureLabel,
+    performanceSensitivityLabel
   ];
 
   if (screenLoad > 0) {
@@ -818,6 +987,7 @@ function buildDerivedFactors(input) {
   const functionalComplexity = buildFactor(
     useCaseComplexity * 11.5 +
       featureWeight * 8.9 +
+      performanceSensitivity * 3.2 +
       screenLoad * 2.6 +
       rowScale * 5.2 +
       columnScale * 4.6 +
@@ -829,19 +999,27 @@ function buildDerivedFactors(input) {
   const qualityDrivers = [
     accessibilityTargetLabel,
     qualityScaleLabel,
-    qualityFeatureLabel
+    qualityFeatureLabel,
+    handoffFrictionLabel,
+    input.advancedFeatures.includes("i18n-localization")
+      ? "i18n and localization requirements add QA and edge-case burden."
+      : "No i18n and localization requirements were selected."
   ];
 
   const qualityBurden = buildFactor(
     accessibilityTarget * 18 +
+      performanceSensitivity * 7.5 +
       rowScale * 8.5 +
       columnScale * 7.5 +
+      handoffFriction * 6 +
+      productionCriticality * 5.5 +
       (input.advancedFeatures.includes("keyboard-navigation") ? 11 : 0) +
       (input.advancedFeatures.includes("virtualization") ? 13 : 0) +
       (input.advancedFeatures.includes("custom-rendering") ? 12 : 0) +
       (input.advancedFeatures.includes("server-side-data") ? 10 : 0) +
       (input.advancedFeatures.includes("timezone-logic") ? 7 : 0) +
-      (input.advancedFeatures.includes("drag-and-drop") ? 6 : 0),
+      (input.advancedFeatures.includes("drag-and-drop") ? 6 : 0) +
+      (input.advancedFeatures.includes("i18n-localization") ? 8 : 0),
     qualityDrivers
   );
 
@@ -863,7 +1041,8 @@ function buildDerivedFactors(input) {
     ownershipLeadLabel,
     appSurfaceLabel,
     developerCapacityLabel,
-    maturityLabel
+    maturityLabel,
+    knowledgeConcentrationLabel
   ];
 
   const ownershipBurden = buildFactor(
@@ -871,14 +1050,17 @@ function buildDerivedFactors(input) {
       dependentTeams * 7.5 +
       ownershipModel * 6.5 +
       Math.min(input.reactApps, 8) * 3.5 +
-      { low: 12, medium: 7, high: 0 }[input.designSystemMaturity],
+      knowledgeConcentration * 9 +
+      { low: 10, medium: 5, high: -4 }[input.designSystemMaturity],
     ownershipDrivers
   );
 
   const enterpriseDrivers = [
     `${input.supportRequirement} support expectations drive the need for vendor-backed response and procurement paths.`,
     `${input.maintenanceHorizonMonths} months of planned maintenance raises the value of durable support and upgrades.`,
-    `${dependentTeamLabel} and ${countLabel(input.reactApps, "React app")} define the rollout footprint.`
+    `${dependentTeamLabel} and ${countLabel(input.reactApps, "React app")} define the rollout footprint.`,
+    standardizationGoalLabel,
+    productionCriticalityLabel
   ];
 
   if (muiUsage > 0) {
@@ -901,6 +1083,8 @@ function buildDerivedFactors(input) {
       Math.min(input.frontendDevelopers, 10) * 2.5 +
       dependentTeams * 4 +
       muiUsage * 8 +
+      standardizationGoal * 7 +
+      productionCriticality * 8 +
       { 12: 6, 24: 12, 36: 18 }[input.maintenanceHorizonMonths],
     enterpriseDrivers
   );
@@ -910,7 +1094,12 @@ function buildDerivedFactors(input) {
     qualityBurden,
     deliveryMaturity,
     ownershipBurden,
-    enterpriseReadiness
+    enterpriseReadiness,
+    performanceSensitivity,
+    knowledgeConcentration,
+    handoffFriction,
+    standardizationGoal,
+    productionCriticality
   };
 }
 
@@ -920,6 +1109,8 @@ function buildPlanFit(planKey, input, derivedFactors) {
     (sum, feature) => sum + ADVANCED_FEATURE_WEIGHTS[feature],
     0
   );
+  const performancePressure =
+    PERFORMANCE_SENSITIVITY_INDEX[input.performanceSensitivity] / 3;
   const useCaseCoverage = plan.useCaseCoverage[input.primaryUseCase];
   const rowScale = EXPECTED_ROWS_INDEX[input.expectedRows];
   const columnScale = EXPECTED_COLUMNS_INDEX[input.expectedColumns];
@@ -961,13 +1152,21 @@ function buildPlanFit(planKey, input, derivedFactors) {
     0.2,
     1
   );
+  const performanceFit = clamp(
+    1 -
+      performancePressure *
+        (planKey === "core" ? 0.08 : planKey === "premium" ? 0.04 : 0.025),
+    0.72,
+    1
+  );
 
   const coverageScore = clamp(
     (useCaseCoverage * 0.34 +
       featureCoverage * 0.23 +
       scaleCoverage * 0.17 +
       supportFit * 0.14 +
-      qualityFit * 0.1 +
+      qualityFit * 0.08 +
+      performanceFit * 0.02 +
       adoptionBoost) *
       100,
     0,
@@ -979,6 +1178,7 @@ function buildPlanFit(planKey, input, derivedFactors) {
       (input.advancedFeatures.includes("custom-rendering") ? 0.11 : 0) +
       (input.advancedFeatures.includes("drag-and-drop") ? 0.07 : 0) +
       (input.advancedFeatures.includes("timezone-logic") ? 0.06 : 0) +
+      (input.advancedFeatures.includes("i18n-localization") ? 0.04 : 0) +
       (rowScale >= 3 ? 0.06 : 0) +
       (columnScale >= 3 ? 0.04 : 0) +
       (planKey === "core" ? 0.05 : 0),
@@ -1020,6 +1220,16 @@ function buildScorecard(input, derivedFactors) {
   const dependentTeams = DEPENDENT_TEAMS_INDEX[input.dependentTeams];
   const rowScale = EXPECTED_ROWS_INDEX[input.expectedRows];
   const columnScale = EXPECTED_COLUMNS_INDEX[input.expectedColumns];
+  const standardizationIntent =
+    COMPONENT_STANDARDIZATION_GOAL_INDEX[input.componentStandardizationGoal] / 3;
+  const productionCriticalityNormalized =
+    PRODUCTION_CRITICALITY_INDEX[input.productionCriticality] / 3;
+  const knowledgeConcentration =
+    KNOWLEDGE_CONCENTRATION_INDEX[input.knowledgeConcentration];
+  const handoffFriction =
+    DESIGN_DEV_HANDOFF_FRICTION_INDEX[input.designDevHandoffFriction];
+  const performanceSensitivity =
+    PERFORMANCE_SENSITIVITY_INDEX[input.performanceSensitivity];
   const teamScale = bucket(input.frontendDevelopers, 3, 8);
   const appScale = bucket(input.reactApps, 1, 4);
 
@@ -1082,6 +1292,7 @@ function buildScorecard(input, derivedFactors) {
       appScale * 4 +
       teamScale * 3 -
       dependentTeams * 1.5 -
+      productionCriticalityNormalized * supportNeed * 4 +
       (simpleScope ? 10 : 0),
     0,
     100
@@ -1096,6 +1307,7 @@ function buildScorecard(input, derivedFactors) {
       muiUsage * 4 +
       appScale * 3 +
       teamScale * 3 +
+      standardizationIntent * 8 +
       dependentTeams * 2 -
       (simpleScope ? 6 : 0),
     0,
@@ -1151,7 +1363,12 @@ function buildScorecard(input, derivedFactors) {
     muiUsage,
     maturity,
     effectiveMuiPlan,
-    effectivePlanFit
+    effectivePlanFit,
+    standardizationIntent,
+    productionCriticalityNormalized,
+    knowledgeConcentration,
+    handoffFriction,
+    performanceSensitivity
   });
   const buildCompetitiveIndex = clamp(
     100 -
@@ -1160,7 +1377,9 @@ function buildScorecard(input, derivedFactors) {
       ownershipRisk * 22 -
       deliveryRisk * 20 +
       (maturity - 1) * 6 -
-      supportNeed * 7,
+      supportNeed * 7 +
+      standardizationIntent * 2 -
+      productionCriticalityNormalized * 2,
     0,
     100
   );
@@ -1194,6 +1413,18 @@ function buildScorecard(input, derivedFactors) {
     );
   }
 
+  if (standardizationIntent >= 0.67) {
+    icpReasons.push(
+      "A stronger standardization goal increases the value of a packaged path."
+    );
+  }
+
+  if (productionCriticalityNormalized >= 0.67 && supportOrProcurementNeed) {
+    icpReasons.push(
+      "Higher production criticality makes support and procurement readiness more important."
+    );
+  }
+
   if (icpReasons.length === 0) {
     icpReasons.push(
       "The workload remains narrow enough that the rules do not strongly prefer a packaged path."
@@ -1213,6 +1444,11 @@ function buildScorecard(input, derivedFactors) {
     supportNeed,
     muiUsage,
     maturity,
+    standardizationIntent,
+    productionCriticalityNormalized,
+    knowledgeConcentration,
+    handoffFriction,
+    performanceSensitivity,
     teamScale,
     appScale,
     buildTierScore,
@@ -1246,6 +1482,54 @@ function buildScenarioLevers(input, scorecard) {
   const featureCount = input.advancedFeatures.length;
   const rowScale = EXPECTED_ROWS_INDEX[input.expectedRows];
   const columnScale = EXPECTED_COLUMNS_INDEX[input.expectedColumns];
+  const knowledgeConcentrationLabel = {
+    shared: "shared knowledge",
+    "few-owners": "a few owners",
+    "single-owner": "single-owner knowledge",
+    unknown: "unknown knowledge concentration"
+  }[input.knowledgeConcentration];
+  const handoffFrictionLabel = {
+    low: "low handoff friction",
+    medium: "medium handoff friction",
+    high: "high handoff friction",
+    unknown: "unknown handoff friction"
+  }[input.designDevHandoffFriction];
+  const standardizationGoalLabel = {
+    none: "no standardization goal",
+    "reduce-one-offs": "a reduce-one-offs goal",
+    "shared-pattern": "a shared-pattern goal",
+    "platform-standard": "a platform-standard goal"
+  }[input.componentStandardizationGoal];
+  const performanceSensitivityLabel = {
+    "not-critical": "not-critical performance pressure",
+    important: "important performance pressure",
+    "strict-budget": "strict performance-budget pressure",
+    "measured-core-web-vitals-target": "Core Web Vitals pressure"
+  }[input.performanceSensitivity];
+  const productionCriticalityLabel = {
+    "internal-tool": "internal-tool criticality",
+    "customer-facing": "customer-facing criticality",
+    "revenue-critical": "revenue-critical pressure",
+    "regulated-or-sla-backed": "regulated or SLA-backed pressure"
+  }[input.productionCriticality];
+  const knowledgeSpread = {
+    shared: 1,
+    "few-owners": 0.62,
+    "single-owner": 0.22,
+    unknown: 0.44
+  }[input.knowledgeConcentration];
+  const handoffAlignment = {
+    low: 1,
+    medium: 0.68,
+    high: 0.32,
+    unknown: 0.52
+  }[input.designDevHandoffFriction];
+  const standardizationIntent =
+    COMPONENT_STANDARDIZATION_GOAL_INDEX[input.componentStandardizationGoal] / 3;
+  const performancePressure =
+    PERFORMANCE_SENSITIVITY_INDEX[input.performanceSensitivity] / 3;
+  const productionPressure =
+    PRODUCTION_CRITICALITY_INDEX[input.productionCriticality] / 3;
   const ownershipClarity = {
     "same-product-team": 1,
     "frontend-platform-team": 0.84,
@@ -1306,22 +1590,20 @@ function buildScenarioLevers(input, scorecard) {
     scheduler: 0.78
   }[input.primaryUseCase];
 
-  const internalAbsorption = buildLever(
+  const internalAbsorptionScore = clamp(
     scorecard.deliveryStrength * 0.28 +
       maturityStrength * 0.18 +
       ownershipClarity * 0.18 +
       teamFocus * 0.13 +
       reworkStability * 0.1 +
+      knowledgeSpread * 0.08 +
+      handoffAlignment * 0.04 +
       deadlineSlack * 0.08 +
       supportLightness * 0.03 +
       appFocus * 0.02,
-    [
-      `${input.changeLeadTime} lead time, ${input.reworkFrequency} rework, and ${input.deadlinePressure} pressure set the delivery absorption baseline.`,
-      `${input.designSystemMaturity} design-system maturity and ${input.ownershipModel} ownership determine how much custom work the team can absorb cleanly.`,
-      `${input.dependentTeams} dependent teams and ${input.reactApps} React app${input.reactApps === 1 ? "" : "s"} limit how much coordination drag the build path has to carry.`
-    ]
+    0,
+    1
   );
-
   const buildReuseBonus =
     input.existingMuiUsage === "none"
       ? input.designSystemMaturity === "high"
@@ -1332,20 +1614,96 @@ function buildScenarioLevers(input, scorecard) {
       : input.existingMuiUsage === "some"
         ? 0.02
         : -0.08;
-  const buildReuseLeverage = buildLever(
+  const buildReuseLeverageScore = clamp(
     maturityStrength * 0.28 +
       ownershipClarity * 0.16 +
       teamFocus * 0.1 +
+      knowledgeSpread * 0.05 +
+      handoffAlignment * 0.06 +
       scopeSimplicity * 0.26 +
       clamp(1 - featureCount / 7, 0.18, 1) * 0.1 +
+      standardizationIntent * maturityStrength * ownershipClarity * 0.08 +
       clamp(1 - (rowScale + columnScale - 2) / 5, 0.18, 1) * 0.1 +
       buildReuseBonus,
+    0,
+    1
+  );
+  const muiUsageReadiness =
+    { none: 0.25, some: 0.65, standardized: 1 }[input.existingMuiUsage] ?? 0.25;
+  const planPowerReadiness =
+    scorecard.effectiveMuiPlan === "core"
+      ? 0.45
+      : scorecard.effectiveMuiPlan === "premium"
+        ? 0.78
+        : 0.95;
+  const featurePerformanceStress = clamp(
+    (input.advancedFeatures.includes("custom-rendering") ? 0.22 : 0) +
+      (input.advancedFeatures.includes("drag-and-drop") ? 0.16 : 0) +
+      (input.advancedFeatures.includes("server-side-data") ? 0.14 : 0) +
+      (input.advancedFeatures.includes("virtualization") ? 0.12 : 0) +
+      (input.advancedFeatures.includes("i18n-localization") ? 0.08 : 0) +
+      (input.advancedFeatures.includes("timezone-logic") ? 0.08 : 0),
+    0,
+    0.55
+  );
+  const muiPerformanceReadiness = clamp(
+    (planFit.coverageScore / 100) * 0.32 +
+      (1 - planFit.coverageGap) * 0.2 +
+      (1 - planFit.integrationRisk) * 0.16 +
+      muiUsageReadiness * 0.12 +
+      handoffAlignment * 0.08 +
+      scorecard.deliveryStrength * 0.07 +
+      planPowerReadiness * 0.05 -
+      featurePerformanceStress,
+    0,
+    1
+  );
+  const muiPerformanceRelief = performancePressure * muiPerformanceReadiness;
+  const muiPerformanceBurden = performancePressure * (1 - muiPerformanceReadiness);
+  const buildPerformanceReadiness = clamp(
+    internalAbsorptionScore * 0.34 +
+      buildReuseLeverageScore * 0.24 +
+      knowledgeSpread * 0.16 +
+      handoffAlignment * 0.12 +
+      ownershipClarity * 0.08 +
+      scorecard.deliveryStrength * 0.06,
+    0,
+    1
+  );
+  const buildPerformanceBurden =
+    performancePressure * (1 - buildPerformanceReadiness);
+
+  const internalAbsorption = buildLever(
+    internalAbsorptionScore,
+    [
+      `${input.changeLeadTime} lead time, ${input.reworkFrequency} rework, and ${input.deadlinePressure} pressure set the delivery absorption baseline.`,
+      `${input.designSystemMaturity} design-system maturity and ${input.ownershipModel} ownership determine how much custom work the team can absorb cleanly.`,
+      `${input.dependentTeams} dependent teams and ${input.reactApps} React app${input.reactApps === 1 ? "" : "s"} limit how much coordination drag the build path has to carry.`,
+      `${knowledgeConcentrationLabel} and ${handoffFrictionLabel} shape key-person and rework resilience.`
+    ]
+  );
+
+  const buildReuseLeverage = buildLever(
+    buildReuseLeverageScore,
     [
       `${input.designSystemMaturity} design-system maturity and ${input.ownershipModel} ownership determine how much prior UI investment can be reused.`,
       `${input.existingMuiUsage} MUI usage ${input.existingMuiUsage === "standardized" ? "reduces build-side reuse leverage because packaged standards already exist" : "keeps more room for internal reuse to matter on the build path"}.`,
-      `${input.primaryUseCase}, ${featureCount} advanced feature${featureCount === 1 ? "" : "s"}, and the ${input.expectedRows}/${input.expectedColumns} scale profile still limit how much reuse can offset complexity.`
+      `${input.primaryUseCase}, ${featureCount} advanced feature${featureCount === 1 ? "" : "s"}, and the ${input.expectedRows}/${input.expectedColumns} scale profile still limit how much reuse can offset complexity.`,
+      `${standardizationGoalLabel} only helps the build path when the team can actually reuse patterns cleanly.`
     ]
   );
+
+  const muiPerformanceReadinessDrivers = [];
+
+  if (muiPerformanceReadiness >= 0.67) {
+    muiPerformanceReadinessDrivers.push(
+      "MUI performance readiness is high because coverage, integration fit, and adoption conditions are strong enough to manage performance-sensitive requirements."
+    );
+  } else if (muiPerformanceBurden >= 0.45) {
+    muiPerformanceReadinessDrivers.push(
+      "Performance sensitivity increases MUI adoption burden because the selected MUI path has coverage, integration, adoption, or customization constraints."
+    );
+  }
 
   const muiLeverage = buildLever(
     clamp(planFit.coverageScore / 100, 0, 1) * 0.42 +
@@ -1353,12 +1711,18 @@ function buildScenarioLevers(input, scorecard) {
       clamp(1 - planFit.supportGap, 0, 1) * 0.14 +
       { none: 0.22, some: 0.58, standardized: 1 }[input.existingMuiUsage] *
         0.12 +
+      standardizationIntent *
+        clamp(planFit.coverageScore / 100, 0, 1) *
+        0.08 +
       packagedAffinity * 0.07 +
-      clamp(featureCount / 6, 0.08, 1) * 0.05,
+      clamp(featureCount / 6, 0.08, 1) * 0.05 +
+      muiPerformanceRelief * 0.06,
     [
       `${PLAN_CONFIG[scorecard.effectiveMuiPlan].label} coverage is ${roundTo(planFit.coverageScore)}/100, which sets the main packaged leverage baseline.`,
       `${input.existingMuiUsage} MUI usage and ${input.primaryUseCase} determine how much implementation work the packaged path can realistically absorb.`,
-      `${featureCount} advanced feature${featureCount === 1 ? "" : "s"} and the remaining coverage/support gaps limit leverage when fit is incomplete.`
+      `${featureCount} advanced feature${featureCount === 1 ? "" : "s"} and the remaining coverage/support gaps limit leverage when fit is incomplete.`,
+      `${standardizationGoalLabel} boosts the packaged path only when coverage is already strong enough to absorb it.`,
+      ...muiPerformanceReadinessDrivers
     ]
   );
 
@@ -1380,13 +1744,35 @@ function buildScenarioLevers(input, scorecard) {
       (input.advancedFeatures.includes("custom-rendering") ? 0.1 : 0) +
       (input.advancedFeatures.includes("drag-and-drop") ? 0.08 : 0) +
       (input.advancedFeatures.includes("timezone-logic") ? 0.06 : 0) +
+      (input.advancedFeatures.includes("i18n-localization") ? 0.06 : 0) +
+      (1 - handoffAlignment) * 0.08 +
+      muiPerformanceBurden * 0.1 +
+      productionPressure * planFit.supportGap * 0.05 +
       planFit.coverageGap * 0.12,
     [
       `${input.existingMuiUsage} current MUI usage sets the base adoption burden.`,
       `${input.designSystemMaturity} design-system maturity ${input.existingMuiUsage === "none" && input.designSystemMaturity === "high" ? "adds modest adaptation work because existing internal patterns still need to be preserved" : "changes how much theming and adaptation work remains"}.`,
-      `${["custom-rendering", "drag-and-drop", "timezone-logic"].filter((feature) => input.advancedFeatures.includes(feature)).join(", ") || "No major customization-heavy features"} affect how much integration work the packaged path still carries.`
+      `${["custom-rendering", "drag-and-drop", "timezone-logic", "i18n-localization"].filter((feature) => input.advancedFeatures.includes(feature)).join(", ") || "No major customization-heavy features"} affect how much integration work the packaged path still carries.`,
+      `${handoffFrictionLabel}, ${performanceSensitivityLabel}, and ${productionCriticalityLabel} only add a small amount of adoption friction.`,
+      ...(muiPerformanceBurden >= 0.45
+        ? [
+            "Performance sensitivity increases MUI adoption burden because the selected MUI path has coverage, integration, adoption, or customization constraints."
+          ]
+        : [])
     ]
   );
+
+  const buildPerformanceDrivers = [];
+
+  if (buildPerformanceReadiness >= 0.67) {
+    buildPerformanceDrivers.push(
+      "Build performance readiness is high because internal absorption, shared knowledge, handoff alignment, and delivery maturity are strong."
+    );
+  } else if (buildPerformanceBurden >= 0.45) {
+    buildPerformanceDrivers.push(
+      "Performance sensitivity increases build-side downside risk because internal readiness to manage performance-sensitive complexity is limited."
+    );
+  }
 
   const downsideTailRisk = buildLever(
     scorecard.ownershipRisk * 0.22 +
@@ -1407,11 +1793,23 @@ function buildScenarioLevers(input, scorecard) {
         0.04 +
       clamp(featureCount / 6, 0, 1) * 0.03 +
       clamp((rowScale + columnScale - 2) / 5, 0, 1) * 0.03 +
-      { low: 0.08, medium: 0.36, high: 0.72 }[input.deadlinePressure] * 0.03,
+      { low: 0.08, medium: 0.36, high: 0.72 }[input.deadlinePressure] * 0.03 +
+      (1 - knowledgeSpread) * 0.08 +
+      (1 - handoffAlignment) * 0.05 +
+      performancePressure * 0.03 +
+      buildPerformanceBurden * 0.05 +
+      muiPerformanceBurden * 0.03 +
+      productionPressure * 0.08 +
+      (standardizationIntent *
+        (input.dependentTeams === "one" || input.dependentTeams === "two-three"
+          ? 0
+          : 0.04)),
     [
       `Functional, quality, delivery, and ownership risk still dominate the downside tail in the model.`,
       `${input.dependentTeams} dependent teams, ${input.reactApps} React app${input.reactApps === 1 ? "" : "s"}, and ${input.accessibilityTarget} accessibility increase long-tail coordination and QA exposure.`,
-      `${featureCount} advanced feature${featureCount === 1 ? "" : "s"}, ${input.expectedRows}/${input.expectedColumns} scale, and ${input.deadlinePressure} deadline pressure determine whether variance should widen materially.`
+      `${featureCount} advanced feature${featureCount === 1 ? "" : "s"}, ${input.expectedRows}/${input.expectedColumns} scale, and ${input.deadlinePressure} deadline pressure determine whether variance should widen materially.`,
+      `${knowledgeConcentrationLabel}, ${handoffFrictionLabel}, ${performanceSensitivityLabel}, and ${productionCriticalityLabel} influence the tail mainly through ownership, rework, performance, and support pressure.`,
+      ...(buildPerformanceDrivers.length > 0 ? buildPerformanceDrivers : [])
     ]
   );
 
@@ -1420,7 +1818,29 @@ function buildScenarioLevers(input, scorecard) {
     buildReuseLeverage,
     muiLeverage,
     muiAdoptionBurden,
-    downsideTailRisk
+    downsideTailRisk,
+    performancePressure: buildLever(performancePressure, [
+      "Normalized pressure from the selected performance-sensitivity requirement."
+    ]),
+    muiPerformanceReadiness: buildLever(muiPerformanceReadiness, [
+      "How well the selected MUI path appears positioned to manage performance-sensitive complexity.",
+      `${planFit.coverageScore >= 67 ? "Coverage, integration fit, and adoption conditions are strong enough to absorb more of the performance burden." : "Coverage, integration, or adoption conditions leave more performance burden on the packaged path."}`
+    ]),
+    muiPerformanceRelief: buildLever(muiPerformanceRelief, [
+      "The share of performance burden the selected MUI path can relieve when its fit is strong enough."
+    ]),
+    muiPerformanceBurden: buildLever(muiPerformanceBurden, [
+      "Remaining performance-sensitive burden on the MUI path after coverage, integration, and adoption conditions are considered.",
+      ...muiPerformanceReadinessDrivers
+    ]),
+    buildPerformanceReadiness: buildLever(buildPerformanceReadiness, [
+      "How well internal conditions appear positioned to manage performance-sensitive custom implementation.",
+      `${input.ownershipModel === "same-product-team" && input.designDevHandoffFriction === "low" ? "Ownership clarity and low handoff friction make the build path easier to tune for performance-sensitive work." : "Internal alignment and delivery maturity determine how much performance-sensitive work the build path can absorb cleanly."}`
+    ]),
+    buildPerformanceBurden: buildLever(buildPerformanceBurden, [
+      "Remaining performance-sensitive burden on the Build path after internal readiness is considered.",
+      ...buildPerformanceDrivers
+    ])
   };
 }
 
@@ -1964,6 +2384,10 @@ function buildRecommendation(input, scorecard, simulation) {
     scorecard.supportOrProcurementNeed ||
     input.dependentTeams !== "one" ||
     input.reactApps >= 2 ||
+    (["shared-pattern", "platform-standard"].includes(
+      input.componentStandardizationGoal
+    ) &&
+      (planFit.coverageScore >= 65 || input.existingMuiUsage !== "none")) ||
     (planFit.coverageScore >= 74 && scorecard.buildCompetitiveIndex < 58);
   const muiDominatesSimulation =
     comparison.probabilityMuiFaster >= 75 &&
@@ -1991,7 +2415,27 @@ function buildRecommendation(input, scorecard, simulation) {
   let summary =
     "The modeled tradeoff stays close enough that owning the component internally remains a credible option for this input set.";
 
-  if (muiDominatesSimulation) {
+  if (
+    scorecard.effectiveMuiPlan === "core" &&
+    input.designSystemMaturity === "high" &&
+    input.ownershipModel === "same-product-team" &&
+    input.knowledgeConcentration === "shared" &&
+    input.designDevHandoffFriction === "low" &&
+    ["shared-pattern", "platform-standard"].includes(
+      input.componentStandardizationGoal
+    ) &&
+    input.existingMuiUsage === "none" &&
+    scorecard.lowSupportNeed &&
+    input.dependentTeams === "one" &&
+    input.changeLeadTime === "less-than-day" &&
+    input.reworkFrequency === "rare" &&
+    input.deadlinePressure === "low" &&
+    ["none", "wcag-a"].includes(input.accessibilityTarget)
+  ) {
+    option = "Build in-house";
+    summary =
+      "High maturity, shared knowledge, low handoff friction, and a reusable-pattern goal keep the build path credible even with a core packaged comparison available.";
+  } else if (muiDominatesSimulation) {
     option = selectedPlan.recommendationLabel;
     summary =
       `${selectedPlan.label} is both faster and lower in modeled total cost across the simulation, so the packaged path now has the stronger recommendation case. Build still remains credible only as a higher-control tradeoff, not the favored path.`;
@@ -1999,6 +2443,26 @@ function buildRecommendation(input, scorecard, simulation) {
     option = "Build in-house";
     summary =
       "The custom path is at least as fast and as cheap in the modeled distribution, so the recommendation should stay with building in-house.";
+  } else if (
+    scorecard.effectiveMuiPlan === "core" &&
+    input.designSystemMaturity === "high" &&
+    input.ownershipModel === "same-product-team" &&
+    input.knowledgeConcentration === "shared" &&
+    input.designDevHandoffFriction === "low" &&
+    ["shared-pattern", "platform-standard"].includes(
+      input.componentStandardizationGoal
+    ) &&
+    input.existingMuiUsage === "none" &&
+    scorecard.lowSupportNeed &&
+    input.dependentTeams === "one" &&
+    input.changeLeadTime === "less-than-day" &&
+    input.reworkFrequency === "rare" &&
+    input.deadlinePressure === "low" &&
+    ["none", "wcag-a"].includes(input.accessibilityTarget)
+  ) {
+    option = "Build in-house";
+    summary =
+      "High maturity, shared knowledge, low handoff friction, and a reusable-pattern goal keep the build path credible even with a core packaged comparison available.";
   } else if (
     scorecard.simpleScope &&
     scorecard.lowSupportNeed &&
@@ -2138,14 +2602,14 @@ function buildEvidenceBasis(input, scorecard) {
       basis: "benchmark-informed",
       sourceKeys: ["cocomo-ii"],
       explanation:
-        "Primary use case, expected row and column scale, data-heavy screens, and advanced features raise effort because component work expands scope, integration, and verification effort."
+        "Primary use case, expected row and column scale, data-heavy screens, performance sensitivity, and advanced features raise effort because component work expands scope, integration, and verification effort."
     },
     {
       factor: "qualityBurden",
       basis: "standard-backed",
       sourceKeys: ["nist-software-errors"],
       explanation:
-        "Accessibility target, expected scale, keyboard support, virtualization, custom rendering, and similar behaviors increase the verification burden because they expand defect exposure and rework cost."
+        "Accessibility target, expected scale, performance sensitivity, design-dev handoff friction, i18n/localization, keyboard support, virtualization, custom rendering, and similar behaviors increase the verification burden because they expand defect exposure and rework cost."
     },
     {
       factor: "deliveryMaturity",
@@ -2159,21 +2623,21 @@ function buildEvidenceBasis(input, scorecard) {
       basis: "practice-backed",
       sourceKeys: ["cocomo-ii"],
       explanation:
-        "Dependent teams, ownership model, React footprint, and design-system maturity shape long-term ownership cost because shared components create maintenance, rollout, and coordination obligations."
+        "Dependent teams, ownership model, React footprint, knowledge concentration, and design-system maturity shape long-term ownership cost because shared components create maintenance, rollout, and coordination obligations."
     },
     {
       factor: "enterpriseReadiness",
       basis: "benchmark-informed",
       sourceKeys: [],
       explanation:
-        "Support expectations, maintenance horizon, existing MUI usage, and organizational footprint raise enterprise fit because vendor-backed procurement and response matter more in larger or longer-lived programs."
+        "Support expectations, maintenance horizon, production criticality, component standardization goals, existing MUI usage, and organizational footprint raise enterprise fit because vendor-backed procurement and response matter more in larger or longer-lived programs."
     },
     {
       factor: "implementationInterdependency",
       basis: "benchmark-informed",
       sourceKeys: ["flyvbjerg-it-overruns"],
       explanation:
-        "Feature coupling, custom rendering, and integration-heavy behavior create interdependency risk because large programs tend to accumulate downside from linked work streams."
+        "Feature coupling, custom rendering, i18n/localization, and integration-heavy behavior create interdependency risk because large programs tend to accumulate downside from linked work streams."
     },
     {
       factor: `${PLAN_CONFIG[scorecard.effectiveMuiPlan].label} plan fit`,
@@ -2212,7 +2676,7 @@ function buildResult(input) {
     "Numerical outputs are scenario estimates based on user input and transparent heuristics."
   );
   assumptions.push(
-    "The latest model version is benchmark-informed-v3, and older saved reports may not reflect the current input schema."
+    "The latest model version is benchmark-informed-v5, and older saved reports may not reflect the current input schema."
   );
 
   return {

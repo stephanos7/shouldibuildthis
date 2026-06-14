@@ -25,7 +25,7 @@ import {
   getPublicSourceMap
 } from "../data/publicSources.js";
 
-const CURRENT_MODEL_VERSION = "benchmark-informed-v3";
+const CURRENT_MODEL_VERSION = "benchmark-informed-v5";
 
 const optionLabelMaps = {
   existingMuiUsage: {
@@ -37,6 +37,24 @@ const optionLabelMaps = {
     low: "Low",
     medium: "Medium",
     high: "High"
+  },
+  knowledgeConcentration: {
+    shared: "Shared across the team",
+    "few-owners": "A few owners",
+    "single-owner": "Mostly one owner",
+    unknown: "Unknown"
+  },
+  designDevHandoffFriction: {
+    low: "Low",
+    medium: "Medium",
+    high: "High",
+    unknown: "Unknown"
+  },
+  componentStandardizationGoal: {
+    none: "No standardization goal",
+    "reduce-one-offs": "Reduce one-off components",
+    "shared-pattern": "Shared pattern",
+    "platform-standard": "Platform standard"
   },
   dependentTeams: {
     one: "One",
@@ -71,6 +89,12 @@ const optionLabelMaps = {
     "more-than-month": "More than a month",
     unknown: "Unknown"
   },
+  performanceSensitivity: {
+    "not-critical": "Not critical",
+    important: "Important",
+    "strict-budget": "Strict performance budget",
+    "measured-core-web-vitals-target": "Measured Core Web Vitals target"
+  },
   reworkFrequency: {
     rare: "Rare",
     occasional: "Occasional",
@@ -104,6 +128,12 @@ const optionLabelMaps = {
     priority: "Priority",
     "procurement-sla": "Procurement-backed SLA"
   },
+  productionCriticality: {
+    "internal-tool": "Internal tool",
+    "customer-facing": "Customer-facing",
+    "revenue-critical": "Revenue-critical",
+    "regulated-or-sla-backed": "Regulated or SLA-backed"
+  },
   advancedFeatures: {
     virtualization: "Virtualization at scale",
     "inline-editing": "Inline editing workflows",
@@ -112,7 +142,8 @@ const optionLabelMaps = {
     exporting: "Export or print requirements",
     "drag-and-drop": "Drag-and-drop interactions",
     "custom-rendering": "Complex custom cell or item rendering",
-    "timezone-logic": "Timezone and localization logic"
+    "timezone-logic": "Timezone logic",
+    "i18n-localization": "i18n and localization requirements"
   }
 };
 
@@ -265,6 +296,31 @@ const factorDisplayConfig = {
     title: "Implementation interdependency",
     scaleType: "burden",
     labelNoun: "implementation interdependency"
+  },
+  performancePressure: {
+    title: "Performance pressure",
+    scaleType: "burden",
+    labelNoun: "performance pressure"
+  },
+  muiPerformanceReadiness: {
+    title: "MUI performance readiness",
+    scaleType: "strength",
+    labelNoun: "MUI performance readiness"
+  },
+  muiPerformanceBurden: {
+    title: "MUI performance burden",
+    scaleType: "burden",
+    labelNoun: "MUI performance burden"
+  },
+  buildPerformanceReadiness: {
+    title: "Build performance readiness",
+    scaleType: "strength",
+    labelNoun: "build performance readiness"
+  },
+  buildPerformanceBurden: {
+    title: "Build performance burden",
+    scaleType: "burden",
+    labelNoun: "build performance burden"
   }
 };
 
@@ -439,6 +495,12 @@ function buildDecisionFactors(result, assessmentInput) {
   const deliveryScore = Number(derived.deliveryMaturity?.score) || 0;
   const ownershipScore = Number(derived.ownershipBurden?.score) || 0;
   const existingMuiUsage = assessmentInput?.existingMuiUsage;
+  const performanceSensitivity = assessmentInput?.performanceSensitivity;
+  const knowledgeConcentration = assessmentInput?.knowledgeConcentration;
+  const designDevHandoffFriction = assessmentInput?.designDevHandoffFriction;
+  const componentStandardizationGoal =
+    assessmentInput?.componentStandardizationGoal;
+  const productionCriticality = assessmentInput?.productionCriticality;
   const coverageScore = Number(modeledMuiPathFit.coverageScore);
   const coverageGap = Number(modeledMuiPathFit.coverageGap);
   const supportGap = Number(modeledMuiPathFit.supportGap);
@@ -465,6 +527,7 @@ function buildDecisionFactors(result, assessmentInput) {
         "How much work the UI requirement creates before delivery timing and TCO are modeled.",
       details: [
         `Functional complexity is ${formatNumber(functionalScore)}/100 and quality burden is ${formatNumber(qualityScore)}/100.`,
+        `Performance sensitivity is ${formatLabel("performanceSensitivity", performanceSensitivity)} and design-dev handoff friction is ${formatLabel("designDevHandoffFriction", designDevHandoffFriction)}.`,
         "Higher scope burden makes a custom build harder to keep predictable."
       ]
     },
@@ -476,6 +539,7 @@ function buildDecisionFactors(result, assessmentInput) {
         "How well the team can absorb custom build work with the current delivery and ownership setup.",
       details: [
         `Delivery maturity is ${formatNumber(deliveryScore)}/100 and ownership burden is ${formatNumber(ownershipScore)}/100.`,
+        `Knowledge concentration is ${formatLabel("knowledgeConcentration", knowledgeConcentration)}.`,
         "Higher delivery maturity and lower ownership burden make in-house work easier to absorb."
       ]
     },
@@ -488,6 +552,7 @@ function buildDecisionFactors(result, assessmentInput) {
       details: [
         `Coverage score is ${formatNumber(coverageScore)}/100 with a coverage gap of ${formatNumber(Number.isFinite(coverageGap) ? coverageGap * 100 : NaN)}/100 and a support gap of ${formatNumber(Number.isFinite(supportGap) ? supportGap * 100 : NaN)}/100.`,
         `Existing MUI usage is ${formatLabel("existingMuiUsage", existingMuiUsage)}.`,
+        `Component standardization goal is ${formatLabel("componentStandardizationGoal", componentStandardizationGoal)} and production criticality is ${formatLabel("productionCriticality", productionCriticality)}.`,
         "This is the MUI path used for the Build vs MUI simulation, not automatically the recommended path."
       ]
     },
@@ -517,9 +582,15 @@ function buildRiskDrivers(result, assessmentInput) {
   const reactApps = Number(assessmentInput?.reactApps) || 0;
   const frontendDevelopers = Number(assessmentInput?.frontendDevelopers) || 0;
   const deadlinePressure = assessmentInput?.deadlinePressure;
+  const performanceSensitivity = assessmentInput?.performanceSensitivity;
   const accessibilityTarget = assessmentInput?.accessibilityTarget;
   const changeLeadTime = assessmentInput?.changeLeadTime;
   const reworkFrequency = assessmentInput?.reworkFrequency;
+  const knowledgeConcentration = assessmentInput?.knowledgeConcentration;
+  const designDevHandoffFriction = assessmentInput?.designDevHandoffFriction;
+  const componentStandardizationGoal =
+    assessmentInput?.componentStandardizationGoal;
+  const productionCriticality = assessmentInput?.productionCriticality;
   const dependentTeams = assessmentInput?.dependentTeams;
   const ownershipModel = assessmentInput?.ownershipModel;
   const existingMuiUsage = assessmentInput?.existingMuiUsage;
@@ -587,6 +658,24 @@ function buildRiskDrivers(result, assessmentInput) {
     0,
     100
   );
+  const operatingPressureScore = clamp(
+    (productionCriticality === "regulated-or-sla-backed"
+      ? 44
+      : productionCriticality === "revenue-critical"
+        ? 34
+        : productionCriticality === "customer-facing"
+          ? 22
+          : 10) +
+      (performanceSensitivity === "measured-core-web-vitals-target"
+        ? 16
+        : performanceSensitivity === "strict-budget"
+          ? 11
+          : performanceSensitivity === "important"
+            ? 6
+            : 0),
+    0,
+    100
+  );
   const maintenanceScore = clamp(
     (maintenanceHorizonMonths / 36) * 42 +
       (dependentTeams === "eight-plus"
@@ -622,7 +711,7 @@ function buildRiskDrivers(result, assessmentInput) {
       title: "Advanced scope complexity",
       score: advancedScopeScore,
       detail:
-        `${formatLabel("primaryUseCase", primaryUseCase)} currently carries ${advancedFeatureCount || "no"} additional advanced behavior${advancedFeatureCount === 1 ? "" : "s"}, ${dataHeavyScreens} data-heavy screen${dataHeavyScreens === 1 ? "" : "s"}, and a ${formatLabel("expectedRows", expectedRows)} by ${formatLabel("expectedColumns", expectedColumns)} scale profile.`,
+        `${formatLabel("primaryUseCase", primaryUseCase)} currently carries ${advancedFeatureCount || "no"} additional advanced behavior${advancedFeatureCount === 1 ? "" : "s"}, ${dataHeavyScreens} data-heavy screen${dataHeavyScreens === 1 ? "" : "s"}, and a ${formatLabel("expectedRows", expectedRows)} by ${formatLabel("expectedColumns", expectedColumns)} scale profile. Performance sensitivity is ${formatLabel("performanceSensitivity", performanceSensitivity)}.`,
       implication:
         "More advanced behaviors and larger data scale raise implementation, integration, and QA risk."
     },
@@ -636,23 +725,30 @@ function buildRiskDrivers(result, assessmentInput) {
     {
       title: "Support and accessibility expectations",
       score: supportScore,
-      detail: `Current support need is ${formatLabel("supportRequirement", supportRequirement)} with a ${formatLabel("accessibilityTarget", accessibilityTarget)} accessibility target.`,
+      detail: `Current support need is ${formatLabel("supportRequirement", supportRequirement)} with a ${formatLabel("accessibilityTarget", accessibilityTarget)} accessibility target and ${formatLabel("productionCriticality", productionCriticality)} production criticality.`,
       implication:
         "Higher assurance requirements increase the value of vendor-backed behavior, fixes, and support channels."
     },
     {
       title: "Maintenance continuity",
       score: maintenanceScore,
-      detail: `The model assumes a ${formatLabel("maintenanceHorizonMonths", assessmentInput?.maintenanceHorizonMonths)} horizon with ${formatLabel("dependentTeams", dependentTeams)} dependent teams and ${formatLabel("ownershipModel", ownershipModel)} ownership.`,
+      detail: `The model assumes a ${formatLabel("maintenanceHorizonMonths", assessmentInput?.maintenanceHorizonMonths)} horizon with ${formatLabel("dependentTeams", dependentTeams)} dependent teams, ${formatLabel("ownershipModel", ownershipModel)} ownership, and ${formatLabel("knowledgeConcentration", knowledgeConcentration)} knowledge concentration.`,
       implication:
         "Longer ownership windows and staffing churn make ongoing custom maintenance more consequential."
     },
     {
       title: "Rollout footprint and reuse",
       score: rolloutScore,
-      detail: `${frontendDevelopers || "A small number of"} frontend developer${frontendDevelopers === 1 ? "" : "s"} support ${reactApps || "a limited number of"} React app${reactApps === 1 ? "" : "s"}, with ${formatLabel("existingMuiUsage", existingMuiUsage)} MUI usage and ${formatLabel("designSystemMaturity", assessmentInput?.designSystemMaturity)} maturity today.`,
+      detail: `${frontendDevelopers || "A small number of"} frontend developer${frontendDevelopers === 1 ? "" : "s"} support ${reactApps || "a limited number of"} React app${reactApps === 1 ? "" : "s"}, with ${formatLabel("existingMuiUsage", existingMuiUsage)} MUI usage, ${formatLabel("designSystemMaturity", assessmentInput?.designSystemMaturity)} maturity, ${formatLabel("designDevHandoffFriction", designDevHandoffFriction)} handoff friction, and a ${formatLabel("componentStandardizationGoal", componentStandardizationGoal)} standardization goal today.`,
       implication:
         "More shared usage increases the value of consistency, but also raises the cost of a poorly governed component layer."
+    },
+    {
+      title: "Operating pressure",
+      score: operatingPressureScore,
+      detail: `Production pressure is framed by ${formatLabel("productionCriticality", productionCriticality)} criticality and ${formatLabel("performanceSensitivity", performanceSensitivity)} performance sensitivity.`,
+      implication:
+        "SLA-style or revenue-sensitive operating pressure raises the cost of regressions and sustained underperformance."
     }
   ];
 
@@ -735,6 +831,11 @@ function buildScenarioSnapshot(assessmentInput, result) {
     `Rows: ${formatLabel("expectedRows", assessmentInput.expectedRows)}`,
     `Columns: ${formatLabel("expectedColumns", assessmentInput.expectedColumns)}`,
     `Ownership: ${formatLabel("ownershipModel", assessmentInput.ownershipModel)}`,
+    `Knowledge: ${formatLabel("knowledgeConcentration", assessmentInput.knowledgeConcentration)}`,
+    `Handoff: ${formatLabel("designDevHandoffFriction", assessmentInput.designDevHandoffFriction)}`,
+    `Standardization: ${formatLabel("componentStandardizationGoal", assessmentInput.componentStandardizationGoal)}`,
+    `Performance: ${formatLabel("performanceSensitivity", assessmentInput.performanceSensitivity)}`,
+    `Criticality: ${formatLabel("productionCriticality", assessmentInput.productionCriticality)}`,
     `Support: ${formatLabel("supportRequirement", assessmentInput.supportRequirement)}`,
     `Modeled MUI path: ${result.muiPath?.label ?? "Not set"}`
   ];
@@ -898,7 +999,12 @@ const modelLeverLabels = {
   buildReuseLeverage: "Build reuse leverage",
   muiLeverage: "MUI leverage",
   muiAdoptionBurden: "MUI adoption burden",
-  downsideTailRisk: "Downside tail risk"
+  downsideTailRisk: "Downside tail risk",
+  performancePressure: "Performance pressure",
+  muiPerformanceReadiness: "MUI performance readiness",
+  muiPerformanceBurden: "MUI performance burden",
+  buildPerformanceReadiness: "Build performance readiness",
+  buildPerformanceBurden: "Build performance burden"
 };
 
 const evidenceBasisOrder = [
@@ -1168,7 +1274,12 @@ function ReportPage() {
         ["buildReuseLeverage", modelLevers.buildReuseLeverage],
         ["muiLeverage", modelLevers.muiLeverage],
         ["muiAdoptionBurden", modelLevers.muiAdoptionBurden],
-        ["downsideTailRisk", modelLevers.downsideTailRisk]
+        ["downsideTailRisk", modelLevers.downsideTailRisk],
+        ["performancePressure", modelLevers.performancePressure],
+        ["muiPerformanceReadiness", modelLevers.muiPerformanceReadiness],
+        ["muiPerformanceBurden", modelLevers.muiPerformanceBurden],
+        ["buildPerformanceReadiness", modelLevers.buildPerformanceReadiness],
+        ["buildPerformanceBurden", modelLevers.buildPerformanceBurden]
       ]
         .filter(([, lever]) => lever)
         .map(([key, lever]) => [
@@ -1452,14 +1563,6 @@ function ReportPage() {
                             </Box>
                             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap justifyContent="flex-end">
                               <Chip label={factor.label} size="small" variant="outlined" />
-                              <Chip
-                                label={`${getBand(factor.score)} fit`}
-                                size="small"
-                                color={getToneChipColor(
-                                  getDecisionFactorTone(factor.title, factor.score)
-                                )}
-                                variant="outlined"
-                              />
                             </Stack>
                           </Stack>
 

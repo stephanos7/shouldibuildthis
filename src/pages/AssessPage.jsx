@@ -39,6 +39,27 @@ const designSystemMaturityOptions = [
   { value: "high", label: "High" }
 ];
 
+const knowledgeConcentrationOptions = [
+  { value: "shared", label: "Shared across the team" },
+  { value: "few-owners", label: "A few owners" },
+  { value: "single-owner", label: "Mostly one owner" },
+  { value: "unknown", label: "Unknown" }
+];
+
+const designDevHandoffFrictionOptions = [
+  { value: "low", label: "Low" },
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High" },
+  { value: "unknown", label: "Unknown" }
+];
+
+const componentStandardizationGoalOptions = [
+  { value: "none", label: "No standardization goal" },
+  { value: "reduce-one-offs", label: "Reduce one-off components" },
+  { value: "shared-pattern", label: "Shared pattern" },
+  { value: "platform-standard", label: "Platform standard" }
+];
+
 const dependentTeamsOptions = [
   { value: "one", label: "One" },
   { value: "two-three", label: "Two to three" },
@@ -84,6 +105,16 @@ const reworkFrequencyOptions = [
   { value: "unknown", label: "Unknown" }
 ];
 
+const performanceSensitivityOptions = [
+  { value: "not-critical", label: "Not critical" },
+  { value: "important", label: "Important" },
+  { value: "strict-budget", label: "Strict performance budget" },
+  {
+    value: "measured-core-web-vitals-target",
+    label: "Measured Core Web Vitals target"
+  }
+];
+
 const expectedRowsOptions = [
   { value: "under-1k", label: "Under 1k" },
   { value: "1k-10k", label: "1k to 10k" },
@@ -110,6 +141,13 @@ const supportRequirementOptions = [
   { value: "procurement-sla", label: "Procurement-backed SLA" }
 ];
 
+const productionCriticalityOptions = [
+  { value: "internal-tool", label: "Internal tool" },
+  { value: "customer-facing", label: "Customer-facing" },
+  { value: "revenue-critical", label: "Revenue-critical" },
+  { value: "regulated-or-sla-backed", label: "Regulated or SLA-backed" }
+];
+
 const maintenanceHorizonOptions = [
   { value: "12", label: "12 months" },
   { value: "24", label: "24 months" },
@@ -124,7 +162,8 @@ const advancedFeatureOptions = [
   { value: "exporting", label: "Export or print requirements" },
   { value: "drag-and-drop", label: "Drag-and-drop interactions" },
   { value: "custom-rendering", label: "Complex custom cell or item rendering" },
-  { value: "timezone-logic", label: "Timezone and localization logic" }
+  { value: "timezone-logic", label: "Timezone logic" },
+  { value: "i18n-localization", label: "i18n and localization requirements" }
 ];
 
 const steps = [
@@ -161,6 +200,9 @@ const defaultFormValues = {
   ownershipModel: "",
   existingMuiUsage: "",
   designSystemMaturity: "",
+  knowledgeConcentration: "",
+  designDevHandoffFriction: "",
+  componentStandardizationGoal: "",
   primaryUseCase: "",
   dataHeavyScreens: "",
   expectedRows: "",
@@ -168,27 +210,34 @@ const defaultFormValues = {
   advancedFeatures: [],
   accessibilityTarget: "",
   changeLeadTime: "",
+  performanceSensitivity: "",
   reworkFrequency: "",
   deadlinePressure: "",
   maintenanceHorizonMonths: "",
   supportRequirement: "",
+  productionCriticality: "",
   engineerCostPerDay: ""
 };
 
 const optionLabelMaps = {
   existingMuiUsage: toLabelMap(existingMuiUsageOptions),
   designSystemMaturity: toLabelMap(designSystemMaturityOptions),
+  knowledgeConcentration: toLabelMap(knowledgeConcentrationOptions),
+  designDevHandoffFriction: toLabelMap(designDevHandoffFrictionOptions),
+  componentStandardizationGoal: toLabelMap(componentStandardizationGoalOptions),
   dependentTeams: toLabelMap(dependentTeamsOptions),
   ownershipModel: toLabelMap(ownershipModelOptions),
   primaryUseCase: toLabelMap(primaryUseCaseOptions),
   accessibilityTarget: toLabelMap(accessibilityTargetOptions),
   changeLeadTime: toLabelMap(changeLeadTimeOptions),
+  performanceSensitivity: toLabelMap(performanceSensitivityOptions),
   reworkFrequency: toLabelMap(reworkFrequencyOptions),
   deadlinePressure: toLabelMap(pressureOptions),
   expectedRows: toLabelMap(expectedRowsOptions),
   expectedColumns: toLabelMap(expectedColumnsOptions),
   maintenanceHorizonMonths: toLabelMap(maintenanceHorizonOptions),
   supportRequirement: toLabelMap(supportRequirementOptions),
+  productionCriticality: toLabelMap(productionCriticalityOptions),
   advancedFeatures: toLabelMap(advancedFeatureOptions)
 };
 
@@ -312,6 +361,18 @@ function validateStep(stepIndex, formValues) {
       formValues.designSystemMaturity,
       "Design system maturity"
     );
+    errors.knowledgeConcentration = validateRequired(
+      formValues.knowledgeConcentration,
+      "Knowledge concentration"
+    );
+    errors.designDevHandoffFriction = validateRequired(
+      formValues.designDevHandoffFriction,
+      "Design-dev handoff friction"
+    );
+    errors.componentStandardizationGoal = validateRequired(
+      formValues.componentStandardizationGoal,
+      "Component standardization goal"
+    );
   }
 
   if (stepIndex === 1) {
@@ -330,6 +391,10 @@ function validateStep(stepIndex, formValues) {
     errors.expectedColumns = validateRequired(
       formValues.expectedColumns,
       "Expected columns"
+    );
+    errors.performanceSensitivity = validateRequired(
+      formValues.performanceSensitivity,
+      "Performance sensitivity"
     );
   }
 
@@ -357,6 +422,10 @@ function validateStep(stepIndex, formValues) {
       formValues.supportRequirement,
       "Support requirement"
     );
+    errors.productionCriticality = validateRequired(
+      formValues.productionCriticality,
+      "Production criticality"
+    );
     errors.maintenanceHorizonMonths = validateRequired(
       formValues.maintenanceHorizonMonths,
       "Maintenance horizon"
@@ -382,12 +451,17 @@ function normalizeAssessmentInput(formValues) {
     dataHeavyScreens: Number(formValues.dataHeavyScreens),
     expectedRows: formValues.expectedRows,
     expectedColumns: formValues.expectedColumns,
+    knowledgeConcentration: formValues.knowledgeConcentration,
+    designDevHandoffFriction: formValues.designDevHandoffFriction,
+    componentStandardizationGoal: formValues.componentStandardizationGoal,
     accessibilityTarget: formValues.accessibilityTarget,
     changeLeadTime: formValues.changeLeadTime,
+    performanceSensitivity: formValues.performanceSensitivity,
     reworkFrequency: formValues.reworkFrequency,
     deadlinePressure: formValues.deadlinePressure,
     maintenanceHorizonMonths: Number(formValues.maintenanceHorizonMonths),
     supportRequirement: formValues.supportRequirement,
+    productionCriticality: formValues.productionCriticality,
     engineerCostPerDay: Number(formValues.engineerCostPerDay),
     advancedFeatures: [...new Set(formValues.advancedFeatures)]
   };
@@ -776,6 +850,42 @@ function AssessPage() {
                         row
                       />
                     </Grid>
+                    <Grid size={{ xs: 12 }}>
+                      <RadioField
+                        label="Knowledge concentration"
+                        name="knowledgeConcentration"
+                        value={formValues.knowledgeConcentration}
+                        onChange={handleFieldChange}
+                        options={knowledgeConcentrationOptions}
+                        error={errors.knowledgeConcentration}
+                        helperText="How concentrated is knowledge of this UI area or custom component logic?"
+                        row
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12 }}>
+                      <RadioField
+                        label="Design-dev handoff friction"
+                        name="designDevHandoffFriction"
+                        value={formValues.designDevHandoffFriction}
+                        onChange={handleFieldChange}
+                        options={designDevHandoffFrictionOptions}
+                        error={errors.designDevHandoffFriction}
+                        helperText="How much friction exists between design specs, coded components, and shipped UI?"
+                        row
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12 }}>
+                      <RadioField
+                        label="Component standardization goal"
+                        name="componentStandardizationGoal"
+                        value={formValues.componentStandardizationGoal}
+                        onChange={handleFieldChange}
+                        options={componentStandardizationGoalOptions}
+                        error={errors.componentStandardizationGoal}
+                        helperText="Is the goal simply to ship this UI, or to reduce one-off components and standardize a reusable pattern?"
+                        row
+                      />
+                    </Grid>
                   </Grid>
                 )}
 
@@ -865,6 +975,18 @@ function AssessPage() {
                       </TextField>
                     </Grid>
                     <Grid size={{ xs: 12 }}>
+                      <RadioField
+                        label="Performance sensitivity"
+                        name="performanceSensitivity"
+                        value={formValues.performanceSensitivity}
+                        onChange={handleFieldChange}
+                        options={performanceSensitivityOptions}
+                        error={errors.performanceSensitivity}
+                        helperText="How important are runtime performance, bundle-size pressure, or Core Web Vitals-style targets for this UI?"
+                        row
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12 }}>
                       <FormControl fullWidth>
                         <FormLabel sx={{ mb: 1 }}>Advanced features</FormLabel>
                         <Select
@@ -942,13 +1064,13 @@ function AssessPage() {
                     </Grid>
                     <Grid size={{ xs: 12 }}>
                       <RadioField
-                        label="Rework frequency"
+                        label="UI rework/regression frequency"
                         name="reworkFrequency"
                         value={formValues.reworkFrequency}
                         onChange={handleFieldChange}
                         options={reworkFrequencyOptions}
                         error={errors.reworkFrequency}
-                        helperText="Unknown or slower delivery cadence widens the simulation band."
+                        helperText="How often do UI changes require rework, regression fixes, retesting, or follow-up bug fixes?"
                         row
                       />
                     </Grid>
@@ -975,6 +1097,18 @@ function AssessPage() {
                         Netlify simulation function, stores the response
                         locally, and then opens the report route.
                       </Alert>
+                    </Grid>
+                    <Grid size={{ xs: 12 }}>
+                      <RadioField
+                        label="Production criticality"
+                        name="productionCriticality"
+                        value={formValues.productionCriticality}
+                        onChange={handleFieldChange}
+                        options={productionCriticalityOptions}
+                        error={errors.productionCriticality}
+                        helperText="How critical is this UI if it fails, regresses, or blocks users in production?"
+                        row
+                      />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 6 }}>
                       <TextField
@@ -1139,6 +1273,27 @@ function AssessPage() {
                     )}
                   />
                   <SummaryRow
+                    label="Knowledge concentration"
+                    value={formatValue(
+                      formValues.knowledgeConcentration,
+                      optionLabelMaps.knowledgeConcentration
+                    )}
+                  />
+                  <SummaryRow
+                    label="Design-dev handoff friction"
+                    value={formatValue(
+                      formValues.designDevHandoffFriction,
+                      optionLabelMaps.designDevHandoffFriction
+                    )}
+                  />
+                  <SummaryRow
+                    label="Component standardization goal"
+                    value={formatValue(
+                      formValues.componentStandardizationGoal,
+                      optionLabelMaps.componentStandardizationGoal
+                    )}
+                  />
+                  <SummaryRow
                     label="Primary use case"
                     value={formatValue(
                       formValues.primaryUseCase,
@@ -1181,10 +1336,24 @@ function AssessPage() {
                     )}
                   />
                   <SummaryRow
-                    label="Rework frequency"
+                    label="Performance sensitivity"
+                    value={formatValue(
+                      formValues.performanceSensitivity,
+                      optionLabelMaps.performanceSensitivity
+                    )}
+                  />
+                  <SummaryRow
+                    label="UI rework/regression frequency"
                     value={formatValue(
                       formValues.reworkFrequency,
                       optionLabelMaps.reworkFrequency
+                    )}
+                  />
+                  <SummaryRow
+                    label="Production criticality"
+                    value={formatValue(
+                      formValues.productionCriticality,
+                      optionLabelMaps.productionCriticality
                     )}
                   />
                   <SummaryRow

@@ -8,7 +8,12 @@ import {
 const benchmarkInputChips = [
   "Accessibility target (accessibilityTarget)",
   "Change lead time (changeLeadTime)",
-  "Rework frequency (reworkFrequency)",
+  "UI rework/regression frequency (reworkFrequency)",
+  "Performance sensitivity (performanceSensitivity)",
+  "Knowledge concentration (knowledgeConcentration)",
+  "Design-dev handoff friction (designDevHandoffFriction)",
+  "Component standardization goal (componentStandardizationGoal)",
+  "Production criticality (productionCriticality)",
   "Dependent teams (dependentTeams)",
   "Ownership model (ownershipModel)",
   "Expected rows (expectedRows)",
@@ -56,6 +61,7 @@ const benchmarkSourceCards = [
 const workflowRows = [
   "User inputs capture the delivery context, UI scale, and support assumptions.",
   "The model derives five factors from those inputs to keep the recommendation readable.",
+  "The model now also asks about performance sensitivity, knowledge concentration, design-dev handoff friction, component standardization intent, and production criticality so the scenario levers better reflect real operating pressure.",
   "The simulation then applies calibrated internal levers for build absorption, reuse, packaged leverage, adoption burden, and a capped downside-tail layer before estimating outcomes.",
   "Monte Carlo simulation then estimates median and p90 outcomes for build-in-house and MUI paths.",
   "Recommendation rules combine the user inputs, derived factors, simulation output, and internally inferred MUI path fit."
@@ -140,6 +146,12 @@ function MethodologyPage() {
               <Typography variant="body2" color="text.secondary">
                 The current schema emphasizes organization ownership, UI scale, and delivery cadence.
               </Typography>
+              <Typography variant="body2" color="text.secondary">
+                The newer fields are scenario inputs. They help the model reason about operating pressure, rework risk, and standardization intent, but they are not guaranteed measured outcome improvements.
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Performance sensitivity is modeled as a bar-raiser, not a blanket MUI advantage. The model first increases requirement burden, then estimates whether Build or the selected MUI path has the conditions to manage that burden. Strong MUI coverage and adoption can reduce MUI-side performance burden; weak coverage, high integration risk, or customization-heavy requirements increase it.
+              </Typography>
               <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                 {benchmarkInputChips.map((chip) => (
                   <Chip key={chip} label={chip} size="small" variant="outlined" />
@@ -170,6 +182,7 @@ function MethodologyPage() {
             <Stack spacing={1.25}>
               <Bullet>Build-in-house and MUI paths are both simulated under the same input set.</Bullet>
               <Bullet>The simulation uses public software-estimation concepts such as effort drivers, delivery maturity, integration/adoption risk, rework, and lifecycle maintenance. The coefficients are product heuristics calibrated to the assessment inputs; they are not claimed as externally certified benchmark coefficients.</Bullet>
+              <Bullet>Performance sensitivity, i18n/localization, knowledge concentration, design-dev handoff friction, component standardization, and production criticality are treated as scenario pressures rather than promised gains.</Bullet>
               <Bullet>Median and p90 ranges help expose long-tail delivery and cost risk.</Bullet>
               <Bullet>Probability outputs summarize how often each path wins across repeated modeled scenarios.</Bullet>
             </Stack>
