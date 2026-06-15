@@ -13,35 +13,41 @@ export const MODEL_STAGES = {
   },
   scorecardRisk: {
     label: "Scorecard risk",
-    description: "Normalized model risks and strengths used by later calculations."
+    description: "Normalized risks and strengths used by later calculations."
   },
   planFit: {
     label: "MUI plan fit",
-    description: "Fit, gap, and support artifacts for Core, Premium, and Enterprise paths."
+    description:
+      "Fit, gap, integration, and support artifacts for Core, Premium, and Enterprise paths."
   },
   pathScore: {
     label: "Path score",
-    description: "Rule-based Build/Core/Premium/Enterprise scores and flags."
+    description:
+      "Rule-based Build/Core/Premium/Enterprise scores and selection flags."
   },
   scenarioLever: {
     label: "Scenario lever",
-    description: "Path-specific levers that shape effort, risk, and uncertainty."
+    description:
+      "Path-specific levers that shape effort, risk, uncertainty, and path credibility."
   },
   simulationPrep: {
     label: "Simulation preparation",
-    description: "Shields, penalties, exposures, and velocity factors used by estimates."
+    description:
+      "Shields, penalties, exposures, and velocity factors used by estimates."
   },
-  buildSimulation: {
+  buildEstimate: {
     label: "Build estimate",
-    description: "Build-path effort, rework, slip, launch, maintenance, and TCO artifacts."
+    description:
+      "Build-path effort, rework, slip, launch, maintenance, and TCO artifacts."
   },
-  muiSimulation: {
+  muiEstimate: {
     label: "MUI estimate",
-    description: "MUI-path effort, rework, slip, launch, maintenance, license, and TCO artifacts."
+    description:
+      "MUI-path effort, rework, slip, launch, maintenance, license, and TCO artifacts."
   },
   output: {
     label: "Output",
-    description: "Displayed Build/MUI path estimates and comparison metrics."
+    description: "Displayed Build/MUI estimates and comparison metrics."
   },
   recommendation: {
     label: "Recommendation",

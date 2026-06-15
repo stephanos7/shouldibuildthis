@@ -1,38 +1,36 @@
 # Model Dependency Map
 
-## 1. Purpose
+## Purpose
 
-This document is an internal audit map of how the recommendation model moves from raw assessment inputs to derived factors, path scores, simulation estimates, and final recommendation output.
+This document shows how the recommendation model moves from raw assessment inputs to derived factors, scorecards, plan fit, simulation prep, estimates, outputs, and final recommendation.
 
-It is documentation and metadata only. It does not drive calculation behavior.
+`MODEL_ARTIFACT_GLOSSARY` owns artifact meaning and lifecycle notes. `MODEL_IMPACT_MAP` owns causal relationships. `CALIBRATION` controls actual numeric behavior.
 
-## 2. Model Stage Overview
+## Model Stage Overview
 
-| Stage | Purpose |
-| --- | --- |
-| Raw input | Assessment answers submitted by the user. |
-| Input index / intermediate | Normalized enum indexes or simple intermediate values. |
-| Derived factor | Rule-based factor scores calculated from raw inputs. |
-| Scorecard risk | Normalized model risks and strengths used by later calculations. |
-| MUI plan fit | Fit, gap, and support artifacts for Core, Premium, and Enterprise paths. |
-| Path score | Rule-based Build/Core/Premium/Enterprise scores and flags. |
-| Scenario lever | Path-specific levers that shape effort, risk, and uncertainty. |
-| Simulation preparation | Shields, penalties, exposures, and velocity factors used by estimates. |
-| Build estimate | Build-path effort, rework, slip, launch, maintenance, and TCO artifacts. |
-| MUI estimate | MUI-path effort, rework, slip, launch, maintenance, license, and TCO artifacts. |
-| Output | Displayed Build/MUI path estimates and comparison metrics. |
-| Recommendation | Final recommendation option, summary, and confidence. |
+- `rawInput`: assessment answers submitted by the user.
+- `inputIndex`: normalized enum indexes or simple intermediate values.
+- `derivedFactor`: rule-based factor scores calculated from raw inputs.
+- `scorecardRisk`: normalized risks and strengths used by later calculations.
+- `planFit`: fit, gap, integration, and support artifacts for Core, Premium, and Enterprise paths.
+- `pathScore`: rule-based Build/Core/Premium/Enterprise scores and selection flags.
+- `scenarioLever`: path-specific levers that shape effort, risk, uncertainty, and path credibility.
+- `simulationPrep`: shields, penalties, exposures, and velocity factors used by estimates.
+- `buildEstimate`: Build-path effort, rework, slip, launch, maintenance, and TCO artifacts.
+- `muiEstimate`: MUI-path effort, rework, slip, launch, maintenance, license, and TCO artifacts.
+- `output`: displayed Build/MUI estimates and comparison metrics.
+- `recommendation`: final recommendation option, summary, and confidence.
 
-## 3. Direction Legend
+## Direction Legend
 
-- `good`: pushes the downstream artifact in a favorable direction for that path or outcome.
+- `good`: pushes the downstream artifact in a favorable direction.
 - `bad`: pushes the downstream artifact in an unfavorable direction.
-- `contextual`: the effect depends on the rest of the model and does not have a universally good or bad meaning.
+- `contextual`: the effect depends on the rest of the model.
 - `cost`: affects monetary exposure or TCO directly.
 - `mixed`: has both favorable and unfavorable downstream effects.
 - `neutral`: a structural or indexing artifact rather than a directional signal.
 
-## 4. Full Dependency Graph
+## Full Dependency Graph
 
 ```mermaid
 flowchart LR
@@ -189,6 +187,7 @@ flowchart LR
   frontendDevelopers --> teamScale
   frontendDevelopers --> enterpriseReadiness
   frontendDevelopers --> buildVelocity
+  frontendDevelopers --> muiVelocity
   frontendDevelopers --> estimatedLicensedDevelopers
 
   reactApps --> appScale
@@ -258,74 +257,63 @@ flowchart LR
   advancedFeatures --> qualityBurden
   advancedFeatures --> featureCoverage
   advancedFeatures --> coverageGap
-  advancedFeatures --> muiAdoptionBurden
-  advancedFeatures --> downsideTailRisk
+  advancedFeatures --> integrationRisk
 
   accessibilityTarget --> accessibilityIndex
   accessibilityTarget --> qualityBurden
   accessibilityTarget --> qualityRisk
-  accessibilityTarget --> qualityFit
-  accessibilityTarget --> downsideTailRisk
 
   changeLeadTime --> changeLeadTimeIndex
   changeLeadTime --> deliveryMaturity
-  changeLeadTime --> deliveryStrength
-  changeLeadTime --> deliveryRisk
   changeLeadTime --> internalAbsorption
   changeLeadTime --> buildVelocity
-  changeLeadTime --> muiVelocity
 
   reworkFrequency --> reworkFrequencyIndex
   reworkFrequency --> deliveryMaturity
-  reworkFrequency --> deliveryRisk
-  reworkFrequency --> internalAbsorption
-  reworkFrequency --> buildReworkMean
-  reworkFrequency --> muiReworkMean
+  reworkFrequency --> downsideTailRisk
+  reworkFrequency --> buildSlip
 
   deadlinePressure --> deliveryMaturity
   deadlinePressure --> deliveryRisk
-  deadlinePressure --> internalAbsorption
+  deadlinePressure --> buildSlipMean
+  deadlinePressure --> muiSlipMean
   deadlinePressure --> downsideTailRisk
-  deadlinePressure --> buildSlip
 
   supportRequirement --> supportNeed
   supportRequirement --> enterpriseReadiness
   supportRequirement --> supportGap
   supportRequirement --> buildTierScore
+  supportRequirement --> enterpriseTierScore
 
   maintenanceHorizonMonths --> horizonYears
   maintenanceHorizonMonths --> buildMaintenance
   maintenanceHorizonMonths --> muiMaintenance
-  maintenanceHorizonMonths --> muiLicenseCost
-  maintenanceHorizonMonths --> enterpriseReadiness
+  maintenanceHorizonMonths --> muiTotalCost
 
   engineerCostPerDay --> laborCostPerWeek
   engineerCostPerDay --> buildTotalCost
   engineerCostPerDay --> muiTotalCost
 
   performanceSensitivity --> qualityBurden
-  performanceSensitivity --> functionalComplexity
-  performanceSensitivity --> downsideTailRisk
-  performanceSensitivity --> muiAdoptionBurden
+  performanceSensitivity --> qualityRisk
+  performanceSensitivity --> integrationRisk
 
   knowledgeConcentration --> ownershipBurden
   knowledgeConcentration --> internalAbsorption
   knowledgeConcentration --> downsideTailRisk
-  knowledgeConcentration --> buildMaintenance
 
   designDevHandoffFriction --> qualityBurden
   designDevHandoffFriction --> buildReuseLeverage
   designDevHandoffFriction --> muiAdoptionBurden
-  designDevHandoffFriction --> downsideTailRisk
+  designDevHandoffFriction --> integrationRisk
 
   componentStandardizationGoal --> enterpriseReadiness
-  componentStandardizationGoal --> muiLeverage
   componentStandardizationGoal --> buildReuseLeverage
+  componentStandardizationGoal --> muiLeverage
 
   productionCriticality --> qualityBurden
   productionCriticality --> enterpriseReadiness
-  productionCriticality --> supportGap
-  productionCriticality --> downsideTailRisk
+  productionCriticality --> supportNeed
 
   useCaseComplexity --> functionalComplexity
   featureWeight --> functionalComplexity
@@ -339,28 +327,24 @@ flowchart LR
   ownershipModelIndex --> ownershipBurden
   muiUsage --> enterpriseReadiness
   maturity --> ownershipBurden
-  supportNeed --> supportGap
-  teamScale --> icpScore
-  appScale --> icpScore
-  scaleDemand --> buildFatTailExposure
-  featureDemand --> coverageGap
+  supportNeed --> enterpriseNeed
+  teamScale --> buildTierScore
+  teamScale --> enterpriseTierScore
+  appScale --> buildTierScore
+  appScale --> enterpriseTierScore
+  scaleDemand --> scaleCoverage
+  featureDemand --> featureCoverage
   horizonYears --> buildMaintenance
+  horizonYears --> muiMaintenance
   laborCostPerWeek --> buildTotalCost
+  laborCostPerWeek --> muiTotalCost
 
   functionalComplexity --> functionalRisk
   qualityBurden --> qualityRisk
   deliveryMaturity --> deliveryStrength
-  deliveryMaturity --> deliveryRisk
+  deliveryStrength --> deliveryRisk
   ownershipBurden --> ownershipRisk
   enterpriseReadiness --> enterpriseNeed
-
-  primaryUseCase --> useCaseCoverage
-  advancedFeatures --> featureCoverage
-  rowScale --> scaleCoverage
-  columnScale --> scaleCoverage
-  supportNeed --> supportFit
-  qualityBurden --> qualityFit
-  existingMuiUsage --> adoptionBoost
 
   useCaseCoverage --> coverageScore
   featureCoverage --> coverageScore
@@ -370,108 +354,86 @@ flowchart LR
   adoptionBoost --> coverageScore
   coverageScore --> coverageGap
   coverageScore --> integrationRisk
-  enterpriseNeed --> supportGap
-  enterpriseNeed --> enterpriseFitStrong
+  coverageScore --> supportGap
+  coverageScore --> effectiveMuiPlan
 
   functionalRisk --> buildTierScore
   qualityRisk --> buildTierScore
   ownershipRisk --> buildTierScore
   deliveryRisk --> buildTierScore
-  functionalRisk --> coreTierScore
-  qualityRisk --> coreTierScore
-  enterpriseNeed --> coreTierScore
-  coverageScore --> coreTierScore
-  coverageScore --> premiumTierScore
-  coverageScore --> enterpriseTierScore
-  supportNeed --> premiumTierScore
-  supportNeed --> enterpriseTierScore
-  simpleScope --> buildFriendlyContext
-  enterpriseNeed --> enterpriseFitStrong
+  deliveryStrength --> buildTierScore
+  enterpriseNeed --> buildTierScore
+  simpleScope --> coreTierScore
+  buildFriendlyContext --> buildTierScore
+  enterpriseFitStrong --> enterpriseTierScore
 
-  deliveryStrength --> internalAbsorption
-  maturity --> internalAbsorption
-  ownershipRisk --> internalAbsorption
   internalAbsorption --> buildAbsorptionShield
   buildReuseLeverage --> buildAbsorptionShield
-  buildReuseLeverage --> buildVelocity
-  muiLeverage --> muiLeverageShield
-  muiAdoptionBurden --> muiAdoptionLoad
-  downsideTailRisk --> buildTailPenalty
-  downsideTailRisk --> buildFatTailExposure
-  muiAdoptionBurden --> muiFatTailExposure
-  muiLeverage --> muiFatTailExposure
-  coverageStrength --> coverageShield
-  coverageScore --> coverageStrength
-  coverageGap --> muiLeverage
-  supportGap --> muiLeverage
-  coverageGap --> muiAdoptionBurden
-  integrationRisk --> muiAdoptionBurden
-  buildVelocity --> buildLaunch
-  muiVelocity --> muiLaunch
-
   buildAbsorptionShield --> buildEngineeringMean
-  buildTailPenalty --> buildEngineeringMean
-  buildFatTailExposure --> buildEngineeringMean
-  buildAbsorptionShield --> buildReworkMean
-  buildTailPenalty --> buildReworkMean
-  buildAbsorptionShield --> buildSlipMean
-  buildTailPenalty --> buildSlipMean
-  buildVelocity --> buildLaunch
-  buildEngineeringMean --> buildEngineering
-  buildEngineeringVariance --> buildEngineering
+  buildTailPenalty --> buildEngineeringVariance
+  downsideTailRisk --> buildTailPenalty
+  muiLeverage --> muiLeverageShield
+  muiLeverageShield --> muiEngineeringMean
+  muiAdoptionBurden --> muiAdoptionLoad
+  muiAdoptionLoad --> muiEngineeringMean
+  buildFatTailExposure --> buildEngineeringVariance
+  muiFatTailExposure --> muiEngineeringVariance
+  buildVelocity --> buildEngineering
+  muiVelocity --> muiEngineering
+
+  coverageStrength --> coverageShield
+  coverageShield --> buildEngineeringMean
+
+  buildEngineeringMean --> buildEngineeringVariance
+  buildEngineeringVariance --> buildReworkMean
   buildReworkMean --> buildRework
   buildRework --> buildEngineering
-  buildEngineering --> buildLaunch
+  buildEngineering --> buildSlipMean
   buildSlipMean --> buildSlip
   buildSlip --> buildLaunch
-  buildLaunch --> buildPath
-  buildMaintenance --> buildPath
-  buildTotalCost --> buildPath
+  buildLaunch --> buildMaintenance
+  buildMaintenance --> buildTotalCost
 
-  coverageStrength --> muiEngineeringMean
-  coverageShield --> muiEngineeringMean
-  muiAdoptionLoad --> muiEngineeringVariance
-  muiLeverage --> muiEngineeringMean
-  muiAdoptionBurden --> muiEngineeringMean
-  muiEngineeringMean --> muiEngineering
-  muiEngineeringVariance --> muiEngineering
+  muiEngineeringMean --> muiEngineeringVariance
+  muiEngineeringVariance --> muiReworkMean
   muiReworkMean --> muiRework
   muiRework --> muiEngineering
-  muiEngineering --> muiLaunch
+  muiEngineering --> muiSlipMean
   muiSlipMean --> muiSlip
   muiSlip --> muiLaunch
-  muiLaunch --> muiPath
-  muiMaintenance --> muiPath
-  muiLicenseCost --> muiPath
+  muiLaunch --> muiMaintenance
+  muiMaintenance --> muiLicenseCost
   estimatedLicensedDevelopers --> muiLicenseCost
-  muiTotalCost --> muiPath
+  muiLicenseCost --> muiTotalCost
 
-  buildPath --> comparison
-  muiPath --> comparison
+  buildTotalCost --> comparison
+  muiTotalCost --> comparison
+  buildLaunch --> comparison
+  muiLaunch --> comparison
   comparison --> recommendation
-  comparison --> confidence
+  recommendation --> confidence
 
-  dependentTeams -. "bad for Build" .-> ownershipBurden
-  dependentTeams -. "contextual/vendor relevance" .-> enterpriseReadiness
-  dependentTeams -. "bad" .-> downsideTailRisk
-  dependentTeams -. "Enterprise cost exposure" .-> estimatedLicensedDevelopers
+  dependentTeams --> ownershipBurden
+  dependentTeams --> enterpriseReadiness
+  dependentTeams --> downsideTailRisk
+  dependentTeams --> estimatedLicensedDevelopers
+  ownershipBurden --> buildTierScore
 ```
 
-## 5. Mixed-Effect Examples
+## Mixed-Effect Examples
 
-- `dependentTeams` increases `ownershipBurden`, which hurts Build, but it also increases `enterpriseReadiness`, which makes vendor-backed paths more relevant.
-- `existingMuiUsage` improves `adoptionBoost` and `muiLeverage`, but it can reduce `buildReuseLeverage` because standardized MUI leaves less room for internal reuse on the Build path.
-- `designSystemMaturity` helps `internalAbsorption` and `buildReuseLeverage`, but when `existingMuiUsage` is `none` it can still add `muiAdoptionBurden` because internal patterns need adaptation.
-- `performanceSensitivity` can help MUI only when the selected plan is already performance-ready; otherwise it adds burden to both paths.
-- `componentStandardizationGoal` increases `enterpriseReadiness`, but it does not automatically favor MUI or Build on its own.
+- `frontendDevelopers` helps `buildVelocity` and `muiVelocity`, can increase `estimatedLicensedDevelopers`, and should not increase `ownershipBurden`.
+- `existingMuiUsage` improves `adoptionBoost`, `coverageScore`, and `muiLeverage`, lowers `integrationRisk` and `muiAdoptionBurden`, and can reduce `buildReuseLeverage` when the codebase is already standardized.
+- `designSystemMaturity` improves `internalAbsorption` and `buildReuseLeverage`, lowers `ownershipBurden`, and can increase `muiAdoptionBurden` when `existingMuiUsage` is none.
+- `supportRequirement` raises `supportNeed`, increases `enterpriseReadiness`, can create `supportGap` for weaker MUI paths, and should not force Enterprise by itself.
+- `engineerCostPerDay` affects only TCO-related cost artifacts and should not affect effort, fit, velocity, or schedule.
+- `dependentTeams` is bad for `ownershipBurden`, `internalAbsorption`, and `downsideTailRisk`, while making `enterpriseReadiness` more contextually relevant and increasing Enterprise seat exposure.
 
-## 6. Known Limitation
+## Maintenance Rules
 
-The map is maintained manually and is intentionally descriptive rather than executable. If formulas change without a metadata update, this document can become stale.
-
-## 7. Maintenance Rules
-
-- When a formula changes, update `MODEL_IMPACT_MAP`.
-- When an artifact is added, update `MODEL_ARTIFACT_GLOSSARY`.
-- When a new model stage is added, update `MODEL_STAGES`.
-- This map is documentation and audit metadata and does not drive calculation yet.
+- When a numeric value changes, update `CALIBRATION` first.
+- When a relationship changes, update `MODEL_IMPACT_MAP`.
+- When a stage name changes, update `MODEL_STAGES` and the glossary.
+- Do not treat documentation as a substitute for calibration changes.
+- Keep mixed-effect descriptions explicit so maintainers can see both the benefit and the downside of an input.
+- Use the lightweight validator when you need a quick metadata sanity check outside runtime.

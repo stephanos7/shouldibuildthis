@@ -7,7 +7,7 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     path: "Both",
     calculatedIn: "normalizeInput",
     description:
-      "Counts the frontend capacity available to the team. More developers increase build velocity and can increase enterprise relevance for standardization, but this input should not increase ownership burden."
+      "Counts frontend capacity available to the team. More developers improve capacity and velocity, can increase paid MUI seat exposure, can increase standardization relevance, and should not increase ownership burden."
   },
   reactApps: {
     artifact: "reactApps",
@@ -17,7 +17,7 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     path: "Both",
     calculatedIn: "normalizeInput",
     description:
-      "Measures the React footprint that must absorb the implementation and rollout. More apps widen coordination and maintenance surface area, but they also increase the relevance of standardization and vendor-backed rollout paths."
+      "Measures the React footprint that must absorb the change. More apps widen rollout and ownership surface while increasing the relevance of standardization and vendor-backed rollout paths."
   },
   dependentTeams: {
     artifact: "dependentTeams",
@@ -27,7 +27,7 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     path: "Both",
     calculatedIn: "normalizeInput",
     description:
-      "Captures how many other teams depend on this work. More dependent teams raise coordination drag, enterprise relevance, and downside risk."
+      "Captures how many other teams depend on this work. More dependent teams raise coordination drag, enterprise relevance, downside risk, and cost exposure on Enterprise-style plans."
   },
   ownershipModel: {
     artifact: "ownershipModel",
@@ -37,7 +37,7 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     path: "Both",
     calculatedIn: "normalizeInput",
     description:
-      "Describes how clearly the team owns the component or design surface. Clear ownership improves absorption and reuse; unclear ownership increases coordination and adoption burden."
+      "Describes how clearly the team owns the UI surface. Clear ownership improves absorption and reuse; unclear ownership increases coordination and adoption burden."
   },
   existingMuiUsage: {
     artifact: "existingMuiUsage",
@@ -47,7 +47,7 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     path: "Both",
     calculatedIn: "normalizeInput",
     description:
-      "Indicates how much MUI is already present in the codebase. More existing usage improves adoption and leverage for packaged paths, while reducing internal reuse leverage for a custom build."
+      "Indicates how much MUI is already present in the codebase. More existing usage increases adoption, coverage, and leverage for packaged paths while lowering integration risk and remaining burden."
   },
   designSystemMaturity: {
     artifact: "designSystemMaturity",
@@ -57,7 +57,7 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     path: "Both",
     calculatedIn: "normalizeInput",
     description:
-      "Represents the maturity of internal UI standards and patterns. Higher maturity improves build reuse and absorption, while a low-MUI baseline can increase adaptation burden on packaged adoption."
+      "Represents the maturity of internal UI standards and patterns. Higher maturity improves Build reuse and absorption, but can increase MUI adaptation burden when no MUI baseline exists."
   },
   primaryUseCase: {
     artifact: "primaryUseCase",
@@ -77,7 +77,7 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     path: "Both",
     calculatedIn: "normalizeInput",
     description:
-      "Counts screens that carry large tables or similar dense data states. More screens increase functional load, QA burden, and effort pressure."
+      "Counts screens that carry large tables or similar dense data states. More screens increase interaction complexity, quality burden, and effort pressure."
   },
   expectedRows: {
     artifact: "expectedRows",
@@ -127,7 +127,7 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     path: "Both",
     calculatedIn: "normalizeInput",
     description:
-      "Represents how quickly the team can ship change. Faster lead time improves delivery maturity, internal absorption, and velocity on both paths."
+      "Represents how quickly the team can ship change. Faster lead time improves delivery maturity, internal absorption, and velocity."
   },
   reworkFrequency: {
     artifact: "reworkFrequency",
@@ -137,7 +137,7 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     path: "Both",
     calculatedIn: "normalizeInput",
     description:
-      "Describes how often the team revisits or churns UI work. Rarer rework improves delivery maturity and reduces rework and slip burden."
+      "Describes how often the team revisits or churns UI work. Rarer rework improves delivery maturity and reduces slip burden."
   },
   deadlinePressure: {
     artifact: "deadlinePressure",
@@ -157,7 +157,7 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     path: "MUI / vendor-backed paths",
     calculatedIn: "normalizeInput",
     description:
-      "Expresses the desired vendor or support level. Higher support need raises enterprise readiness and can create support gaps for weaker packaged paths without forcing Enterprise by itself."
+      "Expresses the desired vendor or support level. Higher support need raises enterprise readiness and can create support gaps for weaker packaged paths without forcing Enterprise alone."
   },
   maintenanceHorizonMonths: {
     artifact: "maintenanceHorizonMonths",
@@ -167,7 +167,7 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     path: "Both",
     calculatedIn: "normalizeInput",
     description:
-      "Defines how long the component is expected to remain in service. Longer horizons increase maintenance exposure and MUI license cost for paid tiers."
+      "Defines how long the component is expected to remain in service. Longer horizons increase maintenance exposure and paid-path licensing relevance."
   },
   engineerCostPerDay: {
     artifact: "engineerCostPerDay",
@@ -177,7 +177,7 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     path: "Both",
     calculatedIn: "normalizeInput",
     description:
-      "Converts engineering and maintenance weeks into labor TCO. It does not affect launch time or effort."
+      "Converts weeks into labor TCO and does not affect launch time or effort."
   },
   performanceSensitivity: {
     artifact: "performanceSensitivity",
@@ -223,11 +223,11 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     artifact: "productionCriticality",
     stage: "rawInput",
     label: "Production criticality",
-    direction: "mixed",
+    direction: "contextual",
     path: "Both",
     calculatedIn: "normalizeInput",
     description:
-      "Describes how sensitive the production surface is to failure or downtime. Higher criticality raises quality burden, enterprise readiness, and downside tail risk."
+      "Describes how operationally sensitive the component is. Higher criticality increases quality burden and makes vendor-backed support more relevant."
   },
   useCaseComplexity: {
     artifact: "useCaseComplexity",
@@ -347,7 +347,7 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     path: "Both",
     calculatedIn: "buildScorecard",
     description:
-      "Numeric index for design-system maturity used in the scorecard."
+      "Numeric index for design system maturity used in the scorecard."
   },
   supportNeed: {
     artifact: "supportNeed",
@@ -464,10 +464,10 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     stage: "derivedFactor",
     label: "Enterprise readiness",
     direction: "contextual",
-    path: "MUI / vendor-backed paths",
+    path: "Vendor-backed / standardized paths",
     calculatedIn: "buildDerivedFactors",
     description:
-      "Measures support, procurement, rollout, and standardization relevance. Higher does not mean generally better; it increases relevance of stronger or vendor-backed paths."
+      "Measures support, procurement, rollout, and standardization relevance. Higher values increase the relevance of vendor-backed or standardized paths but are not inherently better."
   },
   functionalRisk: {
     artifact: "functionalRisk",
@@ -524,10 +524,10 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     stage: "scorecardRisk",
     label: "Enterprise need",
     direction: "contextual",
-    path: "MUI / vendor-backed paths",
+    path: "Vendor-backed / standardized paths",
     calculatedIn: "buildScorecard",
     description:
-      "Normalizes enterprise readiness into a vendor-backed relevance signal."
+      "Normalizes enterprise readiness into a signal that increases the relevance of vendor-backed and standardized paths."
   },
   useCaseCoverage: {
     artifact: "useCaseCoverage",
@@ -537,7 +537,7 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     path: "MUI",
     calculatedIn: "buildPlanFit",
     description:
-      "Measures how well a specific MUI plan covers the selected primary use case."
+      "Measures how well the selected plan covers the primary use case."
   },
   featureCoverage: {
     artifact: "featureCoverage",
@@ -547,7 +547,7 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     path: "MUI",
     calculatedIn: "buildPlanFit",
     description:
-      "Measures how much advanced-feature demand a MUI plan can absorb."
+      "Measures how well the selected plan covers the selected advanced features."
   },
   scaleCoverage: {
     artifact: "scaleCoverage",
@@ -557,17 +557,17 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     path: "MUI",
     calculatedIn: "buildPlanFit",
     description:
-      "Measures how much scale demand a MUI plan can absorb."
+      "Measures whether the selected plan can handle the expected row and column scale."
   },
   supportFit: {
     artifact: "supportFit",
     stage: "planFit",
     label: "Support fit",
     direction: "good",
-    path: "MUI / vendor-backed paths",
+    path: "MUI",
     calculatedIn: "buildPlanFit",
     description:
-      "Measures how well a plan’s support capability matches the support requirement."
+      "Measures whether the selected plan’s support capability matches the stated support requirement."
   },
   qualityFit: {
     artifact: "qualityFit",
@@ -577,7 +577,7 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     path: "MUI",
     calculatedIn: "buildPlanFit",
     description:
-      "Measures how well a plan can absorb the current quality burden."
+      "Measures whether the selected plan fits the quality burden implied by the assessment."
   },
   adoptionBoost: {
     artifact: "adoptionBoost",
@@ -587,7 +587,7 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     path: "MUI",
     calculatedIn: "buildPlanFit",
     description:
-      "Captures the lift from existing MUI usage when evaluating plan fit."
+      "Captures prior MUI adoption that makes packaged-path rollout easier."
   },
   coverageScore: {
     artifact: "coverageScore",
@@ -597,7 +597,7 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     path: "MUI",
     calculatedIn: "buildPlanFit",
     description:
-      "Blends use case, feature, scale, support, quality, and adoption signals into a single plan-fit score."
+      "Aggregated fit score across use case, feature, scale, support, quality, and adoption signals."
   },
   coverageGap: {
     artifact: "coverageGap",
@@ -607,7 +607,7 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     path: "MUI",
     calculatedIn: "buildPlanFit",
     description:
-      "Inverts the coverage score into a remaining-fit gap."
+      "Represents the remaining fit gap after plan coverage is scored."
   },
   integrationRisk: {
     artifact: "integrationRisk",
@@ -617,17 +617,17 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     path: "MUI",
     calculatedIn: "buildPlanFit",
     description:
-      "Estimates the remaining integration and customization risk for the selected plan."
+      "Captures the likelihood that the selected plan will be difficult to integrate cleanly."
   },
   supportGap: {
     artifact: "supportGap",
     stage: "planFit",
     label: "Support gap",
     direction: "bad",
-    path: "MUI / vendor-backed paths",
+    path: "MUI",
     calculatedIn: "buildPlanFit",
     description:
-      "Estimates how much support demand remains beyond the plan’s support capability."
+      "Captures the remaining mismatch between support need and plan capability."
   },
   effectiveMuiPlan: {
     artifact: "effectiveMuiPlan",
@@ -637,17 +637,7 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     path: "MUI",
     calculatedIn: "buildScorecard",
     description:
-      "Selects the MUI tier the scorecard treats as the best-fit comparison path."
-  },
-  packagedAffinity: {
-    artifact: "packagedAffinity",
-    stage: "inputIndex",
-    label: "Packaged affinity",
-    direction: "contextual",
-    path: "MUI",
-    calculatedIn: "buildScenarioLevers",
-    description:
-      "Measures how naturally the selected use case aligns with a packaged MUI path."
+      "The selected Core, Premium, or Enterprise MUI path after plan-fit and scorecard evaluation."
   },
   buildTierScore: {
     artifact: "buildTierScore",
@@ -657,7 +647,7 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     path: "Build",
     calculatedIn: "buildScorecard",
     description:
-      "Rule-based score for the Build path."
+      "Build-path competitiveness score before simulation."
   },
   coreTierScore: {
     artifact: "coreTierScore",
@@ -667,67 +657,67 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     path: "MUI Core",
     calculatedIn: "buildScorecard",
     description:
-      "Rule-based score for the MUI Core path."
+      "Core-path competitiveness score before simulation."
   },
   premiumTierScore: {
     artifact: "premiumTierScore",
     stage: "pathScore",
     label: "Premium tier score",
     direction: "good",
-    path: "MUI X Premium",
+    path: "MUI Premium",
     calculatedIn: "buildScorecard",
     description:
-      "Rule-based score for the MUI X Premium path."
+      "Premium-path competitiveness score before simulation."
   },
   enterpriseTierScore: {
     artifact: "enterpriseTierScore",
     stage: "pathScore",
     label: "Enterprise tier score",
     direction: "good",
-    path: "MUI X Enterprise",
+    path: "MUI Enterprise",
     calculatedIn: "buildScorecard",
     description:
-      "Rule-based score for the MUI X Enterprise path."
+      "Enterprise-path competitiveness score before simulation."
   },
   icpScore: {
     artifact: "icpScore",
     stage: "pathScore",
     label: "ICP score",
     direction: "contextual",
-    path: "MUI",
+    path: "Both",
     calculatedIn: "buildScorecard",
     description:
-      "Indicates how strongly the input set resembles an ideal customer profile for the packaged paths."
+      "Overall ideal-customer-profile score used to compare Build and packaged paths."
   },
   simpleScope: {
     artifact: "simpleScope",
     stage: "pathScore",
     label: "Simple scope",
     direction: "contextual",
-    path: "Build",
+    path: "Both",
     calculatedIn: "buildScorecard",
     description:
-      "Flags whether the component scope is simple enough to keep Build competitive."
+      "Flags a narrow, low-complexity scope that changes the relative attractiveness of packaged paths."
   },
   buildFriendlyContext: {
     artifact: "buildFriendlyContext",
     stage: "pathScore",
     label: "Build-friendly context",
-    direction: "good",
+    direction: "contextual",
     path: "Build",
     calculatedIn: "buildScorecard",
     description:
-      "Flags whether the delivery and ownership context strongly favors an internal build."
+      "Flags a context where Build has enough structural advantages to stay credible."
   },
   enterpriseFitStrong: {
     artifact: "enterpriseFitStrong",
     stage: "pathScore",
     label: "Enterprise fit strong",
     direction: "contextual",
-    path: "MUI X Enterprise",
+    path: "MUI Enterprise",
     calculatedIn: "buildScorecard",
     description:
-      "Flags whether enterprise support expectations are high enough to favor the Enterprise tier."
+      "Flags a strong Enterprise fit when support, scale, and rollout conditions are aligned."
   },
   internalAbsorption: {
     artifact: "internalAbsorption",
@@ -737,7 +727,7 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     path: "Build",
     calculatedIn: "buildScenarioLevers",
     description:
-      "Measures how well the team can absorb custom implementation work."
+      "Measures how readily the team can absorb Build-path work without excessive drag."
   },
   buildReuseLeverage: {
     artifact: "buildReuseLeverage",
@@ -747,7 +737,7 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     path: "Build",
     calculatedIn: "buildScenarioLevers",
     description:
-      "Measures how much existing internal structure can be reused on the Build path."
+      "Measures how much internal reuse and shared pattern leverage the Build path can capture."
   },
   muiLeverage: {
     artifact: "muiLeverage",
@@ -757,7 +747,7 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     path: "MUI",
     calculatedIn: "buildScenarioLevers",
     description:
-      "Measures how much work the selected MUI path can absorb because fit and adoption conditions are strong."
+      "Measures how much the packaged path can absorb existing adoption and standardization advantages."
   },
   muiAdoptionBurden: {
     artifact: "muiAdoptionBurden",
@@ -767,7 +757,7 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     path: "MUI",
     calculatedIn: "buildScenarioLevers",
     description:
-      "Measures the remaining adoption and adaptation burden for the selected MUI path."
+      "Measures the effort required to adopt and adapt a packaged path."
   },
   downsideTailRisk: {
     artifact: "downsideTailRisk",
@@ -777,7 +767,7 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     path: "Both",
     calculatedIn: "buildScenarioLevers",
     description:
-      "Measures the long-tail downside exposure that can widen effort, slip, and maintenance variance."
+      "Measures the probability of a worse-than-expected outcome in the long tail."
   },
   coverageStrength: {
     artifact: "coverageStrength",
@@ -787,7 +777,7 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     path: "MUI",
     calculatedIn: "runSimulation",
     description:
-      "Normalizes the selected plan’s coverage score before simulation."
+      "Normalized coverage score used to apply shielding in the simulation."
   },
   coverageShield: {
     artifact: "coverageShield",
@@ -797,7 +787,7 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     path: "MUI",
     calculatedIn: "runSimulation",
     description:
-      "Small simulation shield applied when coverage is strong enough."
+      "Shield applied when coverage strength is high enough to reduce modeled effort."
   },
   buildAbsorptionShield: {
     artifact: "buildAbsorptionShield",
@@ -807,7 +797,7 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     path: "Build",
     calculatedIn: "runSimulation",
     description:
-      "Simulation shield that reduces Build effort and maintenance when absorption is strong."
+      "Shield applied to Build effort when the team can absorb custom work effectively."
   },
   buildTailPenalty: {
     artifact: "buildTailPenalty",
@@ -817,7 +807,7 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     path: "Build",
     calculatedIn: "runSimulation",
     description:
-      "Penalty that widens Build variance when downside tail risk crosses the model threshold."
+      "Extra downside applied to Build when long-tail risk is elevated."
   },
   muiLeverageShield: {
     artifact: "muiLeverageShield",
@@ -827,7 +817,7 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     path: "MUI",
     calculatedIn: "runSimulation",
     description:
-      "Simulation shield that reduces MUI variance when leverage is strong."
+      "Shield applied to MUI effort when leverage is strong enough to offset adoption cost."
   },
   muiAdoptionLoad: {
     artifact: "muiAdoptionLoad",
@@ -837,7 +827,7 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     path: "MUI",
     calculatedIn: "runSimulation",
     description:
-      "Simulation load factor that converts adoption burden into variance pressure."
+      "Extra effort and schedule load from adopting the packaged path."
   },
   buildFatTailExposure: {
     artifact: "buildFatTailExposure",
@@ -847,7 +837,7 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     path: "Build",
     calculatedIn: "runSimulation",
     description:
-      "Exposure score used to decide whether Build experiences fat-tail downside events."
+      "Downside exposure used to widen pessimistic Build outcomes."
   },
   muiFatTailExposure: {
     artifact: "muiFatTailExposure",
@@ -857,7 +847,7 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     path: "MUI",
     calculatedIn: "runSimulation",
     description:
-      "Exposure score used to decide whether the MUI path experiences fat-tail downside events."
+      "Downside exposure used to widen pessimistic MUI outcomes."
   },
   buildVelocity: {
     artifact: "buildVelocity",
@@ -867,7 +857,7 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     path: "Build",
     calculatedIn: "runSimulation",
     description:
-      "Velocity factor used to convert Build engineering effort into launch timing."
+      "Velocity multiplier for Build delivery estimates."
   },
   muiVelocity: {
     artifact: "muiVelocity",
@@ -877,227 +867,227 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     path: "MUI",
     calculatedIn: "runSimulation",
     description:
-      "Velocity factor used to convert MUI engineering effort into launch timing."
+      "Velocity multiplier for MUI delivery estimates."
   },
   buildEngineeringMean: {
     artifact: "buildEngineeringMean",
-    stage: "buildSimulation",
+    stage: "buildEstimate",
     label: "Build engineering mean",
     direction: "bad",
     path: "Build",
     calculatedIn: "runSimulation",
     description:
-      "Mean Build engineering effort before calibration and stochastic variance are applied."
+      "Central Build engineering estimate before velocity and stochastic sampling."
   },
   buildEngineeringVariance: {
     artifact: "buildEngineeringVariance",
-    stage: "buildSimulation",
+    stage: "buildEstimate",
     label: "Build engineering variance",
-    direction: "mixed",
+    direction: "bad",
     path: "Build",
     calculatedIn: "runSimulation",
     description:
-      "Variance band applied to Build engineering effort."
+      "Variance used to shape Build effort spread."
   },
   buildReworkMean: {
     artifact: "buildReworkMean",
-    stage: "buildSimulation",
+    stage: "buildEstimate",
     label: "Build rework mean",
     direction: "bad",
     path: "Build",
     calculatedIn: "runSimulation",
     description:
-      "Mean Build rework effort before calibration."
+      "Average Build rework effort before sampling."
   },
   buildRework: {
     artifact: "buildRework",
-    stage: "buildSimulation",
+    stage: "buildEstimate",
     label: "Build rework",
     direction: "bad",
     path: "Build",
     calculatedIn: "runSimulation",
     description:
-      "Stochastic Build rework effort added to the engineering total."
+      "Sampled Build rework effort."
   },
   buildEngineering: {
     artifact: "buildEngineering",
-    stage: "buildSimulation",
+    stage: "buildEstimate",
     label: "Build engineering",
     direction: "bad",
     path: "Build",
     calculatedIn: "runSimulation",
     description:
-      "Total Build engineering effort after calibration and rework."
+      "Sampled Build engineering effort."
   },
   buildSlipMean: {
     artifact: "buildSlipMean",
-    stage: "buildSimulation",
+    stage: "buildEstimate",
     label: "Build slip mean",
     direction: "bad",
     path: "Build",
     calculatedIn: "runSimulation",
     description:
-      "Mean Build slip burden before calibration."
+      "Average Build schedule slip before sampling."
   },
   buildSlip: {
     artifact: "buildSlip",
-    stage: "buildSimulation",
+    stage: "buildEstimate",
     label: "Build slip",
     direction: "bad",
     path: "Build",
     calculatedIn: "runSimulation",
     description:
-      "Stochastic Build slip burden added to launch time."
+      "Sampled Build schedule slip."
   },
   buildLaunch: {
     artifact: "buildLaunch",
-    stage: "buildSimulation",
+    stage: "buildEstimate",
     label: "Build launch",
     direction: "bad",
     path: "Build",
     calculatedIn: "runSimulation",
     description:
-      "Modeled Build launch duration in weeks."
+      "Build launch timing artifact."
   },
   buildMaintenance: {
     artifact: "buildMaintenance",
-    stage: "buildSimulation",
+    stage: "buildEstimate",
     label: "Build maintenance",
     direction: "bad",
     path: "Build",
     calculatedIn: "runSimulation",
     description:
-      "Modeled Build maintenance effort over the maintenance horizon."
+      "Build maintenance TCO artifact over the selected horizon."
   },
   buildTotalCost: {
     artifact: "buildTotalCost",
-    stage: "buildSimulation",
+    stage: "buildEstimate",
     label: "Build total cost",
     direction: "cost",
     path: "Build",
     calculatedIn: "runSimulation",
     description:
-      "Modeled Build TCO from engineering and maintenance labor."
+      "Build-path total cost of ownership."
   },
   muiEngineeringMean: {
     artifact: "muiEngineeringMean",
-    stage: "muiSimulation",
+    stage: "muiEstimate",
     label: "MUI engineering mean",
     direction: "bad",
     path: "MUI",
     calculatedIn: "runSimulation",
     description:
-      "Mean MUI engineering effort before calibration and stochastic variance are applied."
+      "Central MUI engineering estimate before velocity and stochastic sampling."
   },
   muiEngineeringVariance: {
     artifact: "muiEngineeringVariance",
-    stage: "muiSimulation",
+    stage: "muiEstimate",
     label: "MUI engineering variance",
-    direction: "mixed",
+    direction: "bad",
     path: "MUI",
     calculatedIn: "runSimulation",
     description:
-      "Variance band applied to MUI engineering effort."
+      "Variance used to shape MUI effort spread."
   },
   muiReworkMean: {
     artifact: "muiReworkMean",
-    stage: "muiSimulation",
+    stage: "muiEstimate",
     label: "MUI rework mean",
     direction: "bad",
     path: "MUI",
     calculatedIn: "runSimulation",
     description:
-      "Mean MUI rework effort before calibration."
+      "Average MUI rework effort before sampling."
   },
   muiRework: {
     artifact: "muiRework",
-    stage: "muiSimulation",
+    stage: "muiEstimate",
     label: "MUI rework",
     direction: "bad",
     path: "MUI",
     calculatedIn: "runSimulation",
     description:
-      "Stochastic MUI rework effort added to the engineering total."
+      "Sampled MUI rework effort."
   },
   muiEngineering: {
     artifact: "muiEngineering",
-    stage: "muiSimulation",
+    stage: "muiEstimate",
     label: "MUI engineering",
     direction: "bad",
     path: "MUI",
     calculatedIn: "runSimulation",
     description:
-      "Total MUI engineering effort after calibration and rework."
+      "Sampled MUI engineering effort."
   },
   muiSlipMean: {
     artifact: "muiSlipMean",
-    stage: "muiSimulation",
+    stage: "muiEstimate",
     label: "MUI slip mean",
     direction: "bad",
     path: "MUI",
     calculatedIn: "runSimulation",
     description:
-      "Mean MUI slip burden before calibration."
+      "Average MUI schedule slip before sampling."
   },
   muiSlip: {
     artifact: "muiSlip",
-    stage: "muiSimulation",
+    stage: "muiEstimate",
     label: "MUI slip",
     direction: "bad",
     path: "MUI",
     calculatedIn: "runSimulation",
     description:
-      "Stochastic MUI slip burden added to launch time."
+      "Sampled MUI schedule slip."
   },
   muiLaunch: {
     artifact: "muiLaunch",
-    stage: "muiSimulation",
+    stage: "muiEstimate",
     label: "MUI launch",
     direction: "bad",
     path: "MUI",
     calculatedIn: "runSimulation",
     description:
-      "Modeled MUI launch duration in weeks."
+      "MUI launch timing artifact."
   },
   muiMaintenance: {
     artifact: "muiMaintenance",
-    stage: "muiSimulation",
+    stage: "muiEstimate",
     label: "MUI maintenance",
     direction: "bad",
     path: "MUI",
     calculatedIn: "runSimulation",
     description:
-      "Modeled MUI maintenance effort over the maintenance horizon."
+      "MUI maintenance TCO artifact over the selected horizon."
   },
   estimatedLicensedDevelopers: {
     artifact: "estimatedLicensedDevelopers",
-    stage: "muiSimulation",
+    stage: "muiEstimate",
     label: "Estimated licensed developers",
     direction: "cost",
-    path: "MUI",
-    calculatedIn: "estimateLicensedDevelopers / runSimulation",
+    path: "Paid MUI",
+    calculatedIn: "estimateLicensedDevelopers",
     description:
-      "Estimated developer seat count used to calculate paid MUI license cost."
+      "Estimated paid-seat exposure for the modeled MUI path."
   },
   muiLicenseCost: {
     artifact: "muiLicenseCost",
-    stage: "muiSimulation",
+    stage: "muiEstimate",
     label: "MUI license cost",
     direction: "cost",
-    path: "MUI",
+    path: "Paid MUI",
     calculatedIn: "runSimulation",
     description:
-      "Modeled license cost for the selected MUI plan over the maintenance horizon."
+      "Estimated licensing cost for the modeled MUI path."
   },
   muiTotalCost: {
     artifact: "muiTotalCost",
-    stage: "muiSimulation",
+    stage: "muiEstimate",
     label: "MUI total cost",
     direction: "cost",
-    path: "MUI",
+    path: "Paid MUI",
     calculatedIn: "runSimulation",
     description:
-      "Modeled MUI TCO from engineering, maintenance, and license cost."
+      "MUI-path total cost of ownership."
   },
   buildPath: {
     artifact: "buildPath",
@@ -1107,7 +1097,7 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     path: "Build",
     calculatedIn: "runSimulation",
     description:
-      "Displayed Build-path summary of launch, engineering, and TCO percentiles."
+      "Displayed Build-path summary artifact."
   },
   muiPath: {
     artifact: "muiPath",
@@ -1117,17 +1107,17 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     path: "MUI",
     calculatedIn: "runSimulation",
     description:
-      "Displayed MUI-path summary of launch, engineering, and TCO percentiles."
+      "Displayed MUI-path summary artifact."
   },
   comparison: {
     artifact: "comparison",
     stage: "output",
     label: "Comparison",
-    direction: "mixed",
+    direction: "neutral",
     path: "Both",
     calculatedIn: "runSimulation",
     description:
-      "Displayed probability and median deltas comparing Build against the selected MUI path."
+      "Displayed side-by-side comparison artifact."
   },
   recommendation: {
     artifact: "recommendation",
@@ -1135,18 +1125,18 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     label: "Recommendation",
     direction: "contextual",
     path: "Both",
-    calculatedIn: "buildRecommendation",
+    calculatedIn: "runSimulation",
     description:
-      "Final path recommendation and summary."
+      "Final recommendation artifact that explains the chosen path."
   },
   confidence: {
     artifact: "confidence",
     stage: "recommendation",
     label: "Confidence",
-    direction: "contextual",
+    direction: "neutral",
     path: "Both",
-    calculatedIn: "buildRecommendation",
+    calculatedIn: "runSimulation",
     description:
-      "Final confidence score and rationale for the recommendation."
+      "Confidence level attached to the recommendation."
   }
 };

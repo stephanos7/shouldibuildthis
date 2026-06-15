@@ -1,139 +1,201 @@
+/*
+ * Semantic impact map
+ * -------------------
+ *
+ * This file explains relationships, not artifact meaning. Artifact meanings
+ * live in MODEL_ARTIFACT_GLOSSARY. Keep entries concise and causal: what
+ * affects what, which path it touches, what direction it pushes, and which
+ * calibration key controls the effect when applicable.
+ */
+
 export const MODEL_IMPACT_MAP = {
   frontendDevelopers: {
     label: "Frontend developers",
-    group: "Team capacity and ownership",
+    group: "Organization and capacity",
     direction: "mixed",
+    summary:
+      "Frontend capacity can improve delivery speed and packaged-path adoption while also changing paid-seat exposure.",
     impacts: [
       {
         artifact: "buildVelocity",
         stage: "simulationPrep",
         path: "Build",
         direction: "good",
+        effectType: "threshold",
+        effectScale: "small",
         calculatedIn: "runSimulation",
-        reason:
-          "More frontend capacity increases internal delivery velocity on the Build path."
+        calibrationRef: "simulation.velocity.frontendDevelopers.build",
+        formulaSummary: "Capacity bonus changes by team-size threshold.",
+        thresholds: "Under 4, 4-7, and 8+ frontend developers.",
+        reason: "More frontend capacity improves internal implementation velocity on the Build path."
+      },
+      {
+        artifact: "muiVelocity",
+        stage: "simulationPrep",
+        path: "MUI",
+        direction: "good",
+        effectType: "threshold",
+        effectScale: "small",
+        calculatedIn: "runSimulation",
+        calibrationRef: "simulation.velocity.frontendDevelopers.mui",
+        formulaSummary: "Capacity bonus changes by team-size threshold.",
+        thresholds: "Under 4, 4-7, and 8+ frontend developers.",
+        reason: "More frontend capacity improves MUI implementation and configuration velocity."
       },
       {
         artifact: "enterpriseReadiness",
         stage: "derivedFactor",
-        path: "MUI / vendor-backed paths",
+        path: "Vendor-backed / standardized paths",
         direction: "contextual",
+        effectType: "capped-linear",
+        effectScale: "moderate",
         calculatedIn: "buildDerivedFactors",
-        reason:
-          "A larger frontend organization can increase the relevance of standardization and vendor-backed rollout paths."
+        formulaSummary: "Math.min(frontendDevelopers, 10) * 2.5",
+        reason: "Larger frontend orgs can increase standardization and supportability relevance."
       },
       {
         artifact: "estimatedLicensedDevelopers",
-        stage: "muiSimulation",
-        path: "MUI",
+        stage: "muiEstimate",
+        path: "Paid MUI",
         direction: "cost",
+        effectType: "plan-conditional",
         calculatedIn: "estimateLicensedDevelopers",
-        reason:
-          "More frontend developers can increase paid seat exposure on Premium and Enterprise paths."
+        reason: "Paid MUI plans can scale seat exposure with frontend developer count."
+      },
+      {
+        artifact: "muiLicenseCost",
+        stage: "muiEstimate",
+        path: "Paid MUI",
+        direction: "cost",
+        effectType: "cost-only",
+        calculatedIn: "runSimulation",
+        reason: "Estimated licensed developers flow into license cost and TCO."
+      },
+      {
+        artifact: "ownershipBurden",
+        stage: "derivedFactor",
+        path: "Build",
+        direction: "neutral",
+        effectType: "guardrail",
+        calculatedIn: "buildDerivedFactors",
+        reason: "Developer count should not increase ownership burden; capacity and coordination should be modeled separately."
       }
     ]
   },
   reactApps: {
     label: "React apps",
-    group: "Team capacity and footprint",
+    group: "Footprint and rollout",
     direction: "mixed",
+    summary:
+      "A wider app footprint can increase ownership and rollout drag while making standardized paths more relevant.",
     impacts: [
       {
         artifact: "ownershipBurden",
         stage: "derivedFactor",
         path: "Build",
         direction: "bad",
+        effectType: "linear",
+        effectScale: "moderate",
         calculatedIn: "buildDerivedFactors",
-        reason:
-          "A larger app footprint expands rollout and long-term ownership drag for custom components."
+        reason: "More apps widen the surface area that Build must own and maintain."
       },
       {
         artifact: "enterpriseReadiness",
         stage: "derivedFactor",
-        path: "MUI / vendor-backed paths",
+        path: "Vendor-backed / standardized paths",
         direction: "contextual",
+        effectType: "interaction",
+        effectScale: "moderate",
         calculatedIn: "buildDerivedFactors",
-        reason:
-          "A broader footprint increases the relevance of standardization and vendor-backed deployment support."
+        reason: "A broader footprint increases the relevance of rollout support and standardization."
       },
       {
         artifact: "buildLaunch",
-        stage: "buildSimulation",
+        stage: "buildEstimate",
         path: "Build",
         direction: "bad",
+        effectType: "conditional",
+        effectScale: "small",
         calculatedIn: "runSimulation",
-        reason:
-          "More apps increase rollout overhead and can slow the Build path."
+        reason: "More apps increase rollout overhead and can slow the Build path."
       },
       {
         artifact: "muiLaunch",
-        stage: "muiSimulation",
+        stage: "muiEstimate",
         path: "MUI",
         direction: "bad",
+        effectType: "conditional",
+        effectScale: "small",
         calculatedIn: "runSimulation",
-        reason:
-          "More apps increase rollout overhead even when using a packaged path."
+        reason: "More apps increase rollout overhead even when using a packaged path."
       },
       {
         artifact: "estimatedLicensedDevelopers",
-        stage: "muiSimulation",
-        path: "MUI",
+        stage: "muiEstimate",
+        path: "Paid MUI",
         direction: "cost",
+        effectType: "plan-conditional",
         calculatedIn: "estimateLicensedDevelopers",
-        reason:
-          "A large app footprint can increase Enterprise seat exposure."
+        reason: "A large app footprint can increase Enterprise seat exposure."
       }
     ]
   },
   dependentTeams: {
     label: "Dependent teams",
-    group: "Organization and ownership",
+    group: "Organization and dependencies",
     direction: "mixed",
+    summary:
+      "More dependent teams increase coordination drag, support relevance, long-tail risk, and Enterprise cost exposure.",
     impacts: [
       {
         artifact: "ownershipBurden",
         stage: "derivedFactor",
         path: "Build",
         direction: "bad",
+        effectType: "linear",
+        effectScale: "moderate",
         calculatedIn: "buildDerivedFactors",
-        reason:
-          "More dependent teams increase coordination load and long-term ownership drag."
+        reason: "More dependent teams increase coordination load and long-term ownership drag."
       },
       {
         artifact: "internalAbsorption",
         stage: "scenarioLever",
         path: "Build",
         direction: "bad",
+        effectType: "inverse",
+        effectScale: "moderate",
         calculatedIn: "buildScenarioLevers",
-        reason:
-          "More dependent teams reduce the team’s ability to absorb custom work cleanly."
+        reason: "More dependent teams reduce the team’s ability to absorb custom work cleanly."
       },
       {
         artifact: "downsideTailRisk",
         stage: "scenarioLever",
         path: "Both",
         direction: "bad",
+        effectType: "interaction",
+        effectScale: "moderate",
         calculatedIn: "buildScenarioLevers",
-        reason:
-          "More dependent teams widen the long-tail coordination and QA downside."
+        reason: "More dependent teams widen the long-tail coordination and QA downside."
       },
       {
         artifact: "enterpriseReadiness",
         stage: "derivedFactor",
-        path: "MUI / vendor-backed paths",
+        path: "Vendor-backed / standardized paths",
         direction: "contextual",
+        effectType: "interaction",
+        effectScale: "moderate",
         calculatedIn: "buildDerivedFactors",
-        reason:
-          "A larger dependency graph increases the relevance of rollout coordination and vendor-backed support."
+        reason: "A larger dependency graph increases the relevance of rollout coordination and vendor-backed support."
       },
       {
         artifact: "estimatedLicensedDevelopers",
-        stage: "muiSimulation",
-        path: "MUI",
+        stage: "muiEstimate",
+        path: "Enterprise",
         direction: "cost",
+        effectType: "plan-conditional",
+        effectScale: "small",
         calculatedIn: "estimateLicensedDevelopers",
-        reason:
-          "A wide dependency graph can increase Enterprise seat exposure."
+        reason: "A wider dependency graph can increase Enterprise seat exposure."
       }
     ]
   },
@@ -141,42 +203,58 @@ export const MODEL_IMPACT_MAP = {
     label: "Ownership model",
     group: "Organization and ownership",
     direction: "mixed",
+    summary:
+      "Ownership clarity improves absorption and reuse, while unclear ownership increases coordination and packaged-path friction.",
     impacts: [
       {
         artifact: "internalAbsorption",
         stage: "scenarioLever",
         path: "Build",
         direction: "good",
+        effectType: "enum-step",
+        effectScale: "moderate",
         calculatedIn: "buildScenarioLevers",
-        reason:
-          "Clearer ownership makes it easier for the team to absorb custom work."
+        reason: "Clearer ownership makes it easier for the team to absorb custom work."
       },
       {
         artifact: "buildReuseLeverage",
         stage: "scenarioLever",
         path: "Build",
         direction: "good",
+        effectType: "enum-step",
+        effectScale: "moderate",
         calculatedIn: "buildScenarioLevers",
-        reason:
-          "Clear ownership helps internal patterns and previous work be reused cleanly."
+        reason: "Clear ownership helps internal patterns and previous work be reused cleanly."
       },
       {
         artifact: "ownershipBurden",
         stage: "derivedFactor",
         path: "Build",
         direction: "bad",
+        effectType: "enum-step",
+        effectScale: "moderate",
         calculatedIn: "buildDerivedFactors",
-        reason:
-          "Unclear ownership increases coordination and maintenance burden."
+        reason: "Unclear ownership increases coordination and maintenance burden."
       },
       {
         artifact: "muiAdoptionBurden",
         stage: "scenarioLever",
         path: "MUI",
         direction: "bad",
+        effectType: "conditional",
+        effectScale: "moderate",
         calculatedIn: "buildScenarioLevers",
-        reason:
-          "Unclear ownership makes packaged-path adaptation harder to absorb."
+        reason: "Unclear ownership makes packaged-path adaptation harder to absorb."
+      },
+      {
+        artifact: "buildFriendlyContext",
+        stage: "pathScore",
+        path: "Build",
+        direction: "contextual",
+        effectType: "interaction",
+        effectScale: "small",
+        calculatedIn: "buildScorecard",
+        reason: "Ownership clarity can make Build more credible when the rest of the context is favorable."
       }
     ]
   },
@@ -184,60 +262,68 @@ export const MODEL_IMPACT_MAP = {
     label: "Existing MUI usage",
     group: "Adoption and standards",
     direction: "mixed",
+    summary:
+      "Existing MUI reduces adoption and integration friction while changing the remaining leverage available to Build.",
     impacts: [
       {
         artifact: "adoptionBoost",
         stage: "planFit",
         path: "MUI",
         direction: "good",
+        effectType: "enum-step",
+        effectScale: "small",
         calculatedIn: "buildPlanFit",
-        reason:
-          "Existing usage increases the chance that the packaged path fits the current codebase."
+        reason: "Existing usage increases the chance that the packaged path fits the current codebase."
       },
       {
         artifact: "coverageScore",
         stage: "planFit",
         path: "MUI",
         direction: "good",
+        effectType: "enum-step",
+        effectScale: "small",
         calculatedIn: "buildPlanFit",
-        reason:
-          "Existing usage improves overall fit by lowering adoption friction."
+        reason: "Existing usage improves overall fit by lowering adoption friction."
+      },
+      {
+        artifact: "integrationRisk",
+        stage: "planFit",
+        path: "MUI",
+        direction: "good",
+        effectType: "inverse",
+        effectScale: "moderate",
+        calculatedIn: "buildPlanFit",
+        reason: "A larger existing MUI footprint reduces remaining integration risk."
       },
       {
         artifact: "muiLeverage",
         stage: "scenarioLever",
         path: "MUI",
         direction: "good",
+        effectType: "conditional",
+        effectScale: "moderate",
         calculatedIn: "buildScenarioLevers",
-        reason:
-          "Existing MUI usage lets the selected MUI path absorb more work."
-      },
-      {
-        artifact: "integrationRisk",
-        stage: "planFit",
-        path: "MUI",
-        direction: "bad",
-        calculatedIn: "buildPlanFit",
-        reason:
-          "A larger existing MUI footprint reduces remaining integration risk."
+        reason: "Existing MUI usage lets the selected MUI path absorb more work."
       },
       {
         artifact: "muiAdoptionBurden",
         stage: "scenarioLever",
         path: "MUI",
-        direction: "bad",
+        direction: "good",
+        effectType: "inverse",
+        effectScale: "moderate",
         calculatedIn: "buildScenarioLevers",
-        reason:
-          "More prior usage lowers the remaining adoption burden on the packaged path."
+        reason: "More prior usage lowers the remaining adoption burden on the packaged path."
       },
       {
         artifact: "buildReuseLeverage",
         stage: "scenarioLever",
         path: "Build",
         direction: "bad",
+        effectType: "conditional",
+        effectScale: "small",
         calculatedIn: "buildScenarioLevers",
-        reason:
-          "Standardized MUI can reduce the amount of internal reuse leverage left for Build."
+        reason: "Standardized MUI can reduce the amount of internal reuse leverage left for Build."
       }
     ]
   },
@@ -245,42 +331,59 @@ export const MODEL_IMPACT_MAP = {
     label: "Design system maturity",
     group: "Adoption and standards",
     direction: "mixed",
+    summary:
+      "Strong internal standards help Build absorb work, while a low-MUI baseline can make packaged adoption harder.",
     impacts: [
       {
         artifact: "internalAbsorption",
         stage: "scenarioLever",
         path: "Build",
         direction: "good",
+        effectType: "enum-step",
+        effectScale: "moderate",
         calculatedIn: "buildScenarioLevers",
-        reason:
-          "Higher maturity makes the team better able to absorb custom implementation work."
+        reason: "Higher maturity makes the team better able to absorb custom implementation work."
       },
       {
         artifact: "buildReuseLeverage",
         stage: "scenarioLever",
         path: "Build",
         direction: "good",
+        effectType: "enum-step",
+        effectScale: "moderate",
         calculatedIn: "buildScenarioLevers",
-        reason:
-          "Mature internal patterns increase the amount of useful reuse on the Build path."
+        reason: "Mature internal patterns increase the amount of useful reuse on the Build path."
       },
       {
         artifact: "ownershipBurden",
         stage: "derivedFactor",
         path: "Build",
         direction: "bad",
+        effectType: "enum-step",
+        effectScale: "small",
         calculatedIn: "buildDerivedFactors",
-        reason:
-          "Higher maturity lowers the burden of maintaining shared internal UI."
+        reason: "Higher maturity lowers the burden of maintaining shared internal UI."
       },
       {
         artifact: "muiAdoptionBurden",
         stage: "scenarioLever",
         path: "MUI",
         direction: "bad",
+        effectType: "conditional",
+        effectScale: "moderate",
         calculatedIn: "buildScenarioLevers",
-        reason:
-          "When existing MUI usage is none, strong internal patterns can make MUI adaptation more work, not less."
+        conditions: "Especially when existingMuiUsage is none.",
+        reason: "When there is no MUI baseline, strong internal patterns can make MUI adaptation more work."
+      },
+      {
+        artifact: "buildFriendlyContext",
+        stage: "pathScore",
+        path: "Build",
+        direction: "contextual",
+        effectType: "interaction",
+        effectScale: "small",
+        calculatedIn: "buildScorecard",
+        reason: "Maturity can strengthen Build credibility when other signals are already favorable."
       }
     ]
   },
@@ -288,60 +391,58 @@ export const MODEL_IMPACT_MAP = {
     label: "Primary use case",
     group: "Functional scope",
     direction: "mixed",
+    summary:
+      "The selected use case anchors complexity, coverage, and which packaged path is a plausible fit.",
     impacts: [
       {
         artifact: "useCaseComplexity",
         stage: "inputIndex",
         path: "Both",
         direction: "neutral",
+        effectType: "enum-step",
+        effectScale: "small",
         calculatedIn: "buildDerivedFactors",
-        reason:
-          "The selected use case sets the baseline complexity index."
-      },
-      {
-        artifact: "useCaseCoverage",
-        stage: "planFit",
-        path: "MUI",
-        direction: "good",
-        calculatedIn: "buildPlanFit",
-        reason:
-          "The selected use case determines how well each MUI plan covers the workload."
-      },
-      {
-        artifact: "packagedAffinity",
-        stage: "scenarioLever",
-        path: "MUI",
-        direction: "good",
-        calculatedIn: "buildScenarioLevers",
-        reason:
-          "The use case determines how naturally a packaged path fits the problem space."
+        reason: "The selected use case sets the baseline complexity index."
       },
       {
         artifact: "functionalComplexity",
         stage: "derivedFactor",
         path: "Both",
         direction: "bad",
+        effectType: "interaction",
+        effectScale: "moderate",
         calculatedIn: "buildDerivedFactors",
-        reason:
-          "Different component families carry different levels of implementation complexity."
+        reason: "Different component families carry different levels of implementation complexity."
+      },
+      {
+        artifact: "useCaseCoverage",
+        stage: "planFit",
+        path: "MUI",
+        direction: "contextual",
+        effectType: "enum-step",
+        effectScale: "moderate",
+        calculatedIn: "buildPlanFit",
+        reason: "The selected use case determines how well each MUI plan covers the workload."
       },
       {
         artifact: "coverageScore",
         stage: "planFit",
         path: "MUI",
-        direction: "good",
+        direction: "contextual",
+        effectType: "interaction",
+        effectScale: "moderate",
         calculatedIn: "buildPlanFit",
-        reason:
-          "Use case fit is a major part of the total plan-fit score."
+        reason: "Use case fit is a major part of the total plan-fit score."
       },
       {
         artifact: "effectiveMuiPlan",
         stage: "pathScore",
         path: "MUI",
         direction: "contextual",
+        effectType: "guardrail",
+        effectScale: "small",
         calculatedIn: "buildScorecard",
-        reason:
-          "The use case helps select the best-fit MUI tier."
+        reason: "The use case helps select the best-fit MUI tier."
       }
     ]
   },
@@ -349,33 +450,38 @@ export const MODEL_IMPACT_MAP = {
     label: "Data-heavy screens",
     group: "Functional scope",
     direction: "bad",
+    summary:
+      "More dense screens increase interaction complexity, functional risk, and downstream effort.",
     impacts: [
       {
         artifact: "screenLoad",
         stage: "inputIndex",
         path: "Both",
         direction: "neutral",
+        effectType: "enum-step",
+        effectScale: "small",
         calculatedIn: "buildDerivedFactors",
-        reason:
-          "More data-heavy screens increase the screen-load index."
+        reason: "More data-heavy screens increase the screen-load index."
       },
       {
         artifact: "functionalComplexity",
         stage: "derivedFactor",
         path: "Both",
         direction: "bad",
+        effectType: "linear",
+        effectScale: "moderate",
         calculatedIn: "buildDerivedFactors",
-        reason:
-          "More dense screens increase interaction and state complexity."
+        reason: "More dense screens increase interaction and state complexity."
       },
       {
         artifact: "functionalRisk",
         stage: "scorecardRisk",
         path: "Both",
         direction: "bad",
+        effectType: "linear",
+        effectScale: "moderate",
         calculatedIn: "buildScorecard",
-        reason:
-          "Higher functional complexity raises the normalized functional-risk score."
+        reason: "Higher functional complexity raises the normalized functional-risk score."
       }
     ]
   },
@@ -383,69 +489,78 @@ export const MODEL_IMPACT_MAP = {
     label: "Expected rows",
     group: "Scale and verification",
     direction: "bad",
+    summary:
+      "Row scale drives functional load, quality burden, coverage gaps, and tail risk.",
     impacts: [
       {
         artifact: "rowScale",
         stage: "inputIndex",
         path: "Both",
         direction: "neutral",
+        effectType: "enum-step",
+        effectScale: "small",
         calculatedIn: "buildDerivedFactors",
-        reason:
-          "More rows increase the normalized row-scale index."
+        reason: "More rows increase the normalized row-scale index."
       },
       {
         artifact: "functionalComplexity",
         stage: "derivedFactor",
         path: "Both",
         direction: "bad",
+        effectType: "linear",
+        effectScale: "moderate",
         calculatedIn: "buildDerivedFactors",
-        reason:
-          "More rows increase scope and state complexity."
+        reason: "More rows increase scope and state complexity."
       },
       {
         artifact: "qualityBurden",
         stage: "derivedFactor",
         path: "Both",
         direction: "bad",
+        effectType: "linear",
+        effectScale: "moderate",
         calculatedIn: "buildDerivedFactors",
-        reason:
-          "Larger row counts increase performance and regression burden."
+        reason: "Larger row counts increase performance and regression burden."
       },
       {
         artifact: "scaleCoverage",
         stage: "planFit",
         path: "MUI",
         direction: "bad",
+        effectType: "conditional",
+        effectScale: "moderate",
         calculatedIn: "buildPlanFit",
-        reason:
-          "Large row counts can exceed the selected MUI plan’s scale capacity."
+        reason: "Large row counts can exceed the selected MUI plan’s scale capacity."
       },
       {
         artifact: "coverageGap",
         stage: "planFit",
         path: "MUI",
         direction: "bad",
+        effectType: "inverse",
+        effectScale: "moderate",
         calculatedIn: "buildPlanFit",
-        reason:
-          "Lower scale coverage increases the remaining fit gap."
+        reason: "Lower scale coverage increases the remaining fit gap."
       },
       {
         artifact: "integrationRisk",
         stage: "planFit",
         path: "MUI",
         direction: "bad",
+        effectType: "conditional",
+        effectScale: "small",
         calculatedIn: "buildPlanFit",
-        reason:
-          "Larger row bands raise integration and tuning risk."
+        reason: "Larger row bands raise integration and tuning risk."
       },
       {
         artifact: "downsideTailRisk",
         stage: "scenarioLever",
         path: "Both",
         direction: "bad",
+        effectType: "interaction",
+        effectScale: "moderate",
         calculatedIn: "buildScenarioLevers",
-        reason:
-          "High scale widens the long-tail downside distribution."
+        reason: "High scale widens the long-tail downside distribution."
       }
     ]
   },
@@ -453,69 +568,78 @@ export const MODEL_IMPACT_MAP = {
     label: "Expected columns",
     group: "Scale and verification",
     direction: "bad",
+    summary:
+      "Column scale drives functional load, quality burden, coverage gaps, and tail risk.",
     impacts: [
       {
         artifact: "columnScale",
         stage: "inputIndex",
         path: "Both",
         direction: "neutral",
+        effectType: "enum-step",
+        effectScale: "small",
         calculatedIn: "buildDerivedFactors",
-        reason:
-          "More columns increase the normalized column-scale index."
+        reason: "More columns increase the normalized column-scale index."
       },
       {
         artifact: "functionalComplexity",
         stage: "derivedFactor",
         path: "Both",
         direction: "bad",
+        effectType: "linear",
+        effectScale: "moderate",
         calculatedIn: "buildDerivedFactors",
-        reason:
-          "More columns increase scope and state complexity."
+        reason: "More columns increase scope and state complexity."
       },
       {
         artifact: "qualityBurden",
         stage: "derivedFactor",
         path: "Both",
         direction: "bad",
+        effectType: "linear",
+        effectScale: "moderate",
         calculatedIn: "buildDerivedFactors",
-        reason:
-          "Wider column counts increase performance and regression burden."
+        reason: "Wider column counts increase performance and regression burden."
       },
       {
         artifact: "scaleCoverage",
         stage: "planFit",
         path: "MUI",
         direction: "bad",
+        effectType: "conditional",
+        effectScale: "moderate",
         calculatedIn: "buildPlanFit",
-        reason:
-          "Large column counts can exceed the selected MUI plan’s scale capacity."
+        reason: "Large column counts can exceed the selected MUI plan’s scale capacity."
       },
       {
         artifact: "coverageGap",
         stage: "planFit",
         path: "MUI",
         direction: "bad",
+        effectType: "inverse",
+        effectScale: "moderate",
         calculatedIn: "buildPlanFit",
-        reason:
-          "Lower scale coverage increases the remaining fit gap."
+        reason: "Lower scale coverage increases the remaining fit gap."
       },
       {
         artifact: "integrationRisk",
         stage: "planFit",
         path: "MUI",
         direction: "bad",
+        effectType: "conditional",
+        effectScale: "small",
         calculatedIn: "buildPlanFit",
-        reason:
-          "Wider column bands raise integration and tuning risk."
+        reason: "Wider column bands raise integration and tuning risk."
       },
       {
         artifact: "downsideTailRisk",
         stage: "scenarioLever",
         path: "Both",
         direction: "bad",
+        effectType: "interaction",
+        effectScale: "moderate",
         calculatedIn: "buildScenarioLevers",
-        reason:
-          "High scale widens the long-tail downside distribution."
+        reason: "High scale widens the long-tail downside distribution."
       }
     ]
   },
@@ -523,78 +647,58 @@ export const MODEL_IMPACT_MAP = {
     label: "Advanced features",
     group: "Functional scope",
     direction: "mixed",
+    summary:
+      "Advanced behaviors raise functional demand and can also increase QA burden, integration friction, and adoption cost.",
     impacts: [
       {
         artifact: "featureWeight",
         stage: "inputIndex",
         path: "Both",
         direction: "neutral",
+        effectType: "enum-step",
+        effectScale: "small",
         calculatedIn: "buildDerivedFactors",
-        reason:
-          "Selected features are aggregated into a feature-weight index."
+        reason: "Selected advanced features are aggregated into a feature-demand weight."
       },
       {
         artifact: "featureDemand",
         stage: "inputIndex",
         path: "Both",
         direction: "neutral",
+        effectType: "enum-step",
+        effectScale: "small",
         calculatedIn: "buildPlanFit",
-        reason:
-          "Selected features are aggregated into the feature-demand index for plan fit."
+        reason: "Advanced features are aggregated into plan-fit feature demand."
       },
       {
         artifact: "functionalComplexity",
         stage: "derivedFactor",
         path: "Both",
         direction: "bad",
+        effectType: "interaction",
+        effectScale: "large",
         calculatedIn: "buildDerivedFactors",
-        reason:
-          "Advanced behaviors add implementation complexity."
+        reason: "Advanced behaviors raise implementation scope and interaction complexity."
       },
       {
         artifact: "qualityBurden",
         stage: "derivedFactor",
         path: "Both",
         direction: "bad",
+        effectType: "interaction",
+        effectScale: "large",
         calculatedIn: "buildDerivedFactors",
-        reason:
-          "Advanced behaviors add verification and edge-case burden."
+        reason: "Advanced behaviors add keyboard, virtualization, rendering, and localization QA burden."
       },
       {
         artifact: "featureCoverage",
         stage: "planFit",
         path: "MUI",
-        direction: "bad",
+        direction: "contextual",
+        effectType: "conditional",
+        effectScale: "moderate",
         calculatedIn: "buildPlanFit",
-        reason:
-          "More advanced features can exceed packaged feature capacity."
-      },
-      {
-        artifact: "coverageGap",
-        stage: "planFit",
-        path: "MUI",
-        direction: "bad",
-        calculatedIn: "buildPlanFit",
-        reason:
-          "Lower feature coverage increases the remaining fit gap."
-      },
-      {
-        artifact: "muiAdoptionBurden",
-        stage: "scenarioLever",
-        path: "MUI",
-        direction: "bad",
-        calculatedIn: "buildScenarioLevers",
-        reason:
-          "Custom-heavy features make the packaged path harder to adapt."
-      },
-      {
-        artifact: "downsideTailRisk",
-        stage: "scenarioLever",
-        path: "Both",
-        direction: "bad",
-        calculatedIn: "buildScenarioLevers",
-        reason:
-          "More advanced behaviors widen the long-tail downside distribution."
+        reason: "Advanced features can be covered well by some plans and poorly by others."
       }
     ]
   },
@@ -602,42 +706,38 @@ export const MODEL_IMPACT_MAP = {
     label: "Accessibility target",
     group: "Quality and compliance",
     direction: "bad",
+    summary:
+      "Stricter accessibility requirements increase verification burden and can widen risk if coverage is weak.",
     impacts: [
+      {
+        artifact: "accessibilityIndex",
+        stage: "inputIndex",
+        path: "Both",
+        direction: "neutral",
+        effectType: "enum-step",
+        effectScale: "small",
+        calculatedIn: "buildDerivedFactors",
+        reason: "The selected accessibility target becomes a numeric index."
+      },
       {
         artifact: "qualityBurden",
         stage: "derivedFactor",
         path: "Both",
         direction: "bad",
+        effectType: "linear",
+        effectScale: "large",
         calculatedIn: "buildDerivedFactors",
-        reason:
-          "Stricter accessibility targets increase verification burden."
+        reason: "Higher accessibility standards increase verification burden."
       },
       {
         artifact: "qualityRisk",
         stage: "scorecardRisk",
         path: "Both",
         direction: "bad",
+        effectType: "linear",
+        effectScale: "moderate",
         calculatedIn: "buildScorecard",
-        reason:
-          "Stricter accessibility targets increase the normalized quality-risk score."
-      },
-      {
-        artifact: "qualityFit",
-        stage: "planFit",
-        path: "MUI",
-        direction: "good",
-        calculatedIn: "buildPlanFit",
-        reason:
-          "Accessibility fit changes as the plan has to absorb more or less QA burden."
-      },
-      {
-        artifact: "downsideTailRisk",
-        stage: "scenarioLever",
-        path: "Both",
-        direction: "bad",
-        calculatedIn: "buildScenarioLevers",
-        reason:
-          "Stricter accessibility targets can widen the long-tail QA downside."
+        reason: "More accessibility burden raises the normalized quality-risk score."
       }
     ]
   },
@@ -645,60 +745,48 @@ export const MODEL_IMPACT_MAP = {
     label: "Change lead time",
     group: "Delivery maturity",
     direction: "good",
+    summary:
+      "Faster change lead time improves delivery maturity and Build absorption.",
     impacts: [
+      {
+        artifact: "changeLeadTimeIndex",
+        stage: "inputIndex",
+        path: "Both",
+        direction: "neutral",
+        effectType: "enum-step",
+        effectScale: "small",
+        calculatedIn: "buildDerivedFactors",
+        reason: "Change lead time is normalized into an index."
+      },
       {
         artifact: "deliveryMaturity",
         stage: "derivedFactor",
         path: "Both",
         direction: "good",
+        effectType: "enum-step",
+        effectScale: "moderate",
         calculatedIn: "buildDerivedFactors",
-        reason:
-          "Faster lead time improves the delivery-maturity score."
-      },
-      {
-        artifact: "deliveryStrength",
-        stage: "scorecardRisk",
-        path: "Both",
-        direction: "good",
-        calculatedIn: "buildScorecard",
-        reason:
-          "Faster lead time improves normalized delivery strength."
-      },
-      {
-        artifact: "deliveryRisk",
-        stage: "scorecardRisk",
-        path: "Both",
-        direction: "bad",
-        calculatedIn: "buildScorecard",
-        reason:
-          "Faster lead time lowers the normalized delivery-risk score."
+        reason: "Faster lead time improves delivery maturity and absorption."
       },
       {
         artifact: "internalAbsorption",
         stage: "scenarioLever",
         path: "Build",
         direction: "good",
+        effectType: "interaction",
+        effectScale: "small",
         calculatedIn: "buildScenarioLevers",
-        reason:
-          "Faster lead time improves the team’s capacity to absorb work."
+        reason: "Fast-moving teams can absorb Build work more easily."
       },
       {
         artifact: "buildVelocity",
         stage: "simulationPrep",
         path: "Build",
         direction: "good",
+        effectType: "linear",
+        effectScale: "small",
         calculatedIn: "runSimulation",
-        reason:
-          "Faster lead time supports faster Build delivery velocity."
-      },
-      {
-        artifact: "muiVelocity",
-        stage: "simulationPrep",
-        path: "MUI",
-        direction: "good",
-        calculatedIn: "runSimulation",
-        reason:
-          "Faster lead time also improves packaged-path delivery velocity."
+        reason: "Faster teams tend to sustain higher Build velocity."
       }
     ]
   },
@@ -706,51 +794,48 @@ export const MODEL_IMPACT_MAP = {
     label: "Rework frequency",
     group: "Delivery maturity",
     direction: "good",
+    summary:
+      "Lower rework frequency improves delivery maturity and reduces slip pressure.",
     impacts: [
+      {
+        artifact: "reworkFrequencyIndex",
+        stage: "inputIndex",
+        path: "Both",
+        direction: "neutral",
+        effectType: "enum-step",
+        effectScale: "small",
+        calculatedIn: "buildDerivedFactors",
+        reason: "Rework frequency is normalized into an index."
+      },
       {
         artifact: "deliveryMaturity",
         stage: "derivedFactor",
         path: "Both",
         direction: "good",
+        effectType: "enum-step",
+        effectScale: "moderate",
         calculatedIn: "buildDerivedFactors",
-        reason:
-          "Rare rework improves the delivery-maturity score."
+        reason: "Less churn improves delivery maturity."
       },
       {
-        artifact: "deliveryRisk",
-        stage: "scorecardRisk",
+        artifact: "downsideTailRisk",
+        stage: "scenarioLever",
         path: "Both",
         direction: "bad",
-        calculatedIn: "buildScorecard",
-        reason:
-          "Rare rework lowers delivery risk."
-      },
-      {
-        artifact: "internalAbsorption",
-        stage: "scenarioLever",
-        path: "Build",
-        direction: "good",
+        effectType: "interaction",
+        effectScale: "small",
         calculatedIn: "buildScenarioLevers",
-        reason:
-          "Rare rework improves the team’s capacity to absorb work without churn."
+        reason: "Frequent rework raises the chance of a worse-than-expected outcome."
       },
       {
-        artifact: "buildReworkMean",
-        stage: "buildSimulation",
+        artifact: "buildSlip",
+        stage: "buildEstimate",
         path: "Build",
         direction: "bad",
+        effectType: "conditional",
+        effectScale: "small",
         calculatedIn: "runSimulation",
-        reason:
-          "Frequent rework increases the Build rework baseline."
-      },
-      {
-        artifact: "muiReworkMean",
-        stage: "muiSimulation",
-        path: "MUI",
-        direction: "bad",
-        calculatedIn: "runSimulation",
-        reason:
-          "Frequent rework increases the packaged-path rework baseline."
+        reason: "More rework tends to add slip to the Build schedule."
       }
     ]
   },
@@ -758,386 +843,407 @@ export const MODEL_IMPACT_MAP = {
     label: "Deadline pressure",
     group: "Delivery maturity",
     direction: "bad",
+    summary:
+      "Higher pressure lowers delivery maturity, increases slip, and widens tail risk.",
     impacts: [
       {
         artifact: "deliveryMaturity",
         stage: "derivedFactor",
         path: "Both",
         direction: "bad",
+        effectType: "enum-step",
+        effectScale: "moderate",
         calculatedIn: "buildDerivedFactors",
-        reason:
-          "Higher deadline pressure lowers the delivery-maturity score."
+        reason: "Higher deadline pressure lowers delivery maturity."
       },
       {
         artifact: "deliveryRisk",
         stage: "scorecardRisk",
         path: "Both",
         direction: "bad",
+        effectType: "inverse",
+        effectScale: "moderate",
         calculatedIn: "buildScorecard",
-        reason:
-          "Higher deadline pressure increases delivery risk."
+        reason: "More deadline pressure increases the normalized delivery-risk score."
       },
       {
-        artifact: "internalAbsorption",
-        stage: "scenarioLever",
+        artifact: "buildSlipMean",
+        stage: "buildEstimate",
         path: "Build",
         direction: "bad",
-        calculatedIn: "buildScenarioLevers",
-        reason:
-          "Schedule compression lowers the team’s ability to absorb work."
+        effectType: "conditional",
+        effectScale: "small",
+        calculatedIn: "runSimulation",
+        reason: "Deadline pressure raises expected Build slip."
+      },
+      {
+        artifact: "muiSlipMean",
+        stage: "muiEstimate",
+        path: "MUI",
+        direction: "bad",
+        effectType: "conditional",
+        effectScale: "small",
+        calculatedIn: "runSimulation",
+        reason: "Deadline pressure also raises expected MUI slip."
       },
       {
         artifact: "downsideTailRisk",
         stage: "scenarioLever",
         path: "Both",
         direction: "bad",
+        effectType: "interaction",
+        effectScale: "moderate",
         calculatedIn: "buildScenarioLevers",
-        reason:
-          "Schedule compression widens downside tail risk."
-      },
-      {
-        artifact: "buildSlip",
-        stage: "buildSimulation",
-        path: "Build",
-        direction: "bad",
-        calculatedIn: "runSimulation",
-        reason:
-          "Higher deadline pressure increases Build slip risk."
+        reason: "Compressed deadlines widen the long-tail downside distribution."
       }
     ]
   },
   supportRequirement: {
     label: "Support requirement",
-    group: "Support and procurement",
+    group: "Enterprise relevance",
     direction: "contextual",
+    summary:
+      "Higher support need increases enterprise relevance and can create support gaps, but it should not force Enterprise alone.",
     impacts: [
       {
         artifact: "supportNeed",
         stage: "inputIndex",
         path: "MUI / vendor-backed paths",
-        direction: "contextual",
+        direction: "neutral",
+        effectType: "enum-step",
+        effectScale: "small",
         calculatedIn: "buildScorecard",
-        reason:
-          "The requirement directly sets the support-demand index."
+        reason: "Support requirement becomes a normalized support-needs index."
       },
       {
         artifact: "enterpriseReadiness",
         stage: "derivedFactor",
-        path: "MUI / vendor-backed paths",
+        path: "Vendor-backed / standardized paths",
         direction: "contextual",
+        effectType: "interaction",
+        effectScale: "moderate",
         calculatedIn: "buildDerivedFactors",
-        reason:
-          "Higher support demand increases the relevance of vendor-backed paths."
+        reason: "Higher support need increases the relevance of vendor-backed support."
       },
       {
         artifact: "supportGap",
         stage: "planFit",
-        path: "MUI / vendor-backed paths",
+        path: "MUI",
         direction: "bad",
+        effectType: "plan-conditional",
+        effectScale: "moderate",
         calculatedIn: "buildPlanFit",
-        reason:
-          "Weaker plans leave more support demand uncovered."
+        reason: "Weaker packaged paths can leave part of the support need uncovered."
       },
       {
         artifact: "buildTierScore",
         stage: "pathScore",
         path: "Build",
         direction: "bad",
+        effectType: "interaction",
+        effectScale: "small",
         calculatedIn: "buildScorecard",
-        reason:
-          "Higher support demand lowers Build attractiveness when procurement and response expectations rise."
+        reason: "High support and procurement needs can reduce Build attractiveness when support matters."
+      },
+      {
+        artifact: "enterpriseTierScore",
+        stage: "pathScore",
+        path: "MUI Enterprise",
+        direction: "good",
+        effectType: "interaction",
+        effectScale: "small",
+        calculatedIn: "buildScorecard",
+        reason: "Support demand can strengthen Enterprise relevance when the rest of the fit is aligned."
       }
     ]
   },
   maintenanceHorizonMonths: {
     label: "Maintenance horizon months",
-    group: "Cost and horizon",
+    group: "Lifecycle cost",
     direction: "cost",
+    summary:
+      "A longer horizon increases post-launch maintenance exposure and makes license cost more meaningful.",
     impacts: [
       {
         artifact: "horizonYears",
         stage: "simulationPrep",
         path: "Both",
         direction: "neutral",
+        effectType: "enum-step",
+        effectScale: "small",
         calculatedIn: "runSimulation",
-        reason:
-          "The horizon is converted into years for maintenance and license modeling."
+        reason: "The maintenance horizon is converted into years for simulation math."
       },
       {
         artifact: "buildMaintenance",
-        stage: "buildSimulation",
+        stage: "buildEstimate",
         path: "Build",
         direction: "cost",
+        effectType: "linear",
+        effectScale: "moderate",
         calculatedIn: "runSimulation",
-        reason:
-          "A longer horizon increases Build maintenance exposure."
+        reason: "Longer horizons increase Build maintenance exposure."
       },
       {
         artifact: "muiMaintenance",
-        stage: "muiSimulation",
+        stage: "muiEstimate",
         path: "MUI",
         direction: "cost",
+        effectType: "linear",
+        effectScale: "moderate",
         calculatedIn: "runSimulation",
-        reason:
-          "A longer horizon increases MUI maintenance exposure."
+        reason: "Longer horizons increase MUI maintenance exposure."
       },
       {
-        artifact: "muiLicenseCost",
-        stage: "muiSimulation",
-        path: "MUI",
+        artifact: "muiTotalCost",
+        stage: "muiEstimate",
+        path: "Paid MUI",
         direction: "cost",
+        effectType: "cost-only",
+        effectScale: "moderate",
         calculatedIn: "runSimulation",
-        reason:
-          "A longer horizon increases paid license cost for Premium and Enterprise tiers."
-      },
-      {
-        artifact: "enterpriseReadiness",
-        stage: "derivedFactor",
-        path: "MUI / vendor-backed paths",
-        direction: "contextual",
-        calculatedIn: "buildDerivedFactors",
-        reason:
-          "Longer maintenance horizons increase the relevance of durable support and upgrade paths."
+        reason: "Longer horizons flow into the total MUI TCO."
       }
     ]
   },
   engineerCostPerDay: {
     label: "Engineer cost per day",
-    group: "Cost and horizon",
+    group: "Lifecycle cost",
     direction: "cost",
+    summary:
+      "Day rate converts effort into labor TCO and must not be treated as an effort signal.",
     impacts: [
       {
         artifact: "laborCostPerWeek",
         stage: "simulationPrep",
         path: "Both",
         direction: "cost",
+        effectType: "cost-only",
         calculatedIn: "runSimulation",
-        reason:
-          "The daily labor rate is converted into weekly labor cost."
+        reason: "The day rate is converted into a weekly labor rate for TCO math."
       },
       {
         artifact: "buildTotalCost",
-        stage: "buildSimulation",
+        stage: "buildEstimate",
         path: "Build",
         direction: "cost",
+        effectType: "cost-only",
         calculatedIn: "runSimulation",
-        reason:
-          "Higher labor cost increases Build TCO."
+        reason: "Labor cost flows directly into Build TCO."
       },
       {
         artifact: "muiTotalCost",
-        stage: "muiSimulation",
-        path: "MUI",
+        stage: "muiEstimate",
+        path: "Paid MUI",
         direction: "cost",
+        effectType: "cost-only",
         calculatedIn: "runSimulation",
-        reason:
-          "Higher labor cost increases MUI TCO."
+        reason: "Labor cost flows directly into MUI TCO."
       }
     ]
   },
   performanceSensitivity: {
     label: "Performance sensitivity",
-    group: "Performance and risk",
+    group: "Quality and runtime pressure",
     direction: "mixed",
+    summary:
+      "Performance constraints increase quality burden and can widen risk if a path is not performance-ready.",
     impacts: [
       {
         artifact: "qualityBurden",
         stage: "derivedFactor",
         path: "Both",
         direction: "bad",
+        effectType: "linear",
+        effectScale: "moderate",
         calculatedIn: "buildDerivedFactors",
-        reason:
-          "Stricter performance constraints increase verification burden."
+        reason: "Stricter performance sensitivity raises quality burden."
       },
       {
-        artifact: "functionalComplexity",
-        stage: "derivedFactor",
+        artifact: "qualityRisk",
+        stage: "scorecardRisk",
         path: "Both",
         direction: "bad",
-        calculatedIn: "buildDerivedFactors",
-        reason:
-          "Performance work can slightly increase the overall functional load."
+        effectType: "linear",
+        effectScale: "moderate",
+        calculatedIn: "buildScorecard",
+        reason: "Performance pressure increases normalized quality risk."
       },
       {
-        artifact: "downsideTailRisk",
-        stage: "scenarioLever",
-        path: "Both",
-        direction: "bad",
-        calculatedIn: "buildScenarioLevers",
-        reason:
-          "Performance sensitivity increases tail-risk exposure."
-      },
-      {
-        artifact: "muiAdoptionBurden",
-        stage: "scenarioLever",
+        artifact: "integrationRisk",
+        stage: "planFit",
         path: "MUI",
         direction: "bad",
-        calculatedIn: "buildScenarioLevers",
-        reason:
-          "Weak fit conditions can make performance-sensitive MUI adoption harder."
+        effectType: "conditional",
+        effectScale: "small",
+        calculatedIn: "buildPlanFit",
+        reason: "Strict performance expectations can increase plan-fit risk."
       }
     ]
   },
   knowledgeConcentration: {
     label: "Knowledge concentration",
-    group: "Knowledge and continuity",
+    group: "Organization and risk",
     direction: "mixed",
+    summary:
+      "Concentrated knowledge raises continuity risk, while shared knowledge improves absorption and resilience.",
     impacts: [
-      {
-        artifact: "internalAbsorption",
-        stage: "scenarioLever",
-        path: "Build",
-        direction: "good",
-        calculatedIn: "buildScenarioLevers",
-        reason:
-          "Shared knowledge improves the team’s ability to absorb custom work."
-      },
       {
         artifact: "ownershipBurden",
         stage: "derivedFactor",
         path: "Build",
         direction: "bad",
+        effectType: "conditional",
+        effectScale: "moderate",
         calculatedIn: "buildDerivedFactors",
-        reason:
-          "Concentrated knowledge increases continuity and ownership burden."
+        reason: "Concentrated knowledge increases ownership burden and key-person risk."
+      },
+      {
+        artifact: "internalAbsorption",
+        stage: "scenarioLever",
+        path: "Build",
+        direction: "bad",
+        effectType: "inverse",
+        effectScale: "small",
+        calculatedIn: "buildScenarioLevers",
+        reason: "Concentrated knowledge lowers the team’s ability to absorb Build work."
       },
       {
         artifact: "downsideTailRisk",
         stage: "scenarioLever",
         path: "Both",
         direction: "bad",
+        effectType: "interaction",
+        effectScale: "moderate",
         calculatedIn: "buildScenarioLevers",
-        reason:
-          "Concentrated knowledge increases long-tail failure exposure."
-      },
-      {
-        artifact: "buildMaintenance",
-        stage: "buildSimulation",
-        path: "Build",
-        direction: "bad",
-        calculatedIn: "runSimulation",
-        reason:
-          "Knowledge concentration increases Build maintenance risk."
+        reason: "Knowledge concentration widens downside tail risk."
       }
     ]
   },
   designDevHandoffFriction: {
     label: "Design-dev handoff friction",
-    group: "Process and quality",
+    group: "Workflow quality",
     direction: "mixed",
+    summary:
+      "Handoff friction adds rework and adaptation cost across Build and packaged paths.",
     impacts: [
       {
         artifact: "qualityBurden",
         stage: "derivedFactor",
         path: "Both",
         direction: "bad",
+        effectType: "linear",
+        effectScale: "moderate",
         calculatedIn: "buildDerivedFactors",
-        reason:
-          "Higher handoff friction increases verification and clarification burden."
+        reason: "Higher handoff friction raises quality burden."
       },
       {
         artifact: "buildReuseLeverage",
         stage: "scenarioLever",
         path: "Build",
         direction: "bad",
+        effectType: "interaction",
+        effectScale: "small",
         calculatedIn: "buildScenarioLevers",
-        reason:
-          "Friction between design and implementation reduces internal reuse leverage."
+        reason: "Friction reduces the amount of reusable internal work that Build can capture."
       },
       {
         artifact: "muiAdoptionBurden",
         stage: "scenarioLever",
         path: "MUI",
         direction: "bad",
+        effectType: "interaction",
+        effectScale: "small",
         calculatedIn: "buildScenarioLevers",
-        reason:
-          "Handoff friction increases adaptation work on the packaged path."
+        reason: "Handoff friction increases the effort needed to adapt a packaged path."
       },
       {
-        artifact: "downsideTailRisk",
-        stage: "scenarioLever",
-        path: "Both",
+        artifact: "integrationRisk",
+        stage: "planFit",
+        path: "MUI",
         direction: "bad",
-        calculatedIn: "buildScenarioLevers",
-        reason:
-          "More friction widens the downside tail."
+        effectType: "conditional",
+        effectScale: "small",
+        calculatedIn: "buildPlanFit",
+        reason: "Fractured handoffs can create more integration risk."
       }
     ]
   },
   componentStandardizationGoal: {
     label: "Component standardization goal",
-    group: "Standards and reuse",
+    group: "Standards and governance",
     direction: "contextual",
+    summary:
+      "Standardization goals increase the relevance of reusable and vendor-backed paths without making one path universally best.",
     impacts: [
       {
         artifact: "enterpriseReadiness",
         stage: "derivedFactor",
-        path: "MUI / vendor-backed paths",
+        path: "Vendor-backed / standardized paths",
         direction: "contextual",
+        effectType: "interaction",
+        effectScale: "moderate",
         calculatedIn: "buildDerivedFactors",
-        reason:
-          "A standardization goal increases the relevance of vendor-backed rollout and governance."
+        reason: "A stronger standardization goal increases the relevance of standardized delivery."
+      },
+      {
+        artifact: "buildReuseLeverage",
+        stage: "scenarioLever",
+        path: "Build",
+        direction: "good",
+        effectType: "linear",
+        effectScale: "small",
+        calculatedIn: "buildScenarioLevers",
+        reason: "Standardization goals can make internal reuse more valuable."
       },
       {
         artifact: "muiLeverage",
         stage: "scenarioLever",
         path: "MUI",
         direction: "good",
+        effectType: "linear",
+        effectScale: "small",
         calculatedIn: "buildScenarioLevers",
-        reason:
-          "A strong standardization goal can increase packaged leverage when MUI fit is already strong."
-      },
-      {
-        artifact: "buildReuseLeverage",
-        stage: "scenarioLever",
-        path: "Build",
-        direction: "good",
-        calculatedIn: "buildScenarioLevers",
-        reason:
-          "A strong standardization goal can also support Build when internal maturity and ownership are strong."
+        reason: "Standardization goals can also make packaged adoption more compelling."
       }
     ]
   },
   productionCriticality: {
     label: "Production criticality",
-    group: "Quality and support",
-    direction: "mixed",
+    group: "Operational risk",
+    direction: "contextual",
+    summary:
+      "More critical production contexts raise quality burden and support relevance without making vendor-backed paths mandatory.",
     impacts: [
       {
         artifact: "qualityBurden",
         stage: "derivedFactor",
         path: "Both",
         direction: "bad",
+        effectType: "linear",
+        effectScale: "moderate",
         calculatedIn: "buildDerivedFactors",
-        reason:
-          "More critical production surfaces increase verification burden."
+        reason: "Higher production criticality raises verification burden."
       },
       {
         artifact: "enterpriseReadiness",
         stage: "derivedFactor",
+        path: "Vendor-backed / standardized paths",
+        direction: "contextual",
+        effectType: "interaction",
+        effectScale: "moderate",
+        calculatedIn: "buildDerivedFactors",
+        reason: "More critical work makes vendor-backed support more relevant."
+      },
+      {
+        artifact: "supportNeed",
+        stage: "inputIndex",
         path: "MUI / vendor-backed paths",
         direction: "contextual",
-        calculatedIn: "buildDerivedFactors",
-        reason:
-          "Critical production surfaces increase the relevance of support and vendor-backed response."
-      },
-      {
-        artifact: "supportGap",
-        stage: "planFit",
-        path: "MUI / vendor-backed paths",
-        direction: "bad",
-        calculatedIn: "buildPlanFit",
-        reason:
-          "Weaker packaged paths can leave more support demand uncovered when production stakes are high."
-      },
-      {
-        artifact: "downsideTailRisk",
-        stage: "scenarioLever",
-        path: "Both",
-        direction: "bad",
-        calculatedIn: "buildScenarioLevers",
-        reason:
-          "Higher criticality widens the long-tail downside exposure."
+        effectType: "interaction",
+        effectScale: "small",
+        calculatedIn: "buildScorecard",
+        reason: "Operationally sensitive work tends to amplify support demand."
       }
     ]
   }
