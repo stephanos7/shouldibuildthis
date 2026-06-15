@@ -69,6 +69,7 @@ export const MODEL_IMPACT_MAP = {
         direction: "cost",
         effectType: "cost-only",
         calculatedIn: "runSimulation",
+        calibrationRef: "simulation.mui.licensing",
         reason: "Estimated licensed developers flow into license cost and TCO."
       },
       {
@@ -119,6 +120,346 @@ export const MODEL_IMPACT_MAP = {
         calculatedIn: "runSimulation",
         calibrationRef: "simulation.velocity.mui",
         reason: "Base velocity, risk modifiers, leverage, burden, and calibrated bounds determine the MUI velocity multiplier."
+      }
+    ]
+  },
+  coverageShield: {
+    label: "Coverage shield",
+    group: "Simulation prep",
+    direction: "good",
+    summary:
+      "Coverage strength can reduce effort when the selected MUI plan fits well enough.",
+    impacts: [
+      {
+        artifact: "coverageShield",
+        stage: "simulationPrep",
+        path: "MUI",
+        direction: "good",
+        effectType: "threshold",
+        effectScale: "small",
+        calculatedIn: "runSimulation",
+        calibrationRef: "simulation.prep.coverageShield",
+        reason: "Coverage shield thresholds and values are named in calibration."
+      }
+    ]
+  },
+  buildAbsorptionShield: {
+    label: "Build absorption shield",
+    group: "Simulation prep",
+    direction: "good",
+    summary:
+      "Internal absorption and reuse can reduce Build effort when the team can take on custom work cleanly.",
+    impacts: [
+      {
+        artifact: "buildAbsorptionShield",
+        stage: "simulationPrep",
+        path: "Build",
+        direction: "good",
+        effectType: "interaction",
+        effectScale: "small",
+        calculatedIn: "runSimulation",
+        calibrationRef: "simulation.prep.buildAbsorptionShield",
+        reason: "Build absorption shielding is controlled by named calibration weights."
+      }
+    ]
+  },
+  buildTailPenalty: {
+    label: "Build tail penalty",
+    group: "Simulation prep",
+    direction: "bad",
+    summary:
+      "Downside tail risk can widen Build variance, slip, and long-tail exposure.",
+    impacts: [
+      {
+        artifact: "buildTailPenalty",
+        stage: "simulationPrep",
+        path: "Build",
+        direction: "bad",
+        effectType: "interaction",
+        effectScale: "small",
+        calculatedIn: "runSimulation",
+        calibrationRef: "simulation.prep.buildTailPenalty",
+        reason: "Build tail penalty thresholds and multipliers are named in calibration."
+      }
+    ]
+  },
+  muiLeverageShield: {
+    label: "MUI leverage shield",
+    group: "Simulation prep",
+    direction: "good",
+    summary:
+      "MUI leverage can reduce MUI effort when fit and adoption signals are strong.",
+    impacts: [
+      {
+        artifact: "muiLeverageShield",
+        stage: "simulationPrep",
+        path: "MUI",
+        direction: "good",
+        effectType: "interaction",
+        effectScale: "small",
+        calculatedIn: "runSimulation",
+        calibrationRef: "simulation.prep.muiLeverageShield",
+        reason: "MUI leverage shielding is controlled by named calibration weights."
+      }
+    ]
+  },
+  muiAdoptionLoad: {
+    label: "MUI adoption load",
+    group: "Simulation prep",
+    direction: "bad",
+    summary:
+      "Adoption burden can increase MUI effort, slip, and variance when the team has to adapt a packaged path.",
+    impacts: [
+      {
+        artifact: "muiAdoptionLoad",
+        stage: "simulationPrep",
+        path: "MUI",
+        direction: "bad",
+        effectType: "interaction",
+        effectScale: "small",
+        calculatedIn: "runSimulation",
+        calibrationRef: "simulation.prep.muiAdoptionLoad",
+        reason: "MUI adoption load is controlled by named calibration weights."
+      }
+    ]
+  },
+  buildEngineeringMean: {
+    label: "Build engineering mean",
+    group: "Build estimate",
+    direction: "bad",
+    summary:
+      "The central Build effort estimate is driven by named risk weights in calibration.",
+    impacts: [
+      {
+        artifact: "buildEngineeringMean",
+        stage: "buildEstimate",
+        path: "Build",
+        direction: "bad",
+        effectType: "linear",
+        effectScale: "moderate",
+        calculatedIn: "runSimulation",
+        calibrationRef: "simulation.build.engineeringMeanWeeks",
+        reason: "Build engineering mean weights are controlled by calibration."
+      }
+    ]
+  },
+  buildEngineeringVariance: {
+    label: "Build engineering variance",
+    group: "Build estimate",
+    direction: "bad",
+    summary:
+      "Build variance is driven by named calibration weights and shield reduction factors.",
+    impacts: [
+      {
+        artifact: "buildEngineeringVariance",
+        stage: "buildEstimate",
+        path: "Build",
+        direction: "bad",
+        effectType: "linear",
+        effectScale: "moderate",
+        calculatedIn: "runSimulation",
+        calibrationRef: "simulation.build.engineeringVariance",
+        reason: "Build engineering variance weights are controlled by calibration."
+      }
+    ]
+  },
+  buildReworkMean: {
+    label: "Build rework mean",
+    group: "Build estimate",
+    direction: "bad",
+    summary:
+      "Build rework is driven by named calibration weights and downside tail additions.",
+    impacts: [
+      {
+        artifact: "buildReworkMean",
+        stage: "buildEstimate",
+        path: "Build",
+        direction: "bad",
+        effectType: "linear",
+        effectScale: "moderate",
+        calculatedIn: "runSimulation",
+        calibrationRef: "simulation.build.reworkMeanWeeks",
+        reason: "Build rework mean weights are controlled by calibration."
+      }
+    ]
+  },
+  buildSlipMean: {
+    label: "Build slip mean",
+    group: "Build estimate",
+    direction: "bad",
+    summary:
+      "Build slip is driven by named calibration weights and tail penalty multipliers.",
+    impacts: [
+      {
+        artifact: "buildSlipMean",
+        stage: "buildEstimate",
+        path: "Build",
+        direction: "bad",
+        effectType: "linear",
+        effectScale: "moderate",
+        calculatedIn: "runSimulation",
+        calibrationRef: "simulation.build.slipMeanWeeks",
+        reason: "Build slip mean weights are controlled by calibration."
+      }
+    ]
+  },
+  buildLaunch: {
+    label: "Build launch",
+    group: "Build estimate",
+    direction: "bad",
+    summary:
+      "Build launch combines engineering, slip, and rollout overhead from calibration.",
+    impacts: [
+      {
+        artifact: "buildLaunch",
+        stage: "buildEstimate",
+        path: "Build",
+        direction: "bad",
+        effectType: "linear",
+        effectScale: "moderate",
+        calculatedIn: "runSimulation",
+        calibrationRef: "simulation.build.launch",
+        reason: "Build launch overhead is controlled by calibration."
+      }
+    ]
+  },
+  buildMaintenance: {
+    label: "Build maintenance",
+    group: "Build estimate",
+    direction: "bad",
+    summary:
+      "Build maintenance exposure is driven by named calibration weights over the chosen horizon.",
+    impacts: [
+      {
+        artifact: "buildMaintenance",
+        stage: "buildEstimate",
+        path: "Build",
+        direction: "bad",
+        effectType: "linear",
+        effectScale: "moderate",
+        calculatedIn: "runSimulation",
+        calibrationRef: "simulation.build.maintenanceWeeks",
+        reason: "Build maintenance weights are controlled by calibration."
+      }
+    ]
+  },
+  muiEngineeringMean: {
+    label: "MUI engineering mean",
+    group: "MUI estimate",
+    direction: "bad",
+    summary:
+      "The central MUI effort estimate is driven by named fit, burden, and leverage weights.",
+    impacts: [
+      {
+        artifact: "muiEngineeringMean",
+        stage: "muiEstimate",
+        path: "MUI",
+        direction: "bad",
+        effectType: "linear",
+        effectScale: "moderate",
+        calculatedIn: "runSimulation",
+        calibrationRef: "simulation.mui.engineeringMeanWeeks",
+        reason: "MUI engineering mean weights are controlled by calibration."
+      }
+    ]
+  },
+  muiEngineeringVariance: {
+    label: "MUI engineering variance",
+    group: "MUI estimate",
+    direction: "bad",
+    summary:
+      "MUI variance is driven by named calibration weights and leverage/shield effects.",
+    impacts: [
+      {
+        artifact: "muiEngineeringVariance",
+        stage: "muiEstimate",
+        path: "MUI",
+        direction: "bad",
+        effectType: "linear",
+        effectScale: "moderate",
+        calculatedIn: "runSimulation",
+        calibrationRef: "simulation.mui.engineeringVariance",
+        reason: "MUI engineering variance weights are controlled by calibration."
+      }
+    ]
+  },
+  muiReworkMean: {
+    label: "MUI rework mean",
+    group: "MUI estimate",
+    direction: "bad",
+    summary:
+      "MUI rework is driven by named calibration weights and coverage/shield effects.",
+    impacts: [
+      {
+        artifact: "muiReworkMean",
+        stage: "muiEstimate",
+        path: "MUI",
+        direction: "bad",
+        effectType: "linear",
+        effectScale: "moderate",
+        calculatedIn: "runSimulation",
+        calibrationRef: "simulation.mui.reworkMeanWeeks",
+        reason: "MUI rework mean weights are controlled by calibration."
+      }
+    ]
+  },
+  muiSlipMean: {
+    label: "MUI slip mean",
+    group: "MUI estimate",
+    direction: "bad",
+    summary:
+      "MUI slip is driven by named calibration weights and tail penalty multipliers.",
+    impacts: [
+      {
+        artifact: "muiSlipMean",
+        stage: "muiEstimate",
+        path: "MUI",
+        direction: "bad",
+        effectType: "linear",
+        effectScale: "moderate",
+        calculatedIn: "runSimulation",
+        calibrationRef: "simulation.mui.slipMeanWeeks",
+        reason: "MUI slip mean weights are controlled by calibration."
+      }
+    ]
+  },
+  muiLaunch: {
+    label: "MUI launch",
+    group: "MUI estimate",
+    direction: "bad",
+    summary:
+      "MUI launch combines engineering, slip, and rollout overhead from calibration.",
+    impacts: [
+      {
+        artifact: "muiLaunch",
+        stage: "muiEstimate",
+        path: "MUI",
+        direction: "bad",
+        effectType: "linear",
+        effectScale: "moderate",
+        calculatedIn: "runSimulation",
+        calibrationRef: "simulation.mui.launch",
+        reason: "MUI launch overhead is controlled by calibration."
+      }
+    ]
+  },
+  muiMaintenance: {
+    label: "MUI maintenance",
+    group: "MUI estimate",
+    direction: "bad",
+    summary:
+      "MUI maintenance exposure is driven by named calibration weights over the chosen horizon.",
+    impacts: [
+      {
+        artifact: "muiMaintenance",
+        stage: "muiEstimate",
+        path: "MUI",
+        direction: "bad",
+        effectType: "linear",
+        effectScale: "moderate",
+        calculatedIn: "runSimulation",
+        calibrationRef: "simulation.mui.maintenanceWeeks",
+        reason: "MUI maintenance weights are controlled by calibration."
       }
     ]
   },
@@ -1113,6 +1454,7 @@ export const MODEL_IMPACT_MAP = {
         effectType: "linear",
         effectScale: "moderate",
         calculatedIn: "runSimulation",
+        calibrationRef: "simulation.build.maintenanceWeeks",
         reason: "Longer horizons increase Build maintenance exposure."
       },
       {
@@ -1123,6 +1465,7 @@ export const MODEL_IMPACT_MAP = {
         effectType: "linear",
         effectScale: "moderate",
         calculatedIn: "runSimulation",
+        calibrationRef: "simulation.mui.maintenanceWeeks",
         reason: "Longer horizons increase MUI maintenance exposure."
       },
       {

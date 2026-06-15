@@ -366,7 +366,7 @@ const PLAN_CONFIG = {
     key: "core",
     label: "MUI Core",
     recommendationLabel: "MUI Core",
-    licensePerDeveloperYear: 0,
+    licensePerDeveloperYear: CALIBRATION.simulation.mui.licensing.core,
     supportCapability: 0.15,
     featureCapacity: 2.0,
     useCaseCoverage: {
@@ -382,7 +382,7 @@ const PLAN_CONFIG = {
     key: "premium",
     label: "MUI X Premium",
     recommendationLabel: "Premium",
-    licensePerDeveloperYear: 1800,
+    licensePerDeveloperYear: CALIBRATION.simulation.mui.licensing.premium,
     supportCapability: 0.45,
     featureCapacity: 4.4,
     useCaseCoverage: {
@@ -398,7 +398,7 @@ const PLAN_CONFIG = {
     key: "enterprise",
     label: "MUI X Enterprise",
     recommendationLabel: "Enterprise",
-    licensePerDeveloperYear: 3600,
+    licensePerDeveloperYear: CALIBRATION.simulation.mui.licensing.enterprise,
     supportCapability: 0.78,
     featureCapacity: 5.8,
     useCaseCoverage: {
@@ -2640,6 +2640,7 @@ function buildSensitivityDiagnostics(input, baseResult) {
 function buildDeterministicEstimate(input, scorecard) {
   const buildCalibration = SIMULATION_CALIBRATION.build;
   const muiCalibration = SIMULATION_CALIBRATION.mui;
+  const simulationPrepCalibration = CALIBRATION.simulation.prep;
   const buildVelocityCalibration = CALIBRATION.simulation.velocity.build;
   const muiVelocityCalibration = CALIBRATION.simulation.velocity.mui;
   const frontendDeveloperVelocityCalibration =
@@ -2650,25 +2651,39 @@ function buildDeterministicEstimate(input, scorecard) {
     scorecard.effectiveMuiPlan
   );
   const horizonYears = input.maintenanceHorizonMonths / 12;
+  // Engineer cost only feeds TCO through the weekly labor rate; it does not
+  // affect launch time or effort.
   const laborCostPerWeek = input.engineerCostPerDay * 5;
   const rowScale = EXPECTED_ROWS_INDEX[input.expectedRows];
   const columnScale = EXPECTED_COLUMNS_INDEX[input.expectedColumns];
   const scaleDemand = rowScale + columnScale;
   const coverageStrength = clamp(planFit.coverageScore / 100, 0, 1);
   const coverageShield =
-    coverageStrength >= 0.72 ? 0.14 : coverageStrength >= 0.58 ? 0.08 : 0;
+    coverageStrength >= simulationPrepCalibration.coverageShield.strongThreshold
+      ? simulationPrepCalibration.coverageShield.strongValue
+      : coverageStrength >=
+          simulationPrepCalibration.coverageShield.mediumThreshold
+        ? simulationPrepCalibration.coverageShield.mediumValue
+        : simulationPrepCalibration.coverageShield.fallbackValue;
   const internalAbsorption = scorecard.internalAbsorption;
   const buildReuseLeverage = scorecard.buildReuseLeverage;
   const muiLeverage = scorecard.muiLeverage;
   const muiAdoptionBurden = scorecard.muiAdoptionBurden;
   const downsideTailRisk = scorecard.downsideTailRisk;
   const buildAbsorptionShield = clamp(
-    internalAbsorption * 0.18 + buildReuseLeverage * 0.12,
-    0,
-    0.24
+    internalAbsorption *
+      simulationPrepCalibration.buildAbsorptionShield.internalAbsorption +
+      buildReuseLeverage *
+        simulationPrepCalibration.buildAbsorptionShield.buildReuseLeverage,
+    simulationPrepCalibration.buildAbsorptionShield.minimum,
+    simulationPrepCalibration.buildAbsorptionShield.maximum
   );
   const buildTailPenalty =
-    downsideTailRisk >= 0.45 ? (downsideTailRisk - 0.45) * 0.22 : 0;
+    downsideTailRisk >= simulationPrepCalibration.buildTailPenalty.threshold
+      ? (downsideTailRisk -
+          simulationPrepCalibration.buildTailPenalty.threshold) *
+        simulationPrepCalibration.buildTailPenalty.multiplier
+      : 0;
   const buildDeveloperVelocityAdjustment = evaluateThresholdTable(
     input.frontendDevelopers,
     frontendDeveloperVelocityCalibration.build
@@ -2725,7 +2740,9 @@ function buildDeterministicEstimate(input, scorecard) {
     buildScaleAdjustmentWeeks;
   const buildAbsorptionReductionWeeks =
     buildPreAdjustmentEngineeringWeeks * buildAbsorptionShield;
-  const buildDownsideTailAdditionWeeks = downsideTailRisk * 0.9;
+  const buildDownsideTailAdditionWeeks =
+    downsideTailRisk *
+    buildCalibration.fatTail.build.downsideTailRiskMeanMultiplier;
   const buildAdjustedEngineeringWeeks = Math.max(
     buildCalibration.engineeringMeanWeeks.minimum,
     buildPreAdjustmentEngineeringWeeks -
@@ -2743,8 +2760,11 @@ function buildDeterministicEstimate(input, scorecard) {
       : 0);
   const buildReworkAllowanceWeeks = Math.max(
     buildCalibration.reworkMeanWeeks.minimum,
-    buildReworkBaseWeeks * (1 - buildAbsorptionShield * 0.85) +
-      downsideTailRisk * 0.28
+    buildReworkBaseWeeks *
+      (1 - buildAbsorptionShield *
+        buildCalibration.reworkMeanWeeks.absorptionShieldReductionFactor) +
+      downsideTailRisk *
+        buildCalibration.reworkMeanWeeks.downsideTailRiskAddition
   );
   const buildTotalEngineeringWeeks =
     buildAdjustedEngineeringWeeks + buildReworkAllowanceWeeks;
@@ -2762,8 +2782,11 @@ function buildDeterministicEstimate(input, scorecard) {
       : 0);
   const buildSlipWeeks = Math.max(
     buildCalibration.slipFloorWeeks,
-    buildSlipBaseWeeks * (1 - buildAbsorptionShield * 0.72) +
-      buildTailPenalty * 3.6
+    buildSlipBaseWeeks *
+      (1 -
+        buildAbsorptionShield *
+          buildCalibration.slipMeanWeeks.absorptionShieldReductionFactor) +
+      buildTailPenalty * buildCalibration.slipMeanWeeks.tailPenaltyMultiplier
   );
   const buildAppRolloutOverheadWeeks =
     scorecard.appScale * buildCalibration.launch.appScaleOverheadWeeks;
@@ -2786,9 +2809,13 @@ function buildDeterministicEstimate(input, scorecard) {
         ? buildCalibration.maintenanceWeeks.largeScaleAdjustment
         : 0));
   const buildAbsorptionReductionMaintenanceWeeks =
-    buildBaseMaintenanceWeeks * buildAbsorptionShield * 0.68;
+    buildBaseMaintenanceWeeks *
+    buildAbsorptionShield *
+    buildCalibration.maintenanceWeeks.absorptionShieldReductionFactor;
   const buildDownsideTailMaintenanceAdditionWeeks =
-    downsideTailRisk * 0.32 * horizonYears;
+    downsideTailRisk *
+    buildCalibration.maintenanceWeeks.downsideTailRiskHorizonMultiplier *
+    horizonYears;
   const buildMaintenanceWeeks = Math.max(
     buildCalibration.maintenanceWeeks.minimum,
     Math.max(
@@ -2818,7 +2845,7 @@ function buildDeterministicEstimate(input, scorecard) {
   const muiPreAdjustmentEngineeringWeeks =
     muiBaseEngineeringWeeks -
     muiCoverageShieldReductionWeeks +
-    muiCalibration.engineeringMeanWeeks.offset;
+    muiCalibration.engineeringMeanWeeks.baseAdoptionOffset;
   const muiAdoptionBurdenWeeks =
     muiAdoptionBurden * muiCalibration.engineeringMeanWeeks.adoptionBurden;
   const muiLeverageReductionWeeks =
@@ -3030,6 +3057,7 @@ function buildDeterministicEstimate(input, scorecard) {
 function runSimulation(input, scorecard) {
   const buildCalibration = SIMULATION_CALIBRATION.build;
   const muiCalibration = SIMULATION_CALIBRATION.mui;
+  const simulationPrepCalibration = CALIBRATION.simulation.prep;
   const buildVelocityCalibration = CALIBRATION.simulation.velocity.build;
   const muiVelocityCalibration = CALIBRATION.simulation.velocity.mui;
   const frontendDeveloperVelocityCalibration =
@@ -3049,41 +3077,88 @@ function runSimulation(input, scorecard) {
     scorecard.effectiveMuiPlan
   );
   const horizonYears = input.maintenanceHorizonMonths / 12;
+  // Engineer cost only feeds TCO through the weekly labor rate; it does not
+  // affect launch time or effort.
   const laborCostPerWeek = input.engineerCostPerDay * 5;
   const rowScale = EXPECTED_ROWS_INDEX[input.expectedRows];
   const columnScale = EXPECTED_COLUMNS_INDEX[input.expectedColumns];
   const scaleDemand = rowScale + columnScale;
   const coverageStrength = clamp(planFit.coverageScore / 100, 0, 1);
   const coverageShield =
-    coverageStrength >= 0.72 ? 0.14 : coverageStrength >= 0.58 ? 0.08 : 0;
+    coverageStrength >= simulationPrepCalibration.coverageShield.strongThreshold
+      ? simulationPrepCalibration.coverageShield.strongValue
+      : coverageStrength >=
+          simulationPrepCalibration.coverageShield.mediumThreshold
+        ? simulationPrepCalibration.coverageShield.mediumValue
+        : simulationPrepCalibration.coverageShield.fallbackValue;
   const internalAbsorption = scorecard.internalAbsorption;
   const buildReuseLeverage = scorecard.buildReuseLeverage;
   const muiLeverage = scorecard.muiLeverage;
   const muiAdoptionBurden = scorecard.muiAdoptionBurden;
   const downsideTailRisk = scorecard.downsideTailRisk;
   const buildAbsorptionShield = clamp(
-    internalAbsorption * 0.18 + buildReuseLeverage * 0.12,
-    0,
-    0.24
+    internalAbsorption *
+      simulationPrepCalibration.buildAbsorptionShield.internalAbsorption +
+      buildReuseLeverage *
+        simulationPrepCalibration.buildAbsorptionShield.buildReuseLeverage,
+    simulationPrepCalibration.buildAbsorptionShield.minimum,
+    simulationPrepCalibration.buildAbsorptionShield.maximum
   );
   const buildTailPenalty =
-    downsideTailRisk >= 0.45 ? (downsideTailRisk - 0.45) * 0.22 : 0;
-  const muiLeverageShield = clamp(muiLeverage * 0.22, 0, 0.18);
-  const muiAdoptionLoad = clamp(muiAdoptionBurden * 0.26, 0.02, 0.18);
+    downsideTailRisk >= simulationPrepCalibration.buildTailPenalty.threshold
+      ? (downsideTailRisk -
+          simulationPrepCalibration.buildTailPenalty.threshold) *
+        simulationPrepCalibration.buildTailPenalty.multiplier
+      : 0;
+  const muiLeverageShield = clamp(
+    muiLeverage * simulationPrepCalibration.muiLeverageShield.muiLeverage,
+    simulationPrepCalibration.muiLeverageShield.minimum,
+    simulationPrepCalibration.muiLeverageShield.maximum
+  );
+  const muiAdoptionLoad = clamp(
+    muiAdoptionBurden *
+      simulationPrepCalibration.muiAdoptionLoad.muiAdoptionBurden,
+    simulationPrepCalibration.muiAdoptionLoad.minimum,
+    simulationPrepCalibration.muiAdoptionLoad.maximum
+  );
+  const buildFatTailCalibration = buildCalibration.fatTail.build;
+  const muiFatTailCalibration = buildCalibration.fatTail.mui;
   const buildFatTailExposure = clamp(
-    downsideTailRisk * 0.82 +
-      (scorecard.deliveryRisk >= 0.45 ? 0.06 : 0) +
-      (scorecard.ownershipRisk >= 0.55 ? 0.05 : 0) +
-      (scaleDemand >= 5 ? 0.04 : 0) -
-      internalAbsorption * 0.1,
+    downsideTailRisk *
+      buildFatTailCalibration.exposureWeights.downsideTailRisk +
+      (scorecard.deliveryRisk >=
+      buildFatTailCalibration.exposureWeights.deliveryRiskThreshold
+        ? buildFatTailCalibration.exposureWeights.deliveryRiskBonus
+        : 0) +
+      (scorecard.ownershipRisk >=
+      buildFatTailCalibration.exposureWeights.ownershipRiskThreshold
+        ? buildFatTailCalibration.exposureWeights.ownershipRiskBonus
+        : 0) +
+      (scaleDemand >= buildFatTailCalibration.exposureWeights.scaleDemandThreshold
+        ? buildFatTailCalibration.exposureWeights.scaleDemandBonus
+        : 0) -
+      internalAbsorption *
+        buildFatTailCalibration.exposureWeights.internalAbsorptionReduction,
     0,
     1
   );
   const muiFatTailExposure = clamp(
-    (muiAdoptionBurden >= 0.42 ? muiAdoptionBurden * 0.58 : 0) +
-      (planFit.coverageGap >= 0.28 ? planFit.coverageGap * 0.34 : 0) +
-      (planFit.integrationRisk >= 0.42 ? planFit.integrationRisk * 0.28 : 0) -
-      muiLeverage * 0.08,
+    (muiAdoptionBurden >=
+    muiFatTailCalibration.exposureWeights.muiAdoptionBurdenThreshold
+      ? muiAdoptionBurden *
+        muiFatTailCalibration.exposureWeights.muiAdoptionBurdenMultiplier
+      : 0) +
+      (planFit.coverageGap >=
+      muiFatTailCalibration.exposureWeights.coverageGapThreshold
+        ? planFit.coverageGap *
+          muiFatTailCalibration.exposureWeights.coverageGapMultiplier
+        : 0) +
+      (planFit.integrationRisk >=
+      muiFatTailCalibration.exposureWeights.integrationRiskThreshold
+        ? planFit.integrationRisk *
+          muiFatTailCalibration.exposureWeights.integrationRiskMultiplier
+        : 0) -
+      muiLeverage * muiFatTailCalibration.exposureWeights.muiLeverageReduction,
     0,
     0.82
   );
@@ -3131,26 +3206,32 @@ function runSimulation(input, scorecard) {
 
   for (let iteration = 0; iteration < ITERATIONS; iteration += 1) {
     const buildBaselineSampler = sampleBoundedMultiplier(rng, {
-      deviation: 0.024 + buildTailPenalty * 0.1,
-      min: 0.95,
-      max: 1.07
+      deviation:
+        buildFatTailCalibration.baselineDeviation +
+        buildTailPenalty *
+          buildCalibration.sampling.build.baselineTailPenaltyFactor,
+      min: buildFatTailCalibration.baselineMin,
+      max: buildFatTailCalibration.baselineMax
     });
     const muiBaselineSampler = sampleBoundedMultiplier(rng, {
-      deviation: 0.02 + muiAdoptionLoad * 0.06,
-      min: 0.96,
-      max: 1.06
+      deviation:
+        muiFatTailCalibration.baselineDeviation +
+        muiAdoptionLoad *
+          buildCalibration.sampling.mui.baselineAdoptionLoadFactor,
+      min: muiFatTailCalibration.baselineMin,
+      max: muiFatTailCalibration.baselineMax
     });
     const buildFatTailMultiplier = sampleCappedFatTailMultiplier(rng, {
       exposure: buildFatTailExposure,
-      threshold: 0.58,
-      probabilityCap: 0.16,
-      maxImpact: 0.18
+      threshold: buildFatTailCalibration.threshold,
+      probabilityCap: buildFatTailCalibration.probabilityCap,
+      maxImpact: buildFatTailCalibration.maxImpact
     });
     const muiFatTailMultiplier = sampleCappedFatTailMultiplier(rng, {
       exposure: muiFatTailExposure,
-      threshold: 0.62,
-      probabilityCap: 0.1,
-      maxImpact: 0.1
+      threshold: muiFatTailCalibration.threshold,
+      probabilityCap: muiFatTailCalibration.probabilityCap,
+      maxImpact: muiFatTailCalibration.maxImpact
     });
     const buildEngineeringMean =
       buildCalibration.engineeringMeanWeeks.base +
@@ -3170,7 +3251,8 @@ function runSimulation(input, scorecard) {
     const buildEngineeringMeanCalibrated = Math.max(
       buildCalibration.engineeringMeanWeeks.minimum,
       (buildEngineeringMean * (1 - buildAbsorptionShield) +
-        downsideTailRisk * 0.9) *
+        downsideTailRisk *
+          buildFatTailCalibration.downsideTailRiskMeanMultiplier) *
         buildBaselineSampler *
         buildFatTailMultiplier
     );
@@ -3184,7 +3266,11 @@ function runSimulation(input, scorecard) {
       scorecard.deliveryRisk *
         buildCalibration.engineeringVariance.deliveryRisk;
     const buildEngineeringVarianceCalibrated = clamp(
-      buildEngineeringVariance * (1 - buildAbsorptionShield * 0.7) +
+      buildEngineeringVariance *
+        (1 -
+          buildAbsorptionShield *
+            buildCalibration.engineeringVariance
+              .absorptionShieldReductionFactor) +
         buildTailPenalty,
       buildCalibration.engineeringVariance.minimum,
       buildCalibration.engineeringVariance.maximum
@@ -3201,24 +3287,35 @@ function runSimulation(input, scorecard) {
         : 0);
     const buildReworkMeanCalibrated = Math.max(
       buildCalibration.reworkMeanWeeks.minimum,
-      (buildReworkMean * (1 - buildAbsorptionShield * 0.85) +
-        downsideTailRisk * 0.28) *
+      (buildReworkMean *
+        (1 -
+          buildAbsorptionShield *
+            buildCalibration.reworkMeanWeeks
+              .absorptionShieldReductionFactor) +
+        downsideTailRisk *
+          buildCalibration.reworkMeanWeeks.downsideTailRiskAddition) *
         sampleBoundedMultiplier(rng, {
-          deviation: 0.022 + buildTailPenalty * 0.08,
-          min: 0.96,
-          max: 1.08
+          deviation:
+            buildFatTailCalibration.reworkDeviation +
+            buildTailPenalty *
+              buildCalibration.sampling.build.reworkTailPenaltyFactor,
+          min: buildFatTailCalibration.reworkMin,
+          max: buildFatTailCalibration.reworkMax
         }) *
-        (1 + (buildFatTailMultiplier - 1) * 0.65)
+        (1 + (buildFatTailMultiplier - 1) * buildFatTailCalibration.reworkBlend)
     );
     const buildRework = Math.max(
       0,
       randomNormal(
         rng,
         buildReworkMeanCalibrated,
-        0.68 +
-          scorecard.functionalRisk * 0.3 +
-          buildTailPenalty * 1.8 -
-          buildAbsorptionShield * 0.45
+        buildCalibration.sampling.build.reworkStdDevBase +
+          scorecard.functionalRisk *
+            buildCalibration.sampling.build.reworkStdDevFunctionalRisk +
+          buildTailPenalty *
+            buildCalibration.sampling.build.reworkStdDevTailPenalty -
+          buildAbsorptionShield *
+            buildCalibration.sampling.build.reworkStdDevAbsorptionReduction
       )
     );
     const buildEngineering = Math.max(
@@ -3240,24 +3337,34 @@ function runSimulation(input, scorecard) {
         : 0);
     const buildSlipMeanCalibrated = Math.max(
       buildCalibration.slipMeanWeeks.minimum,
-      (buildSlipMean * (1 - buildAbsorptionShield * 0.72) +
-        buildTailPenalty * 3.6) *
+      (buildSlipMean *
+        (1 -
+          buildAbsorptionShield *
+            buildCalibration.slipMeanWeeks
+              .absorptionShieldReductionFactor) +
+        buildTailPenalty * buildCalibration.slipMeanWeeks.tailPenaltyMultiplier) *
         sampleBoundedMultiplier(rng, {
-          deviation: 0.02 + buildTailPenalty * 0.06,
-          min: 0.97,
-          max: 1.09
+          deviation:
+            buildFatTailCalibration.slipDeviation +
+            buildTailPenalty *
+              buildCalibration.sampling.build.slipTailPenaltyFactor,
+          min: buildFatTailCalibration.slipMin,
+          max: buildFatTailCalibration.slipMax
         }) *
-        (1 + (buildFatTailMultiplier - 1) * 0.82)
+        (1 + (buildFatTailMultiplier - 1) * buildFatTailCalibration.slipBlend)
     );
     const buildSlip = Math.max(
       buildCalibration.slipFloorWeeks,
       randomNormal(
         rng,
         buildSlipMeanCalibrated,
-        0.74 +
-          scorecard.deliveryRisk * 0.22 +
-          buildTailPenalty * 1.6 -
-          internalAbsorption * 0.12
+        buildCalibration.sampling.build.slipStdDevBase +
+          scorecard.deliveryRisk *
+            buildCalibration.sampling.build.slipStdDevDeliveryRisk +
+          buildTailPenalty *
+            buildCalibration.sampling.build.slipStdDevTailPenalty -
+          internalAbsorption *
+            buildCalibration.sampling.build.slipStdDevAbsorptionReduction
       )
     );
     const buildLaunch = Math.max(
@@ -3283,7 +3390,7 @@ function runSimulation(input, scorecard) {
     const muiEngineeringMeanCalibrated = Math.max(
       muiCalibration.engineeringMeanWeeks.minimum,
       (muiEngineeringMean +
-        muiCalibration.engineeringMeanWeeks.offset +
+        muiCalibration.engineeringMeanWeeks.baseAdoptionOffset +
         muiAdoptionBurden * muiCalibration.engineeringMeanWeeks.adoptionBurden -
         muiLeverage * muiCalibration.engineeringMeanWeeks.leverageReduction -
         coverageShield *
@@ -3324,21 +3431,27 @@ function runSimulation(input, scorecard) {
         coverageShield *
           muiCalibration.reworkMeanWeeks.coverageShieldAdditionalReduction) *
         sampleBoundedMultiplier(rng, {
-          deviation: 0.018 + muiAdoptionLoad * 0.05,
-          min: 0.97,
-          max: 1.07
+          deviation:
+            muiFatTailCalibration.reworkDeviation +
+            muiAdoptionLoad *
+              buildCalibration.sampling.mui.reworkAdoptionLoadFactor,
+          min: muiFatTailCalibration.reworkMin,
+          max: muiFatTailCalibration.reworkMax
         }) *
-        (1 + (muiFatTailMultiplier - 1) * 0.55)
+        (1 + (muiFatTailMultiplier - 1) * muiFatTailCalibration.reworkBlend)
     );
     const muiRework = Math.max(
       0,
       randomNormal(
         rng,
         muiReworkMeanCalibrated,
-        0.36 +
-          planFit.coverageGap * 0.16 +
-          muiAdoptionLoad * 0.45 -
-          muiLeverageShield * 0.35
+        buildCalibration.sampling.mui.reworkStdDevBase +
+          planFit.coverageGap *
+            buildCalibration.sampling.mui.reworkStdDevCoverageGap +
+          muiAdoptionLoad *
+            buildCalibration.sampling.mui.reworkStdDevAdoptionLoad -
+          muiLeverageShield *
+            buildCalibration.sampling.mui.reworkStdDevLeverageShield
       )
     );
     const muiEngineering = Math.max(
@@ -3363,21 +3476,26 @@ function runSimulation(input, scorecard) {
         coverageShield *
           muiCalibration.slipMeanWeeks.coverageShieldAdditionalReduction) *
         sampleBoundedMultiplier(rng, {
-          deviation: 0.017 + muiAdoptionLoad * 0.04,
-          min: 0.97,
-          max: 1.06
+          deviation:
+            muiFatTailCalibration.slipDeviation +
+            muiAdoptionLoad * buildCalibration.sampling.mui.slipAdoptionLoadFactor,
+          min: muiFatTailCalibration.slipMin,
+          max: muiFatTailCalibration.slipMax
         }) *
-        (1 + (muiFatTailMultiplier - 1) * 0.62)
+        (1 + (muiFatTailMultiplier - 1) * muiFatTailCalibration.slipBlend)
     );
     const muiSlip = Math.max(
       muiCalibration.slipFloorWeeks,
       randomNormal(
         rng,
         muiSlipMeanCalibrated,
-        0.4 +
-          planFit.coverageGap * 0.12 +
-          muiAdoptionLoad * 0.3 -
-          muiLeverageShield * 0.25
+        buildCalibration.sampling.mui.slipStdDevBase +
+          planFit.coverageGap *
+            buildCalibration.sampling.mui.slipStdDevCoverageGap +
+          muiAdoptionLoad *
+            buildCalibration.sampling.mui.slipStdDevAdoptionLoad -
+          muiLeverageShield *
+            buildCalibration.sampling.mui.slipStdDevLeverageShield
       )
     );
     const muiLaunch = Math.max(
@@ -3402,14 +3520,24 @@ function runSimulation(input, scorecard) {
           : 0));
     const buildMaintenanceBaseCalibrated = Math.max(
       buildCalibration.maintenanceWeeks.minimumBase,
-      (buildMaintenanceBase * (1 - buildAbsorptionShield * 0.68) +
-        downsideTailRisk * 0.32 * horizonYears) *
+      (buildMaintenanceBase *
+        (1 -
+          buildAbsorptionShield *
+            buildCalibration.maintenanceWeeks
+              .absorptionShieldReductionFactor) +
+        downsideTailRisk *
+          buildCalibration.maintenanceWeeks
+            .downsideTailRiskHorizonMultiplier *
+          horizonYears) *
         sampleBoundedMultiplier(rng, {
-          deviation: 0.018 + buildTailPenalty * 0.05,
-          min: 0.97,
-          max: 1.08
+          deviation:
+            buildFatTailCalibration.maintenanceDeviation +
+            buildTailPenalty *
+              buildCalibration.sampling.build.maintenanceTailPenaltyFactor,
+          min: buildFatTailCalibration.maintenanceMin,
+          max: buildFatTailCalibration.maintenanceMax
         }) *
-        (1 + (buildFatTailMultiplier - 1) * 0.58)
+        (1 + (buildFatTailMultiplier - 1) * buildFatTailCalibration.maintenanceBlend)
     );
     const buildMaintenance = Math.max(
       buildCalibration.maintenanceWeeks.minimum,
@@ -3418,7 +3546,12 @@ function runSimulation(input, scorecard) {
           randomNormal(
             rng,
             0,
-            0.18 + scorecard.ownershipRisk * 0.05 + buildTailPenalty * 0.42
+            buildCalibration.sampling.build.maintenanceStdDevBase +
+              scorecard.ownershipRisk *
+                buildCalibration.sampling.build
+                  .maintenanceStdDevOwnershipRisk +
+              buildTailPenalty *
+                buildCalibration.sampling.build.maintenanceStdDevTailPenalty
           ))
     );
 
@@ -3447,11 +3580,14 @@ function runSimulation(input, scorecard) {
         coverageShield *
           muiCalibration.maintenanceWeeks.coverageShieldAdditionalReduction) *
         sampleBoundedMultiplier(rng, {
-          deviation: 0.016 + muiAdoptionLoad * 0.03,
-          min: 0.98,
-          max: 1.06
+          deviation:
+            muiFatTailCalibration.maintenanceDeviation +
+            muiAdoptionLoad *
+              buildCalibration.sampling.mui.maintenanceAdoptionLoadFactor,
+          min: muiFatTailCalibration.maintenanceMin,
+          max: muiFatTailCalibration.maintenanceMax
         }) *
-        (1 + (muiFatTailMultiplier - 1) * 0.42)
+        (1 + (muiFatTailMultiplier - 1) * muiFatTailCalibration.maintenanceBlend)
     );
     const muiMaintenance = Math.max(
       muiCalibration.maintenanceWeeks.minimum,
@@ -3460,10 +3596,13 @@ function runSimulation(input, scorecard) {
           randomNormal(
             rng,
             0,
-            0.13 +
-              planFit.coverageGap * 0.03 +
-              muiAdoptionLoad * 0.16 -
-              muiLeverageShield * 0.08
+        buildCalibration.sampling.mui.maintenanceStdDevBase +
+          planFit.coverageGap *
+                buildCalibration.sampling.mui.maintenanceStdDevCoverageGap +
+              muiAdoptionLoad *
+                buildCalibration.sampling.mui.maintenanceStdDevAdoptionLoad -
+              muiLeverageShield *
+                buildCalibration.sampling.mui.maintenanceStdDevLeverageShield
           ))
     );
 
@@ -3556,8 +3695,8 @@ function runSimulation(input, scorecard) {
       methodology: "conservative-capped-fat-tail-v1",
       buildFatTailExposure: roundTo(buildFatTailExposure, 2),
       muiFatTailExposure: roundTo(muiFatTailExposure, 2),
-      buildTailImpactCap: roundTo(0.18, 2),
-      muiTailImpactCap: roundTo(0.1, 2),
+      buildTailImpactCap: roundTo(buildFatTailCalibration.maxImpact, 2),
+      muiTailImpactCap: roundTo(muiFatTailCalibration.maxImpact, 2),
       sourceKeys: [
         "dora-metrics",
         "wcag-22",

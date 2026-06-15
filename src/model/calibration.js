@@ -752,8 +752,52 @@ export const SCENARIO_LEVER_WEIGHTS = {
  * effects.
  */
 export const SIMULATION_CALIBRATION = {
+  // Simulation prep calibration
+  // ---------------------------
+  //
+  // These values control shield, load, and tail-preparation behavior before
+  // the path-specific effort formulas run.
+  prep: {
+    coverageShield: {
+      // Unit: normalized shield contribution.
+      // Strong coverage lowers effort and variance more than medium coverage.
+      strongThreshold: 0.72,
+      mediumThreshold: 0.58,
+      strongValue: 0.14,
+      mediumValue: 0.08,
+      fallbackValue: 0
+    },
+    buildAbsorptionShield: {
+      // Higher internalAbsorption and buildReuseLeverage reduce Build effort.
+      internalAbsorption: 0.18,
+      buildReuseLeverage: 0.12,
+      minimum: 0,
+      maximum: 0.24
+    },
+    buildTailPenalty: {
+      // Higher downside-tail exposure increases Build variance and slip.
+      threshold: 0.45,
+      multiplier: 0.22
+    },
+    muiLeverageShield: {
+      // Higher MUI leverage reduces MUI variance and rework.
+      muiLeverage: 0.22,
+      minimum: 0,
+      maximum: 0.18
+    },
+    muiAdoptionLoad: {
+      // Higher MUI adoption burden increases MUI variance and slip.
+      muiAdoptionBurden: 0.26,
+      minimum: 0.02,
+      maximum: 0.18
+    }
+  },
   build: {
     engineeringMeanWeeks: {
+      // Unit: engineering weeks.
+      // Each risk is normalized 0..1.
+      // Higher values increase Build effort, launch time, and labor TCO.
+      // These are heuristic calibration weights.
       // Starting central Build effort in weeks before risk terms.
       base: 3.4,
       // Maximum contribution from functional risk to Build engineering weeks.
@@ -776,6 +820,10 @@ export const SIMULATION_CALIBRATION = {
     // Lower bound for Build launch slip.
     slipFloorWeeks: 0.6,
     engineeringVariance: {
+      // Unit: engineering-week variance contribution.
+      // Each risk is normalized 0..1.
+      // Higher values increase Build variance and tail exposure.
+      // These are heuristic calibration weights.
       // Base variance around the central Build estimate.
       base: 0.08,
       // Functional risk increases Build variance.
@@ -786,12 +834,18 @@ export const SIMULATION_CALIBRATION = {
       ownershipRisk: 0.07,
       // Delivery risk increases Build variance.
       deliveryRisk: 0.06,
+      // Reduction applied when Build absorption is strong.
+      absorptionShieldReductionFactor: 0.7,
       // Minimum variance clamp.
       minimum: 0.06,
       // Maximum variance clamp.
       maximum: 0.36
     },
     reworkMeanWeeks: {
+      // Unit: engineering weeks.
+      // Each risk is normalized 0..1.
+      // Higher values increase Build effort, launch time, and labor TCO.
+      // These are heuristic calibration weights.
       // Starting Build rework before risk terms.
       base: 0.7,
       // Functional risk increases rework.
@@ -804,10 +858,18 @@ export const SIMULATION_CALIBRATION = {
       deliveryRisk: 1,
       // Larger scale increases rework.
       largeScaleAdjustment: 0.4,
+      // Strong absorption lowers the rework mean.
+      absorptionShieldReductionFactor: 0.85,
+      // Downside tail exposure increases rework.
+      downsideTailRiskAddition: 0.28,
       // Lower bound for Build rework.
       minimum: 0.35
     },
     slipMeanWeeks: {
+      // Unit: engineering weeks.
+      // Each risk is normalized 0..1.
+      // Higher values increase Build effort, launch time, and labor TCO.
+      // These are heuristic calibration weights.
       // Starting Build slip before risk terms.
       base: 1.5,
       // Delivery risk is the strongest Build slip driver.
@@ -822,16 +884,26 @@ export const SIMULATION_CALIBRATION = {
       enterpriseNeed: 0.2,
       // Larger scale increases Build slip.
       largeScaleAdjustment: 0.3,
+      // Strong absorption lowers Build slip.
+      absorptionShieldReductionFactor: 0.72,
+      // Tail penalty amplifies Build slip.
+      tailPenaltyMultiplier: 3.6,
       // Lower bound for Build slip.
       minimum: 0.5
     },
     launch: {
+      // Unit: engineering weeks.
+      // Launch overhead affects schedule only, not engineering effort.
       // Hard minimum launch overhead in weeks.
       minimumWeeks: 2,
       // Additional launch overhead for more apps.
       appScaleOverheadWeeks: 0.65
     },
     maintenanceWeeks: {
+      // Unit: engineering weeks.
+      // Each risk is normalized 0..1.
+      // Higher values increase Build effort, launch time, and labor TCO.
+      // These are heuristic calibration weights.
       // Starting Build maintenance exposure in weeks.
       base: 0.95,
       // Functional risk increases Build maintenance.
@@ -844,14 +916,126 @@ export const SIMULATION_CALIBRATION = {
       deliveryRisk: 0.55,
       // Larger scale increases Build maintenance.
       largeScaleAdjustment: 0.18,
+      // Strong absorption lowers Build maintenance.
+      absorptionShieldReductionFactor: 0.68,
+      // Downside tail risk extends the maintenance horizon effect.
+      downsideTailRiskHorizonMultiplier: 0.32,
       // Minimum base maintenance before floor logic.
       minimumBase: 0.75,
       // Absolute lower bound for Build maintenance.
       minimum: 0.8
+    },
+    fatTail: {
+      // Build and MUI fat-tail settings are modeled separately because the
+      // downside shape differs by path.
+      build: {
+        probabilityCap: 0.16,
+        maxImpact: 0.18,
+        threshold: 0.58,
+        downsideTailRiskMeanMultiplier: 0.9,
+        exposureWeights: {
+          downsideTailRisk: 0.82,
+          deliveryRiskThreshold: 0.45,
+          deliveryRiskBonus: 0.06,
+          ownershipRiskThreshold: 0.55,
+          ownershipRiskBonus: 0.05,
+          scaleDemandThreshold: 5,
+          scaleDemandBonus: 0.04,
+          internalAbsorptionReduction: 0.1
+        },
+        baselineDeviation: 0.024,
+        baselineMin: 0.95,
+        baselineMax: 1.07,
+        reworkDeviation: 0.022,
+        reworkMin: 0.96,
+        reworkMax: 1.08,
+        slipDeviation: 0.02,
+        slipMin: 0.97,
+        slipMax: 1.09,
+        maintenanceDeviation: 0.018,
+        maintenanceMin: 0.97,
+        maintenanceMax: 1.08,
+        reworkBlend: 0.65,
+        slipBlend: 0.82,
+        maintenanceBlend: 0.58
+      },
+      mui: {
+        probabilityCap: 0.1,
+        maxImpact: 0.1,
+        threshold: 0.62,
+        exposureWeights: {
+          muiAdoptionBurdenThreshold: 0.42,
+          muiAdoptionBurdenMultiplier: 0.58,
+          coverageGapThreshold: 0.28,
+          coverageGapMultiplier: 0.34,
+          integrationRiskThreshold: 0.42,
+          integrationRiskMultiplier: 0.28,
+          muiLeverageReduction: 0.08
+        },
+        baselineDeviation: 0.02,
+        baselineMin: 0.96,
+        baselineMax: 1.06,
+        reworkDeviation: 0.018,
+        reworkMin: 0.97,
+        reworkMax: 1.07,
+        slipDeviation: 0.017,
+        slipMin: 0.97,
+        slipMax: 1.06,
+        maintenanceDeviation: 0.016,
+        maintenanceMin: 0.98,
+        maintenanceMax: 1.06,
+        reworkBlend: 0.55,
+        slipBlend: 0.62,
+        maintenanceBlend: 0.42
+      }
+    },
+    sampling: {
+      build: {
+        baselineTailPenaltyFactor: 0.1,
+        reworkStdDevBase: 0.68,
+        reworkStdDevFunctionalRisk: 0.3,
+        reworkStdDevTailPenalty: 1.8,
+        reworkStdDevAbsorptionReduction: 0.45,
+        reworkTailPenaltyFactor: 0.08,
+        slipStdDevBase: 0.74,
+        slipStdDevDeliveryRisk: 0.22,
+        slipStdDevTailPenalty: 1.6,
+        slipStdDevAbsorptionReduction: 0.12,
+        slipTailPenaltyFactor: 0.06,
+        maintenanceStdDevBase: 0.18,
+        maintenanceStdDevOwnershipRisk: 0.05,
+        maintenanceStdDevTailPenalty: 0.42,
+        maintenanceTailPenaltyFactor: 0.05
+      },
+      mui: {
+        baselineAdoptionLoadFactor: 0.06,
+        reworkStdDevBase: 0.36,
+        reworkStdDevCoverageGap: 0.16,
+        reworkStdDevAdoptionLoad: 0.45,
+        reworkStdDevLeverageShield: 0.35,
+        reworkAdoptionLoadFactor: 0.05,
+        slipStdDevBase: 0.4,
+        slipStdDevCoverageGap: 0.12,
+        slipStdDevAdoptionLoad: 0.3,
+        slipStdDevLeverageShield: 0.25,
+        slipAdoptionLoadFactor: 0.04,
+        maintenanceStdDevBase: 0.13,
+        maintenanceStdDevCoverageGap: 0.03,
+        maintenanceStdDevAdoptionLoad: 0.16,
+        maintenanceStdDevLeverageShield: 0.08,
+        maintenanceAdoptionLoadFactor: 0.03
+      }
     }
   },
   mui: {
     engineeringMeanWeeks: {
+      // Unit: engineering weeks.
+      // MUI still has base integration, configuration, theming, and validation effort.
+      // Each risk is normalized 0..1.
+      // Coverage gap and integration risk make MUI less automatic.
+      // Adoption burden increases MUI effort.
+      // Leverage reduction decreases MUI effort when packaged fit and adoption are strong.
+      // These are heuristic calibration weights.
       // Starting MUI effort in weeks before fit, burden, and leverage terms.
       base: 2.2,
       // Functional risk still costs engineering weeks on MUI.
@@ -866,8 +1050,8 @@ export const SIMULATION_CALIBRATION = {
       coverageGap: 3.8,
       // Support gap increases MUI effort.
       supportGap: 1.5,
-      // Offset keeps the central estimate from collapsing too low.
-      offset: 1,
+      // Base adoption offset keeps the central estimate from collapsing too low.
+      baseAdoptionOffset: 1,
       // Coverage shields reduce MUI engineering effort.
       coverageShieldReduction: 0.18,
       // Adoption burden increases MUI engineering effort.
@@ -880,6 +1064,10 @@ export const SIMULATION_CALIBRATION = {
       minimum: 1.6
     },
     engineeringVariance: {
+      // Unit: engineering-week variance contribution.
+      // Each risk is normalized 0..1.
+      // Higher values increase MUI variance and tail exposure.
+      // These are heuristic calibration weights.
       // Base variance around the central MUI estimate.
       base: 0.06,
       // Functional risk increases MUI variance.
@@ -904,6 +1092,10 @@ export const SIMULATION_CALIBRATION = {
     // Lower bound for MUI launch slip.
     slipFloorWeeks: 0.3,
     reworkMeanWeeks: {
+      // Unit: engineering weeks.
+      // Each risk is normalized 0..1.
+      // Higher values increase MUI effort, launch time, and labor TCO.
+      // These are heuristic calibration weights.
       // Starting MUI rework before fit, burden, and leverage terms.
       base: 0.35,
       // Coverage gap increases MUI rework.
@@ -926,6 +1118,10 @@ export const SIMULATION_CALIBRATION = {
       minimum: 0.18
     },
     slipMeanWeeks: {
+      // Unit: engineering weeks.
+      // Each risk is normalized 0..1.
+      // Higher values increase MUI effort, launch time, and labor TCO.
+      // These are heuristic calibration weights.
       // Starting MUI slip before fit, burden, and leverage terms.
       base: 0.85,
       // Delivery risk increases MUI slip.
@@ -948,12 +1144,18 @@ export const SIMULATION_CALIBRATION = {
       minimum: 0.25
     },
     launch: {
+      // Unit: engineering weeks.
+      // Launch overhead affects schedule only, not engineering effort.
       // Hard minimum launch overhead in weeks.
       minimumWeeks: 1.4,
       // Additional launch overhead for more apps.
       appScaleOverheadWeeks: 0.38
     },
     maintenanceWeeks: {
+      // Unit: engineering weeks.
+      // Each risk is normalized 0..1.
+      // Higher values increase MUI effort, launch time, and labor TCO.
+      // These are heuristic calibration weights.
       // Starting MUI maintenance exposure in weeks.
       base: 0.55,
       // Functional risk increases MUI maintenance.
@@ -980,6 +1182,13 @@ export const SIMULATION_CALIBRATION = {
       minimumBase: 0.42,
       // Absolute lower bound for MUI maintenance.
       minimum: 0.4
+    },
+    licensing: {
+      // Unit: yearly license cost per developer.
+      // These values affect cost only and do not affect launch time.
+      core: 0,
+      premium: 1800,
+      enterprise: 3600
     }
   }
 };
@@ -1207,27 +1416,9 @@ export const CALIBRATION = {
         maximum: 1.4
       }
     },
-
-    build: {
-      engineeringMeanWeeks: {},
-      engineeringVariance: {},
-      reworkMeanWeeks: {},
-      slipMeanWeeks: {},
-      launch: {},
-      maintenanceWeeks: {},
-      fatTail: {}
-    },
-
-    mui: {
-      engineeringMeanWeeks: {},
-      engineeringVariance: {},
-      reworkMeanWeeks: {},
-      slipMeanWeeks: {},
-      launch: {},
-      maintenanceWeeks: {},
-      fatTail: {},
-      licensing: {}
-    }
+    prep: SIMULATION_CALIBRATION.prep,
+    build: SIMULATION_CALIBRATION.build,
+    mui: SIMULATION_CALIBRATION.mui
   },
 
   recommendationPolicy: {

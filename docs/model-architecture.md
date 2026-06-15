@@ -4,6 +4,8 @@
 
 `CALIBRATION` is the numeric source of truth. It holds the tunable thresholds, coefficients, caps, floors, multipliers, and policy cutoffs that shape model behavior. Thresholds and recommendation policy values should live here instead of in branching logic.
 
+Core effort, rework, slip, maintenance, shield, load, and tail coefficients now live in `CALIBRATION`. Simulation formulas should read those values by name instead of introducing new hardcoded effort constants.
+
 `MODEL_ARTIFACT_GLOSSARY` is the artifact source of truth. It defines meaning, stage, path, and lifecycle notes for each artifact.
 
 `MODEL_IMPACT_MAP` is the semantic dependency source of truth. It explains what affects what, the direction of each effect, where the effect is calculated, why it exists, and which calibration key controls it. It should not repeat artifact definitions.
@@ -11,6 +13,8 @@
 `MODEL_STAGES` defines the stage vocabulary used across the glossary, impact map, and dependency docs.
 
 Calculation code should read numeric values from `CALIBRATION`. The impact map should reference those values through `calibrationRef` instead of duplicating numbers inline.
+
+All new model-behavior numbers should be named, documented, and placed in calibration first. The impact map should point at the same calibration key so reviewers can trace causal claims back to the exact numeric source.
 
 ## Change Rules
 
@@ -43,9 +47,19 @@ To change how frontend developer count affects Build velocity:
 3. Validate representative scenarios.
 ```
 
+## How To Change Effort Sensitivity
+
+To make Build more sensitive to functional complexity:
+
+1. Change `CALIBRATION.simulation.build.engineeringMeanWeeks.functionalRisk`.
+2. Update comments if the interpretation changes.
+3. Check the deterministic breakdown and Monte Carlo outputs.
+4. Validate low-risk, medium-risk, and high-risk payloads.
+
 ## Practical Notes
 
 - A calibration change changes behavior.
 - An impact map change changes the explanation of behavior.
 - A stage or glossary change changes the model vocabulary and documentation surface.
 - A documentation-only change should not be used to smuggle in runtime formula changes.
+- `MODEL_IMPACT_MAP` entries should reference calibration keys for major effort, shield, load, and tail effects.
