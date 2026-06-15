@@ -4,6 +4,9 @@ import {
   Button,
   Card,
   CardContent,
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Chip,
   Divider,
   Grid,
@@ -24,8 +27,11 @@ import {
   PUBLIC_BENCHMARK_SOURCES,
   getPublicSourceMap
 } from "../data/publicSources.js";
+import { RECOMMENDATION_POLICY_VERSION } from "../model/recommendationPolicy.js";
 
 const CURRENT_MODEL_VERSION = "benchmark-informed-v5";
+const CURRENT_CALIBRATION_VERSION = "heuristic-v1";
+const CURRENT_RECOMMENDATION_POLICY_VERSION = RECOMMENDATION_POLICY_VERSION;
 
 const optionLabelMaps = {
   existingMuiUsage: {
@@ -228,6 +234,19 @@ function formatCurrency(value) {
   }).format(value);
 }
 
+function formatBreakdownCurrency(value) {
+  if (!Number.isFinite(value)) {
+    return "N/A";
+  }
+
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    notation: "standard",
+    maximumFractionDigits: 0
+  }).format(value);
+}
+
 function formatSignedWeeks(value) {
   if (!Number.isFinite(value) || value === 0) {
     return "about even";
@@ -246,6 +265,100 @@ function formatSignedCurrency(value) {
   const direction = value < 0 ? "lower" : "higher";
 
   return `${formatCurrency(Math.abs(value))} ${direction}`;
+}
+
+function buildEstimateBreakdownSections(pathKey, breakdown) {
+  if (!breakdown) {
+    return [];
+  }
+
+  const isBuild = pathKey === "build";
+
+  const effortRows = isBuild
+    ? [
+        ["Base engineering", formatWeeks(breakdown.effort?.baseEngineeringWeeks)],
+        ["Functional risk", formatWeeks(breakdown.effort?.functionalRiskWeeks)],
+        ["Quality risk", formatWeeks(breakdown.effort?.qualityRiskWeeks)],
+        ["Ownership risk", formatWeeks(breakdown.effort?.ownershipRiskWeeks)],
+        ["Delivery risk", formatWeeks(breakdown.effort?.deliveryRiskWeeks)],
+        ["Enterprise need", formatWeeks(breakdown.effort?.enterpriseNeedWeeks)],
+        ["Scale adjustment", formatWeeks(breakdown.effort?.scaleAdjustmentWeeks)],
+        ["Pre-adjustment engineering", formatWeeks(breakdown.effort?.preAdjustmentEngineeringWeeks)],
+        ["Absorption reduction", formatWeeks(breakdown.effort?.absorptionReductionWeeks)],
+        ["Downside tail addition", formatWeeks(breakdown.effort?.downsideTailAdditionWeeks)],
+        ["Adjusted engineering", formatWeeks(breakdown.effort?.adjustedEngineeringWeeks)],
+        ["Rework allowance", formatWeeks(breakdown.effort?.reworkAllowanceWeeks)],
+        ["Total engineering", formatWeeks(breakdown.effort?.totalEngineeringWeeks)]
+      ]
+    : [
+        ["Base engineering", formatWeeks(breakdown.effort?.baseEngineeringWeeks)],
+        ["Functional risk", formatWeeks(breakdown.effort?.functionalRiskWeeks)],
+        ["Quality risk", formatWeeks(breakdown.effort?.qualityRiskWeeks)],
+        ["Delivery risk", formatWeeks(breakdown.effort?.deliveryRiskWeeks)],
+        ["Integration risk", formatWeeks(breakdown.effort?.integrationRiskWeeks)],
+        ["Coverage gap", formatWeeks(breakdown.effort?.coverageGapWeeks)],
+        ["Support gap", formatWeeks(breakdown.effort?.supportGapWeeks)],
+        ["Coverage shield reduction", formatWeeks(breakdown.effort?.coverageShieldReductionWeeks)],
+        ["Pre-adjustment engineering", formatWeeks(breakdown.effort?.preAdjustmentEngineeringWeeks)],
+        ["Adoption burden", formatWeeks(breakdown.effort?.adoptionBurdenWeeks)],
+        ["Leverage reduction", formatWeeks(breakdown.effort?.leverageReductionWeeks)],
+        ["Adjusted engineering", formatWeeks(breakdown.effort?.adjustedEngineeringWeeks)],
+        ["Rework allowance", formatWeeks(breakdown.effort?.reworkAllowanceWeeks)],
+        ["Total engineering", formatWeeks(breakdown.effort?.totalEngineeringWeeks)]
+      ];
+
+  const scheduleRows = [
+    ["Velocity factor", `${formatNumber(breakdown.schedule?.velocityFactor, 2)}x`],
+    ["Engineering calendar", formatWeeks(breakdown.schedule?.engineeringCalendarWeeks)],
+    ["Schedule slip", formatWeeks(breakdown.schedule?.slipWeeks)],
+    ["Rollout overhead", formatWeeks(breakdown.schedule?.appRolloutOverheadWeeks)],
+    ["Launch estimate", formatWeeks(breakdown.schedule?.launchWeeks)]
+  ];
+
+  const maintenanceRows = isBuild
+    ? [
+        ["Base maintenance", formatWeeks(breakdown.maintenance?.baseMaintenanceWeeks)],
+        ["Absorption reduction", formatWeeks(breakdown.maintenance?.absorptionReductionWeeks)],
+        ["Downside tail addition", formatWeeks(breakdown.maintenance?.downsideTailAdditionWeeks)],
+        ["Maintenance estimate", formatWeeks(breakdown.maintenance?.maintenanceWeeks)]
+      ]
+    : [
+        ["Base maintenance", formatWeeks(breakdown.maintenance?.baseMaintenanceWeeks)],
+        ["Integration risk", formatWeeks(breakdown.maintenance?.integrationRiskWeeks)],
+        ["Coverage gap", formatWeeks(breakdown.maintenance?.coverageGapWeeks)],
+        ["Support gap", formatWeeks(breakdown.maintenance?.supportGapWeeks)],
+        ["Adoption burden", formatWeeks(breakdown.maintenance?.adoptionBurdenWeeks)],
+        ["Leverage reduction", formatWeeks(breakdown.maintenance?.leverageReductionWeeks)],
+        ["Maintenance estimate", formatWeeks(breakdown.maintenance?.maintenanceWeeks)]
+      ];
+
+  const costRows = [
+    ["Labor cost per week", formatBreakdownCurrency(breakdown.cost?.laborCostPerWeek)],
+    [
+      "Engineering + maintenance",
+      formatWeeks(breakdown.cost?.engineeringAndMaintenanceWeeks)
+    ],
+    ["Labor cost", formatBreakdownCurrency(breakdown.cost?.laborCost)],
+    ...(isBuild
+      ? []
+      : [
+          [
+            "Estimated licensed developers",
+            Number.isFinite(Number(breakdown.cost?.estimatedLicensedDevelopers))
+              ? `${Number(breakdown.cost.estimatedLicensedDevelopers)}`
+              : "N/A"
+          ]
+        ]),
+    ["License cost", formatBreakdownCurrency(breakdown.cost?.licenseCost)],
+    ["Total cost", formatBreakdownCurrency(breakdown.cost?.totalCost)]
+  ];
+
+  return [
+    { title: "Engineering effort", rows: effortRows },
+    { title: "Schedule", rows: scheduleRows },
+    { title: "Maintenance", rows: maintenanceRows },
+    { title: "Cost", rows: costRows }
+  ];
 }
 
 function summarizeAdvancedFeatures(features) {
@@ -994,6 +1107,149 @@ function DriverCard({ title, score, detail, implication }) {
   );
 }
 
+function getSensitivityDriverScore(driver, metricKey) {
+  const deltas = driver?.deltas ?? {};
+
+  if (metricKey === "buildLaunchWeeks") {
+    return clamp(
+      Math.abs(deltas.buildLaunchWeeks ?? 0) * 16 +
+        Math.abs(deltas.confidence ?? 0) * 1.4,
+      0,
+      100
+    );
+  }
+
+  if (metricKey === "muiLaunchWeeks") {
+    return clamp(
+      Math.abs(deltas.muiLaunchWeeks ?? 0) * 16 +
+        Math.abs(deltas.confidence ?? 0) * 1.4,
+      0,
+      100
+    );
+  }
+
+  if (metricKey === "tcoDelta") {
+    return clamp(
+      Math.abs(deltas.tcoDelta ?? 0) / 2200 + Math.abs(deltas.confidence ?? 0) * 1.1,
+      0,
+      100
+    );
+  }
+
+  return clamp(
+    Math.abs(deltas.confidence ?? 0) * 1.6 +
+      Math.abs(deltas.buildLaunchWeeks ?? 0) * 5 +
+      Math.abs(deltas.muiLaunchWeeks ?? 0) * 5,
+    0,
+    100
+  );
+}
+
+function SensitivityDriverCard({ driver, metricKey }) {
+  const score = getSensitivityDriverScore(driver, metricKey);
+
+  return (
+    <Card elevation={0} sx={{ height: "100%", border: 1, borderColor: "divider" }}>
+      <CardContent sx={{ p: 2.5 }}>
+        <Stack spacing={1.5}>
+          <Stack direction="row" justifyContent="space-between" spacing={2} alignItems="flex-start">
+            <Box>
+              <Typography variant="h6" component="h3">
+                {driver.label ?? driver.inputKey}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Tested change: {driver.testedChange}
+              </Typography>
+            </Box>
+            <Chip label={driver.direction ?? "mixed"} size="small" variant="outlined" />
+          </Stack>
+          <LinearProgress
+            variant="determinate"
+            value={clamp(score, 0, 100)}
+            sx={{
+              height: 10,
+              borderRadius: 999,
+              bgcolor: "action.hover",
+              "& .MuiLinearProgress-bar": {
+                borderRadius: 999,
+                bgcolor:
+                  driver.direction === "cost-only"
+                    ? "secondary.main"
+                    : driver.direction?.startsWith("increases")
+                      ? "error.main"
+                      : driver.direction?.startsWith("reduces")
+                        ? "success.main"
+                        : "primary.main"
+              }
+            }}
+          />
+          <Typography variant="body2" color="text.secondary">
+            {driver.impactSummary}
+          </Typography>
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+}
+
+function EstimateBreakdownCard({ title, breakdown, pathKey }) {
+  const sections = buildEstimateBreakdownSections(pathKey, breakdown);
+
+  if (!breakdown || sections.length === 0) {
+    return null;
+  }
+
+  return (
+    <Card
+      elevation={0}
+      sx={{ height: "100%", border: 1, borderColor: "divider", bgcolor: "background.default" }}
+    >
+      <CardContent sx={{ p: 2.5 }}>
+        <Stack spacing={2.5}>
+          <Box>
+            <Typography variant="h6" component="h3">
+              {title}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+              Central estimate components. The Monte Carlo section samples around these inputs.
+            </Typography>
+          </Box>
+
+          <Stack spacing={2}>
+            {sections.map((section) => (
+              <Box key={section.title}>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                  {section.title}
+                </Typography>
+                <TableContainer sx={{ border: 1, borderColor: "divider", borderRadius: 2 }}>
+                  <Table size="small">
+                    <TableBody>
+                      {section.rows.map(([label, value]) => (
+                        <TableRow key={label}>
+                          <TableCell
+                            component="th"
+                            scope="row"
+                            sx={{ color: "text.secondary", py: 1 }}
+                          >
+                            {label}
+                          </TableCell>
+                          <TableCell align="right" sx={{ py: 1, fontWeight: 700 }}>
+                            {value}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Box>
+            ))}
+          </Stack>
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+}
+
 const modelLeverLabels = {
   internalAbsorption: "Internal absorption",
   buildReuseLeverage: "Build reuse leverage",
@@ -1205,7 +1461,10 @@ function ReportPage() {
   const assessmentInput = readStoredObject("assessmentInput");
   const isLegacyReport =
     Boolean(simulationResult) &&
-    simulationResult.modelVersion !== CURRENT_MODEL_VERSION;
+    (simulationResult.modelVersion !== CURRENT_MODEL_VERSION ||
+      simulationResult.calibrationVersion !== CURRENT_CALIBRATION_VERSION ||
+      simulationResult.recommendationPolicyVersion !==
+        CURRENT_RECOMMENDATION_POLICY_VERSION);
 
   if (!simulationResult) {
     return (
@@ -1250,6 +1509,17 @@ function ReportPage() {
   const scenarioSnapshot = buildScenarioSnapshot(assessmentInput, simulationResult);
   const derivedFactors = simulationResult.derivedFactors ?? null;
   const modelLevers = simulationResult.modelLevers ?? null;
+  const estimateBreakdown =
+    simulationResult.diagnostics?.estimateBreakdown ??
+    simulationResult.estimateBreakdown ??
+    null;
+  const sensitivity =
+    simulationResult.sensitivity ?? simulationResult.diagnostics?.sensitivity ?? null;
+  const showEstimateBreakdown =
+    Boolean(estimateBreakdown?.build) && Boolean(estimateBreakdown?.mui);
+  const showSensitivity =
+    Boolean(sensitivity) &&
+    (Array.isArray(sensitivity.topDrivers) && sensitivity.topDrivers.length > 0);
   const publicSourceMap = getPublicSourceMap(
     [
       ...(Array.isArray(simulationResult.publicSources)
@@ -1587,6 +1857,78 @@ function ReportPage() {
                   </Grid>
                 ))}
               </Grid>
+
+              <Divider />
+
+              <Stack spacing={2.5}>
+                <Box>
+                  <Typography variant="h6" component="h3">
+                    Estimate breakdown
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, maxWidth: 760 }}>
+                    How the model assembles launch time and TCO before uncertainty is applied.
+                    The breakdown shows the model&apos;s central estimate components. The
+                    Monte Carlo section then samples uncertainty around these components to
+                    produce median and P90 ranges.
+                  </Typography>
+                </Box>
+
+                {showEstimateBreakdown ? (
+                  <Accordion
+                    elevation={0}
+                    disableGutters
+                    expandIcon={
+                      <Box
+                        component="span"
+                        sx={{ color: "text.secondary", fontSize: 18, lineHeight: 1 }}
+                      >
+                        ⌄
+                      </Box>
+                    }
+                    sx={{
+                      border: 1,
+                      borderColor: "divider",
+                      borderRadius: 3,
+                      overflow: "hidden",
+                      "&:before": { display: "none" }
+                    }}
+                  >
+                    <AccordionSummary sx={{ px: 2.5, py: 1.5 }}>
+                      <Stack spacing={0.5}>
+                        <Typography variant="subtitle1" component="div">
+                          Deterministic breakdown
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Central estimate components for Build and the modeled MUI path.
+                        </Typography>
+                      </Stack>
+                    </AccordionSummary>
+                    <AccordionDetails sx={{ px: 2.5, pb: 2.5 }}>
+                      <Grid container spacing={2.5}>
+                        <Grid size={{ xs: 12, md: 6 }}>
+                          <EstimateBreakdownCard
+                            title="Build in-house"
+                            breakdown={estimateBreakdown.build}
+                            pathKey="build"
+                          />
+                        </Grid>
+                        <Grid size={{ xs: 12, md: 6 }}>
+                          <EstimateBreakdownCard
+                            title={muiPath.label ?? "MUI path"}
+                            breakdown={estimateBreakdown.mui}
+                            pathKey="mui"
+                          />
+                        </Grid>
+                      </Grid>
+                    </AccordionDetails>
+                  </Accordion>
+                ) : (
+                  <Alert severity="info" variant="outlined">
+                    This saved result predates deterministic estimate breakdowns. Rerun the
+                    assessment to see the assembled launch and TCO components.
+                  </Alert>
+                )}
+              </Stack>
             </Stack>
           </SectionCard>
         </Grid>
@@ -1737,10 +2079,106 @@ function ReportPage() {
         )}
       </SectionCard>
 
+      <SectionCard
+        title="8. Top model drivers"
+        description="Inputs that most changed the deterministic estimate or recommendation signal."
+      >
+        {showSensitivity ? (
+          <Accordion
+            elevation={0}
+            disableGutters
+            defaultExpanded
+            expandIcon={
+              <Box component="span" sx={{ color: "text.secondary", fontSize: 18, lineHeight: 1 }}>
+                ⌄
+              </Box>
+            }
+            sx={{
+              border: 1,
+              borderColor: "divider",
+              borderRadius: 3,
+              overflow: "hidden",
+              "&:before": { display: "none" }
+            }}
+          >
+            <AccordionSummary sx={{ px: 2.5, py: 1.5 }}>
+              <Stack spacing={0.5}>
+                <Typography variant="subtitle1" component="div">
+                  Deterministic sensitivity diagnostics
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Top drivers from adjacent-input perturbations. These are not Monte Carlo reruns.
+                </Typography>
+              </Stack>
+            </AccordionSummary>
+            <AccordionDetails sx={{ px: 2.5, pb: 2.5 }}>
+              <Stack spacing={3}>
+                <Box>
+                  <Typography variant="overline" color="secondary.main">
+                    Top 5 overall
+                  </Typography>
+                  <Grid container spacing={2.5} sx={{ mt: 0.25 }}>
+                    {sensitivity.topDrivers.map((driver) => (
+                      <Grid key={`${driver.inputKey}-${driver.testedChange}`} size={{ xs: 12, md: 6 }}>
+                        <SensitivityDriverCard driver={driver} metricKey="overall" />
+                      </Grid>
+                    ))}
+                  </Grid>
+                </Box>
+                <Divider />
+                <Box>
+                  <Typography variant="overline" color="secondary.main">
+                    Build launch drivers
+                  </Typography>
+                  <Grid container spacing={2.5} sx={{ mt: 0.25 }}>
+                    {sensitivity.buildLaunchDrivers.map((driver) => (
+                      <Grid key={`build-${driver.inputKey}-${driver.testedChange}`} size={{ xs: 12, md: 6 }}>
+                        <SensitivityDriverCard driver={driver} metricKey="buildLaunchWeeks" />
+                      </Grid>
+                    ))}
+                  </Grid>
+                </Box>
+                <Divider />
+                <Box>
+                  <Typography variant="overline" color="secondary.main">
+                    MUI launch drivers
+                  </Typography>
+                  <Grid container spacing={2.5} sx={{ mt: 0.25 }}>
+                    {sensitivity.muiLaunchDrivers.map((driver) => (
+                      <Grid key={`mui-${driver.inputKey}-${driver.testedChange}`} size={{ xs: 12, md: 6 }}>
+                        <SensitivityDriverCard driver={driver} metricKey="muiLaunchWeeks" />
+                      </Grid>
+                    ))}
+                  </Grid>
+                </Box>
+                <Divider />
+                <Box>
+                  <Typography variant="overline" color="secondary.main">
+                    TCO drivers
+                  </Typography>
+                  <Grid container spacing={2.5} sx={{ mt: 0.25 }}>
+                    {sensitivity.tcoDrivers.map((driver) => (
+                      <Grid key={`tco-${driver.inputKey}-${driver.testedChange}`} size={{ xs: 12, md: 6 }}>
+                        <SensitivityDriverCard driver={driver} metricKey="tcoDelta" />
+                      </Grid>
+                    ))}
+                  </Grid>
+                </Box>
+              </Stack>
+            </AccordionDetails>
+          </Accordion>
+        ) : (
+          <Alert severity="info" variant="outlined">
+            This saved result predates the deterministic sensitivity diagnostics. Rerun the
+            assessment to see top model drivers.
+          </Alert>
+        )}
+      </SectionCard>
+
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 6 }}>
           <SectionCard
-            title="8. Assumptions"
+            title="9. Assumptions"
             description="The report should stay transparent about what the model includes and what it does not."
           >
             <Stack spacing={2}>
@@ -1778,7 +2216,7 @@ function ReportPage() {
 
         <Grid size={{ xs: 12, md: 6 }}>
           <SectionCard
-            title="9. What would change the recommendation"
+            title="10. What would change the recommendation"
             description="These are the shifts most likely to move the result, not promises that the recommendation would definitely flip."
           >
             <Stack spacing={2}>
@@ -1798,7 +2236,7 @@ function ReportPage() {
       </Grid>
 
       <SectionCard
-        title="10. CTA to rerun assessment"
+        title="11. CTA to rerun assessment"
         description="If the team context, component scope, or support assumptions change, rerun the model rather than stretching this result past its input set."
         action={
           <Button component={NavLink} to="/assess" variant="contained">

@@ -1,4 +1,17 @@
 import { PUBLIC_BENCHMARK_SOURCES } from "../../src/data/publicSources.js";
+import {
+  CALIBRATION_VERSION,
+  DERIVED_FACTOR_WEIGHTS,
+  PATH_SCORE_WEIGHTS,
+  PLAN_FIT_WEIGHTS,
+  RECOMMENDATION_POLICY_WEIGHTS,
+  SCENARIO_LEVER_WEIGHTS,
+  SIMULATION_CALIBRATION
+} from "../../src/model/calibration.js";
+import {
+  RECOMMENDATION_POLICY,
+  RECOMMENDATION_POLICY_VERSION
+} from "../../src/model/recommendationPolicy.js";
 
 const ITERATIONS = 10000;
 const MODEL_VERSION = "benchmark-informed-v5";
@@ -220,6 +233,114 @@ const MATURITY_INDEX = {
   medium: 2,
   high: 3
 };
+
+const DEPENDENT_TEAMS_ORDER = ["one", "two-three", "four-seven", "eight-plus"];
+const OWNERSHIP_MODEL_ORDER = [
+  "same-product-team",
+  "frontend-platform-team",
+  "several-teams-informal",
+  "unclear"
+];
+const EXISTING_MUI_USAGE_ORDER = ["none", "some", "standardized"];
+const DESIGN_SYSTEM_MATURITY_ORDER = ["low", "medium", "high"];
+const EXPECTED_ROWS_ORDER = ["under-1k", "1k-10k", "10k-100k", "over-100k"];
+const EXPECTED_COLUMNS_ORDER = ["under-10", "10-30", "over-30"];
+const ACCESSIBILITY_TARGET_ORDER = [
+  "none",
+  "wcag-a",
+  "wcag-aa",
+  "wcag-aaa-regulated"
+];
+const CHANGE_LEAD_TIME_ORDER = [
+  "less-than-day",
+  "one-day-to-one-week",
+  "one-week-to-one-month",
+  "more-than-month",
+  "unknown"
+];
+const REWORK_FREQUENCY_ORDER = ["rare", "occasional", "frequent", "unknown"];
+const PRESSURE_LEVEL_ORDER = ["low", "medium", "high"];
+const SUPPORT_REQUIREMENT_ORDER = [
+  "community",
+  "standard",
+  "priority",
+  "procurement-sla"
+];
+const MAINTENANCE_HORIZON_ORDER = [12, 24, 36];
+const PERFORMANCE_SENSITIVITY_ORDER = [
+  "not-critical",
+  "important",
+  "strict-budget",
+  "measured-core-web-vitals-target"
+];
+const KNOWLEDGE_CONCENTRATION_ORDER = [
+  "shared",
+  "few-owners",
+  "single-owner",
+  "unknown"
+];
+const DESIGN_DEV_HANDOFF_FRICTION_ORDER = ["low", "medium", "high", "unknown"];
+const COMPONENT_STANDARDIZATION_GOAL_ORDER = [
+  "none",
+  "reduce-one-offs",
+  "shared-pattern",
+  "platform-standard"
+];
+const PRODUCTION_CRITICALITY_ORDER = [
+  "internal-tool",
+  "customer-facing",
+  "revenue-critical",
+  "regulated-or-sla-backed"
+];
+
+const SENSITIVITY_LABELS = {
+  dependentTeams: "Dependent teams",
+  ownershipModel: "Ownership model",
+  existingMuiUsage: "Existing MUI usage",
+  designSystemMaturity: "Design-system maturity",
+  expectedRows: "Expected rows",
+  expectedColumns: "Expected columns",
+  accessibilityTarget: "Accessibility target",
+  changeLeadTime: "Change lead time",
+  reworkFrequency: "Rework frequency",
+  deadlinePressure: "Deadline pressure",
+  supportRequirement: "Support requirement",
+  performanceSensitivity: "Performance sensitivity",
+  knowledgeConcentration: "Knowledge concentration",
+  designDevHandoffFriction: "Design-dev handoff friction",
+  componentStandardizationGoal: "Component standardization goal",
+  productionCriticality: "Production criticality",
+  frontendDevelopers: "Frontend developers",
+  reactApps: "React apps",
+  dataHeavyScreens: "Data-heavy screens",
+  engineerCostPerDay: "Engineer cost per day",
+  maintenanceHorizonMonths: "Maintenance horizon",
+  advancedFeatures: "Advanced features"
+};
+
+function getAdjacentValue(order, currentValue, direction) {
+  const index = order.indexOf(currentValue);
+  if (index === -1) {
+    return null;
+  }
+
+  const nextIndex = index + direction;
+  if (nextIndex < 0 || nextIndex >= order.length) {
+    return null;
+  }
+
+  return order[nextIndex];
+}
+
+function getSensitivityLabel(inputKey) {
+  return (
+    SENSITIVITY_LABELS[inputKey] ??
+    inputKey
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .replace(/-/g, " ")
+      .replace(/^./, (char) => char.toUpperCase())
+  );
+}
 
 function countLabel(count, singular, plural = `${singular}s`) {
   return `${count} ${count === 1 ? singular : plural}`;
@@ -444,7 +565,12 @@ function sampleBoundedMultiplier(
 
 function sampleCappedFatTailMultiplier(
   rng,
-  { exposure = 0, threshold = 0.58, probabilityCap = 0.16, maxImpact = 0.18 } = {}
+  {
+    exposure = 0,
+    threshold = 0.58,
+    probabilityCap = 0.16,
+    maxImpact = 0.18
+  } = {}
 ) {
   if (exposure <= threshold) {
     return 1;
@@ -825,6 +951,7 @@ function validatePayload(normalized, originalPayload) {
 }
 
 function buildDerivedFactors(input) {
+  const derivedWeights = DERIVED_FACTOR_WEIGHTS;
   const useCaseComplexity = USE_CASE_COMPLEXITY[input.primaryUseCase];
   const featureWeight = input.advancedFeatures.reduce(
     (sum, feature) => sum + ADVANCED_FEATURE_WEIGHTS[feature],
@@ -872,63 +999,92 @@ function buildDerivedFactors(input) {
   );
   const accessibilityTargetLabel = {
     none: "No formal accessibility target was selected, so the model does not add WCAG-specific verification burden.",
-    "wcag-a": "The WCAG A target adds accessibility verification burden because the implementation still needs formal keyboard and interaction checks.",
-    "wcag-aa": "The WCAG AA target adds accessibility verification burden because the implementation needs broader keyboard, focus, and semantic validation.",
-    "wcag-aaa-regulated": "The WCAG AAA / regulated target adds heavier accessibility verification burden because the implementation needs stricter compliance checks."
+    "wcag-a":
+      "The WCAG A target adds accessibility verification burden because the implementation still needs formal keyboard and interaction checks.",
+    "wcag-aa":
+      "The WCAG AA target adds accessibility verification burden because the implementation needs broader keyboard, focus, and semantic validation.",
+    "wcag-aaa-regulated":
+      "The WCAG AAA / regulated target adds heavier accessibility verification burden because the implementation needs stricter compliance checks."
   }[input.accessibilityTarget];
   const changeLeadTimeLabel = {
-    "less-than-day": "Less-than-day change lead time indicates strong delivery flow.",
-    "one-day-to-one-week": "One-day-to-one-week change lead time indicates healthy delivery flow with some release coordination.",
-    "one-week-to-one-month": "One-week-to-one-month change lead time indicates slower delivery flow and more schedule variance.",
-    "more-than-month": "More-than-month change lead time indicates a slow delivery cadence and a wider uncertainty band.",
+    "less-than-day":
+      "Less-than-day change lead time indicates strong delivery flow.",
+    "one-day-to-one-week":
+      "One-day-to-one-week change lead time indicates healthy delivery flow with some release coordination.",
+    "one-week-to-one-month":
+      "One-week-to-one-month change lead time indicates slower delivery flow and more schedule variance.",
+    "more-than-month":
+      "More-than-month change lead time indicates a slow delivery cadence and a wider uncertainty band.",
     unknown: "Unknown change lead time widens the delivery uncertainty band."
   }[input.changeLeadTime];
   const performanceSensitivityLabel = {
-    "not-critical": "Performance is not a critical constraint, so runtime and bundle pressure stay low.",
-    important: "Performance matters, but it is not being measured against a strict budget.",
-    "strict-budget": "A strict performance budget raises runtime and bundle-size pressure.",
-    "measured-core-web-vitals-target": "Measured Core Web Vitals targets create the strongest performance pressure."
+    "not-critical":
+      "Performance is not a critical constraint, so runtime and bundle pressure stay low.",
+    important:
+      "Performance matters, but it is not being measured against a strict budget.",
+    "strict-budget":
+      "A strict performance budget raises runtime and bundle-size pressure.",
+    "measured-core-web-vitals-target":
+      "Measured Core Web Vitals targets create the strongest performance pressure."
   }[input.performanceSensitivity];
   const reworkLabel = {
     rare: "Rare UI rework or regression churn suggests the team usually absorbs changes without heavy churn.",
-    occasional: "Occasional UI rework or regression churn suggests the team can absorb changes, but with some follow-up work.",
-    frequent: "Frequent UI rework or regression churn suggests the team is likely to spend more time revisiting prior decisions.",
-    unknown: "Unknown UI rework or regression frequency widens the delivery uncertainty band."
+    occasional:
+      "Occasional UI rework or regression churn suggests the team can absorb changes, but with some follow-up work.",
+    frequent:
+      "Frequent UI rework or regression churn suggests the team is likely to spend more time revisiting prior decisions.",
+    unknown:
+      "Unknown UI rework or regression frequency widens the delivery uncertainty band."
   }[input.reworkFrequency];
   const knowledgeConcentrationLabel = {
-    shared: "Knowledge is shared across the team, which reduces key-person risk.",
-    "few-owners": "A few owners know the area well, so key-person risk is moderate.",
-    "single-owner": "Knowledge is concentrated in a single owner, so continuity risk is high.",
+    shared:
+      "Knowledge is shared across the team, which reduces key-person risk.",
+    "few-owners":
+      "A few owners know the area well, so key-person risk is moderate.",
+    "single-owner":
+      "Knowledge is concentrated in a single owner, so continuity risk is high.",
     unknown: "Unknown knowledge concentration widens the ownership risk band."
   }[input.knowledgeConcentration];
   const handoffFrictionLabel = {
     low: "Low design-to-dev handoff friction keeps spec-to-code rework contained.",
-    medium: "Medium handoff friction adds some design and implementation rework risk.",
+    medium:
+      "Medium handoff friction adds some design and implementation rework risk.",
     high: "High design-to-dev handoff friction raises spec-to-code rework and clarification risk.",
     unknown: "Unknown handoff friction widens the quality-risk band."
   }[input.designDevHandoffFriction];
   const standardizationGoalLabel = {
     none: "There is no active standardization goal, so reuse pressure stays low.",
-    "reduce-one-offs": "The goal is to reduce one-off components and trim custom variation.",
-    "shared-pattern": "The goal is to create a shared pattern that multiple screens can reuse.",
-    "platform-standard": "The goal is platform standardization, which raises the value of a reusable component layer."
+    "reduce-one-offs":
+      "The goal is to reduce one-off components and trim custom variation.",
+    "shared-pattern":
+      "The goal is to create a shared pattern that multiple screens can reuse.",
+    "platform-standard":
+      "The goal is platform standardization, which raises the value of a reusable component layer."
   }[input.componentStandardizationGoal];
   const productionCriticalityLabel = {
-    "internal-tool": "Internal-tool criticality keeps production pressure relatively contained.",
-    "customer-facing": "Customer-facing production criticality raises the operational bar.",
-    "revenue-critical": "Revenue-critical production criticality raises the cost of regressions and downtime.",
-    "regulated-or-sla-backed": "Regulated or SLA-backed criticality creates the strongest operating pressure."
+    "internal-tool":
+      "Internal-tool criticality keeps production pressure relatively contained.",
+    "customer-facing":
+      "Customer-facing production criticality raises the operational bar.",
+    "revenue-critical":
+      "Revenue-critical production criticality raises the cost of regressions and downtime.",
+    "regulated-or-sla-backed":
+      "Regulated or SLA-backed criticality creates the strongest operating pressure."
   }[input.productionCriticality];
   const deadlinePressureLabel = {
     low: "Low deadline pressure reduces schedule-compression risk.",
-    medium: "Medium deadline pressure leaves some schedule compression risk in play.",
+    medium:
+      "Medium deadline pressure leaves some schedule compression risk in play.",
     high: "High deadline pressure increases schedule-compression risk."
   }[input.deadlinePressure];
   const ownershipLeadLabel = {
     one: "One dependent team and same-product-team ownership keep coordination load low.",
-    "two-three": "Two to three dependent teams and the current ownership model keep coordination load manageable but no longer trivial.",
-    "four-seven": "Four to seven dependent teams and the current ownership model raise coordination load.",
-    "eight-plus": "Eight or more dependent teams make coordination load high unless ownership is very tightly managed."
+    "two-three":
+      "Two to three dependent teams and the current ownership model keep coordination load manageable but no longer trivial.",
+    "four-seven":
+      "Four to seven dependent teams and the current ownership model raise coordination load.",
+    "eight-plus":
+      "Eight or more dependent teams make coordination load high unless ownership is very tightly managed."
   }[input.dependentTeams];
   const dependentTeamLabel = {
     one: "one dependent team",
@@ -936,33 +1092,38 @@ function buildDerivedFactors(input) {
     "four-seven": "four to seven dependent teams",
     "eight-plus": "eight or more dependent teams"
   }[input.dependentTeams];
-  const appSurfaceLabel = {
-    1: "One React app keeps the rollout and maintenance surface contained.",
-    2: "Two React apps broaden the rollout and maintenance surface.",
-    3: "Three React apps broaden the rollout and maintenance surface further.",
-    4: "Four React apps make the rollout and maintenance surface substantial.",
-    5: "Five React apps make the rollout and maintenance surface broad.",
-    6: "Six React apps make the rollout and maintenance surface broad.",
-    7: "Seven React apps make the rollout and maintenance surface broad.",
-    8: "Eight or more React apps make the rollout and maintenance surface wide."
-  }[Math.min(input.reactApps, 8)] ?? `${countLabel(input.reactApps, "React app")} widen the rollout and maintenance surface.`;
+  const appSurfaceLabel =
+    {
+      1: "One React app keeps the rollout and maintenance surface contained.",
+      2: "Two React apps broaden the rollout and maintenance surface.",
+      3: "Three React apps broaden the rollout and maintenance surface further.",
+      4: "Four React apps make the rollout and maintenance surface substantial.",
+      5: "Five React apps make the rollout and maintenance surface broad.",
+      6: "Six React apps make the rollout and maintenance surface broad.",
+      7: "Seven React apps make the rollout and maintenance surface broad.",
+      8: "Eight or more React apps make the rollout and maintenance surface wide."
+    }[Math.min(input.reactApps, 8)] ??
+    `${countLabel(input.reactApps, "React app")} widen the rollout and maintenance surface.`;
   const developerCapacityLabel = `${countLabel(input.frontendDevelopers, "frontend developer")} ${
     input.frontendDevelopers === 1 ? "increases" : "increase"
   } internal capacity for build and maintenance.`;
   const maturityLabel = {
     low: "Low UI/platform maturity leaves more shared groundwork to establish.",
-    medium: "Medium UI/platform maturity provides some shared patterns, but not enough to remove ownership burden.",
+    medium:
+      "Medium UI/platform maturity provides some shared patterns, but not enough to remove ownership burden.",
     high: "High UI/platform maturity reduces ownership burden because shared patterns and groundwork already exist."
   }[input.designSystemMaturity];
-  const scaleLabel = rowsUnder1k && columnsUnder10
-    ? "Small data volume keeps the complexity contained: under 1k rows and under 10 columns."
-    : `Expected volume sits in the ${input.expectedRows} row band and the ${input.expectedColumns} column band, which expands the component surface as scale rises.`;
+  const scaleLabel =
+    rowsUnder1k && columnsUnder10
+      ? "Small data volume keeps the complexity contained: under 1k rows and under 10 columns."
+      : `Expected volume sits in the ${input.expectedRows} row band and the ${input.expectedColumns} column band, which expands the component surface as scale rises.`;
   const functionalFeatureLabel = noAdvancedBehaviors
     ? "No advanced behaviors were selected, so the model does not add extra interaction or data-state complexity."
     : `Selected advanced behaviors (${selectedAdvancedBehaviors}) expand interaction, state, and integration complexity.`;
-  const qualityScaleLabel = rowsUnder1k && columnsUnder10
-    ? "Small row and column counts keep performance and regression risk low."
-    : `Larger row and column counts increase performance and regression risk as scale rises.`;
+  const qualityScaleLabel =
+    rowsUnder1k && columnsUnder10
+      ? "Small row and column counts keep performance and regression risk low."
+      : `Larger row and column counts increase performance and regression risk as scale rises.`;
   const qualityFeatureLabel = noAdvancedBehaviors
     ? "No advanced behaviors were selected, so keyboard, virtualization, server-side data, and custom-rendering QA are not added."
     : `Selected advanced behaviors (${selectedAdvancedBehaviors}) add keyboard, virtualization, server-side data, or custom-rendering QA burden where relevant.`;
@@ -985,14 +1146,19 @@ function buildDerivedFactors(input) {
   }
 
   const functionalComplexity = buildFactor(
-    useCaseComplexity * 11.5 +
-      featureWeight * 8.9 +
-      performanceSensitivity * 3.2 +
-      screenLoad * 2.6 +
-      rowScale * 5.2 +
-      columnScale * 4.6 +
-      (input.primaryUseCase === "data-grid" ? rowScale * 2.4 : 0) +
-      (input.primaryUseCase === "scheduler" ? columnScale * 1.9 : 0),
+    useCaseComplexity * derivedWeights.functionalComplexity.useCaseComplexity +
+      featureWeight * derivedWeights.functionalComplexity.featureWeight +
+      performanceSensitivity *
+        derivedWeights.functionalComplexity.performanceSensitivity +
+      screenLoad * derivedWeights.functionalComplexity.screenLoad +
+      rowScale * derivedWeights.functionalComplexity.rowScale +
+      columnScale * derivedWeights.functionalComplexity.columnScale +
+      (input.primaryUseCase === "data-grid"
+        ? rowScale * derivedWeights.functionalComplexity.dataGridRowScale
+        : 0) +
+      (input.primaryUseCase === "scheduler"
+        ? columnScale * derivedWeights.functionalComplexity.schedulerColumnScale
+        : 0),
     functionalDrivers
   );
 
@@ -1007,19 +1173,35 @@ function buildDerivedFactors(input) {
   ];
 
   const qualityBurden = buildFactor(
-    accessibilityTarget * 18 +
-      performanceSensitivity * 7.5 +
-      rowScale * 8.5 +
-      columnScale * 7.5 +
-      handoffFriction * 6 +
-      productionCriticality * 5.5 +
-      (input.advancedFeatures.includes("keyboard-navigation") ? 11 : 0) +
-      (input.advancedFeatures.includes("virtualization") ? 13 : 0) +
-      (input.advancedFeatures.includes("custom-rendering") ? 12 : 0) +
-      (input.advancedFeatures.includes("server-side-data") ? 10 : 0) +
-      (input.advancedFeatures.includes("timezone-logic") ? 7 : 0) +
-      (input.advancedFeatures.includes("drag-and-drop") ? 6 : 0) +
-      (input.advancedFeatures.includes("i18n-localization") ? 8 : 0),
+    accessibilityTarget * derivedWeights.qualityBurden.accessibilityTarget +
+      performanceSensitivity *
+        derivedWeights.qualityBurden.performanceSensitivity +
+      rowScale * derivedWeights.qualityBurden.rowScale +
+      columnScale * derivedWeights.qualityBurden.columnScale +
+      handoffFriction * derivedWeights.qualityBurden.handoffFriction +
+      productionCriticality *
+        derivedWeights.qualityBurden.productionCriticality +
+      (input.advancedFeatures.includes("keyboard-navigation")
+        ? derivedWeights.qualityBurden.keyboardNavigation
+        : 0) +
+      (input.advancedFeatures.includes("virtualization")
+        ? derivedWeights.qualityBurden.virtualization
+        : 0) +
+      (input.advancedFeatures.includes("custom-rendering")
+        ? derivedWeights.qualityBurden.customRendering
+        : 0) +
+      (input.advancedFeatures.includes("server-side-data")
+        ? derivedWeights.qualityBurden.serverSideData
+        : 0) +
+      (input.advancedFeatures.includes("timezone-logic")
+        ? derivedWeights.qualityBurden.timezoneLogic
+        : 0) +
+      (input.advancedFeatures.includes("drag-and-drop")
+        ? derivedWeights.qualityBurden.dragAndDrop
+        : 0) +
+      (input.advancedFeatures.includes("i18n-localization")
+        ? derivedWeights.qualityBurden.i18nLocalization
+        : 0),
     qualityDrivers
   );
 
@@ -1030,10 +1212,10 @@ function buildDerivedFactors(input) {
   ];
 
   const deliveryMaturity = buildFactor(
-    28 +
-      changeLeadTime * 12.5 +
-      reworkFrequency * 11 +
-      { low: 16, medium: 4, high: -12 }[input.deadlinePressure],
+    derivedWeights.deliveryMaturity.base +
+      changeLeadTime * derivedWeights.deliveryMaturity.changeLeadTime +
+      reworkFrequency * derivedWeights.deliveryMaturity.reworkFrequency +
+      derivedWeights.deliveryMaturity.deadlinePressure[input.deadlinePressure],
     deliveryDrivers
   );
 
@@ -1046,12 +1228,15 @@ function buildDerivedFactors(input) {
   ];
 
   const ownershipBurden = buildFactor(
-    12 +
-      dependentTeams * 7.5 +
-      ownershipModel * 6.5 +
-      Math.min(input.reactApps, 8) * 3.5 +
-      knowledgeConcentration * 9 +
-      { low: 10, medium: 5, high: -4 }[input.designSystemMaturity],
+    derivedWeights.ownershipBurden.base +
+      dependentTeams * derivedWeights.ownershipBurden.dependentTeams +
+      ownershipModel * derivedWeights.ownershipBurden.ownershipModel +
+      Math.min(input.reactApps, 8) * derivedWeights.ownershipBurden.reactApps +
+      knowledgeConcentration *
+        derivedWeights.ownershipBurden.knowledgeConcentration +
+      derivedWeights.ownershipBurden.designSystemMaturity[
+        input.designSystemMaturity
+      ],
     ownershipDrivers
   );
 
@@ -1076,16 +1261,22 @@ function buildDerivedFactors(input) {
   }
 
   const enterpriseReadiness = buildFactor(
-    { community: 14, standard: 30, priority: 54, "procurement-sla": 72 }[
+    derivedWeights.enterpriseReadiness.supportRequirement[
       input.supportRequirement
     ] +
-      Math.min(input.reactApps, 6) * 4 +
-      Math.min(input.frontendDevelopers, 10) * 2.5 +
-      dependentTeams * 4 +
-      muiUsage * 8 +
-      standardizationGoal * 7 +
-      productionCriticality * 8 +
-      { 12: 6, 24: 12, 36: 18 }[input.maintenanceHorizonMonths],
+      Math.min(input.reactApps, 6) *
+        derivedWeights.enterpriseReadiness.reactApps +
+      Math.min(input.frontendDevelopers, 10) *
+        derivedWeights.enterpriseReadiness.frontendDevelopers +
+      dependentTeams * derivedWeights.enterpriseReadiness.dependentTeams +
+      muiUsage * derivedWeights.enterpriseReadiness.muiUsage +
+      standardizationGoal *
+        derivedWeights.enterpriseReadiness.standardizationGoal +
+      productionCriticality *
+        derivedWeights.enterpriseReadiness.productionCriticality +
+      derivedWeights.enterpriseReadiness.maintenanceHorizonMonths[
+        input.maintenanceHorizonMonths
+      ],
     enterpriseDrivers
   );
 
@@ -1104,6 +1295,7 @@ function buildDerivedFactors(input) {
 }
 
 function buildPlanFit(planKey, input, derivedFactors) {
+  const planFitWeights = PLAN_FIT_WEIGHTS;
   const plan = PLAN_CONFIG[planKey];
   const featureDemand = input.advancedFeatures.reduce(
     (sum, feature) => sum + ADVANCED_FEATURE_WEIGHTS[feature],
@@ -1119,12 +1311,16 @@ function buildPlanFit(planKey, input, derivedFactors) {
     planKey
   ];
   const featureCoverage = clamp(
-    1 - Math.max(0, featureDemand - plan.featureCapacity) / 5.2,
+    1 -
+      Math.max(0, featureDemand - plan.featureCapacity) /
+        planFitWeights.featureCoverageDenominator,
     0.18,
     1
   );
   const scaleCoverage = clamp(
-    1 - Math.max(0, scaleDemand - planScaleCapacity) / 2.2,
+    1 -
+      Math.max(0, scaleDemand - planScaleCapacity) /
+        planFitWeights.scaleCoverageDenominator,
     0.18,
     1
   );
@@ -1137,7 +1333,7 @@ function buildPlanFit(planKey, input, derivedFactors) {
         0,
         SUPPORT_INDEX[input.supportRequirement] - plan.supportCapability * 4
       ) /
-        3.2,
+        planFitWeights.supportFitDenominator,
     0.15,
     1
   );
@@ -1146,27 +1342,25 @@ function buildPlanFit(planKey, input, derivedFactors) {
       Math.max(
         0,
         derivedFactors.qualityBurden.score / 100 -
-          (planKey === "core" ? 0.42 : planKey === "premium" ? 0.68 : 0.8)
+          planFitWeights.qualityFitThresholds[planKey]
       ) *
-        1.1,
+        planFitWeights.qualityFitSlope,
     0.2,
     1
   );
   const performanceFit = clamp(
-    1 -
-      performancePressure *
-        (planKey === "core" ? 0.08 : planKey === "premium" ? 0.04 : 0.025),
+    1 - performancePressure * planFitWeights.performanceFitMultipliers[planKey],
     0.72,
     1
   );
 
   const coverageScore = clamp(
-    (useCaseCoverage * 0.34 +
-      featureCoverage * 0.23 +
-      scaleCoverage * 0.17 +
-      supportFit * 0.14 +
-      qualityFit * 0.08 +
-      performanceFit * 0.02 +
+    (useCaseCoverage * planFitWeights.coverageScore.useCaseCoverage +
+      featureCoverage * planFitWeights.coverageScore.featureCoverage +
+      scaleCoverage * planFitWeights.coverageScore.scaleCoverage +
+      supportFit * planFitWeights.coverageScore.supportFit +
+      qualityFit * planFitWeights.coverageScore.qualityFit +
+      performanceFit * planFitWeights.coverageScore.performanceFit +
       adoptionBoost) *
       100,
     0,
@@ -1174,21 +1368,38 @@ function buildPlanFit(planKey, input, derivedFactors) {
   );
   const coverageGap = clamp(1 - coverageScore / 100, 0, 1);
   const baseIntegrationRisk = clamp(
-    { none: 0.52, some: 0.28, standardized: 0.14 }[input.existingMuiUsage] +
-      (input.advancedFeatures.includes("custom-rendering") ? 0.11 : 0) +
-      (input.advancedFeatures.includes("drag-and-drop") ? 0.07 : 0) +
-      (input.advancedFeatures.includes("timezone-logic") ? 0.06 : 0) +
-      (input.advancedFeatures.includes("i18n-localization") ? 0.04 : 0) +
-      (rowScale >= 3 ? 0.06 : 0) +
-      (columnScale >= 3 ? 0.04 : 0) +
-      (planKey === "core" ? 0.05 : 0),
-    0.08,
-    0.92
+    planFitWeights.baseIntegrationRisk.existingMuiUsage[
+      input.existingMuiUsage
+    ] +
+      (input.advancedFeatures.includes("custom-rendering")
+        ? planFitWeights.baseIntegrationRisk.customRendering
+        : 0) +
+      (input.advancedFeatures.includes("drag-and-drop")
+        ? planFitWeights.baseIntegrationRisk.dragAndDrop
+        : 0) +
+      (input.advancedFeatures.includes("timezone-logic")
+        ? planFitWeights.baseIntegrationRisk.timezoneLogic
+        : 0) +
+      (input.advancedFeatures.includes("i18n-localization")
+        ? planFitWeights.baseIntegrationRisk.i18nLocalization
+        : 0) +
+      (rowScale >= 3
+        ? planFitWeights.baseIntegrationRisk.rowScaleAtLeast3
+        : 0) +
+      (columnScale >= 3
+        ? planFitWeights.baseIntegrationRisk.columnScaleAtLeast3
+        : 0) +
+      (planKey === "core" ? planFitWeights.baseIntegrationRisk.corePlan : 0),
+    planFitWeights.baseIntegrationRisk.minimum,
+    planFitWeights.baseIntegrationRisk.maximum
   );
   const integrationRisk = clamp(
-    baseIntegrationRisk * (1 - (coverageScore / 100) * 0.48),
-    0.05,
-    0.82
+    baseIntegrationRisk *
+      (1 -
+        (coverageScore / 100) *
+          planFitWeights.baseIntegrationRisk.integrationRiskScale),
+    planFitWeights.baseIntegrationRisk.floor,
+    planFitWeights.baseIntegrationRisk.ceiling
   );
   const supportGap = clamp(
     Math.max(
@@ -1208,6 +1419,7 @@ function buildPlanFit(planKey, input, derivedFactors) {
 }
 
 function buildScorecard(input, derivedFactors) {
+  const pathScoreWeights = PATH_SCORE_WEIGHTS;
   const functionalRisk = derivedFactors.functionalComplexity.score / 100;
   const qualityRisk = derivedFactors.qualityBurden.score / 100;
   const deliveryStrength = derivedFactors.deliveryMaturity.score / 100;
@@ -1221,7 +1433,8 @@ function buildScorecard(input, derivedFactors) {
   const rowScale = EXPECTED_ROWS_INDEX[input.expectedRows];
   const columnScale = EXPECTED_COLUMNS_INDEX[input.expectedColumns];
   const standardizationIntent =
-    COMPONENT_STANDARDIZATION_GOAL_INDEX[input.componentStandardizationGoal] / 3;
+    COMPONENT_STANDARDIZATION_GOAL_INDEX[input.componentStandardizationGoal] /
+    3;
   const productionCriticalityNormalized =
     PRODUCTION_CRITICALITY_INDEX[input.productionCriticality] / 3;
   const knowledgeConcentration =
@@ -1240,15 +1453,15 @@ function buildScorecard(input, derivedFactors) {
   };
 
   const buildTierScore = clamp(
-    88 -
-      functionalRisk * 41 -
-      qualityRisk * 29 -
-      ownershipRisk * 23 -
-      deliveryRisk * 24 +
-      (maturity - 2) * 6 -
-      supportNeed * 6 -
-      (rowScale >= 3 ? 5 : 0) -
-      (columnScale >= 3 ? 4 : 0),
+    pathScoreWeights.buildTierScore.base -
+      functionalRisk * pathScoreWeights.buildTierScore.functionalRisk -
+      qualityRisk * pathScoreWeights.buildTierScore.qualityRisk -
+      ownershipRisk * pathScoreWeights.buildTierScore.ownershipRisk -
+      deliveryRisk * pathScoreWeights.buildTierScore.deliveryRisk +
+      (maturity - 2) * pathScoreWeights.buildTierScore.maturityBonus -
+      supportNeed * pathScoreWeights.buildTierScore.supportNeed -
+      (rowScale >= 3 ? pathScoreWeights.buildTierScore.rowPenalty : 0) -
+      (columnScale >= 3 ? pathScoreWeights.buildTierScore.columnPenalty : 0),
     0,
     100
   );
@@ -1261,59 +1474,69 @@ function buildScorecard(input, derivedFactors) {
     rowScale <= 2 &&
     columnScale <= 2;
   const coreTierScore = clamp(
-    26 +
-      planFits.core.coverageScore * 0.46 +
-      (simpleScope ? 18 : 0) +
-      muiUsage * 8 -
-      functionalRisk * 12 -
-      qualityRisk * 8 -
-      Math.max(0, enterpriseNeed - 0.45) * 24,
+    pathScoreWeights.coreTierScore.base +
+      planFits.core.coverageScore *
+        pathScoreWeights.coreTierScore.coverageScore +
+      (simpleScope ? pathScoreWeights.coreTierScore.simpleScopeBonus : 0) +
+      muiUsage * pathScoreWeights.coreTierScore.muiUsageBonus -
+      functionalRisk * pathScoreWeights.coreTierScore.functionalRisk -
+      qualityRisk * pathScoreWeights.coreTierScore.qualityRisk -
+      Math.max(0, enterpriseNeed - 0.45) *
+        pathScoreWeights.coreTierScore.enterpriseNeedPenalty,
     0,
     100
   );
 
   const premiumTierScore = clamp(
-    18 +
-      planFits.premium.coverageScore * 0.42 +
-      functionalRisk * 12 +
-      qualityRisk * 10 +
-      muiUsage * 5 -
-      (simpleScope ? 18 : 0) -
-      Math.max(0, enterpriseNeed - 0.72) * 14,
+    pathScoreWeights.premiumTierScore.base +
+      planFits.premium.coverageScore *
+        pathScoreWeights.premiumTierScore.coverageScore +
+      functionalRisk * pathScoreWeights.premiumTierScore.functionalRisk +
+      qualityRisk * pathScoreWeights.premiumTierScore.qualityRisk +
+      muiUsage * pathScoreWeights.premiumTierScore.muiUsageBonus -
+      (simpleScope ? pathScoreWeights.premiumTierScore.simpleScopePenalty : 0) -
+      Math.max(0, enterpriseNeed - 0.72) *
+        pathScoreWeights.premiumTierScore.enterpriseNeedPenalty,
     0,
     100
   );
 
   const enterpriseTierScore = clamp(
-    8 +
-      planFits.enterprise.coverageScore * 0.32 +
-      enterpriseNeed * 34 +
-      supportNeed * 9 +
-      appScale * 4 +
-      teamScale * 3 -
-      dependentTeams * 1.5 -
-      productionCriticalityNormalized * supportNeed * 4 +
-      (simpleScope ? 10 : 0),
+    pathScoreWeights.enterpriseTierScore.base +
+      planFits.enterprise.coverageScore *
+        pathScoreWeights.enterpriseTierScore.coverageScore +
+      enterpriseNeed * pathScoreWeights.enterpriseTierScore.enterpriseNeed +
+      supportNeed * pathScoreWeights.enterpriseTierScore.supportNeed +
+      appScale * pathScoreWeights.enterpriseTierScore.appScale +
+      teamScale * pathScoreWeights.enterpriseTierScore.teamScale -
+      dependentTeams * pathScoreWeights.enterpriseTierScore.dependentTeams -
+      productionCriticalityNormalized *
+        supportNeed *
+        pathScoreWeights.enterpriseTierScore.productionCriticality +
+      (simpleScope ? pathScoreWeights.enterpriseTierScore.simpleScopeBonus : 0),
     0,
     100
   );
 
   const icpScore = clamp(
-    12 +
-      functionalRisk * 22 +
-      qualityRisk * 12 +
-      ownershipRisk * 14 +
-      enterpriseNeed * 24 +
-      muiUsage * 4 +
-      appScale * 3 +
-      teamScale * 3 +
-      standardizationIntent * 8 +
-      dependentTeams * 2 -
-      (simpleScope ? 6 : 0),
+    pathScoreWeights.icpScore.base +
+      functionalRisk * pathScoreWeights.icpScore.functionalRisk +
+      qualityRisk * pathScoreWeights.icpScore.qualityRisk +
+      ownershipRisk * pathScoreWeights.icpScore.ownershipRisk +
+      enterpriseNeed * pathScoreWeights.icpScore.enterpriseNeed +
+      muiUsage * pathScoreWeights.icpScore.muiUsage +
+      appScale * pathScoreWeights.icpScore.appScale +
+      teamScale * pathScoreWeights.icpScore.teamScale +
+      standardizationIntent * pathScoreWeights.icpScore.standardizationIntent +
+      dependentTeams * pathScoreWeights.icpScore.dependentTeams -
+      (simpleScope ? pathScoreWeights.icpScore.simpleScopePenalty : 0),
     0,
     100
   );
-  const enterpriseFitStrong = enterpriseNeed >= 0.68 && supportNeed >= 2;
+  const enterpriseFitStrong =
+    enterpriseNeed >=
+      RECOMMENDATION_POLICY.enterpriseEligibility.minEnterpriseNeed &&
+    supportNeed >= RECOMMENDATION_POLICY.enterpriseEligibility.minSupportNeed;
   const lowSupportNeed = supportNeed <= 1;
   const supportOrProcurementNeed = supportNeed >= 2;
   const muiAdoptionUseful = muiUsage > 0 || input.reactApps >= 2;
@@ -1334,13 +1557,21 @@ function buildScorecard(input, derivedFactors) {
 
   if (
     enterpriseFitStrong &&
-    enterpriseTierScore >= 78 &&
-    planFits.enterprise.coverageScore >= 66
+    enterpriseTierScore >=
+      RECOMMENDATION_POLICY.enterpriseEligibility.minEnterpriseTierScore &&
+    planFits.enterprise.coverageScore >=
+      RECOMMENDATION_POLICY.enterpriseEligibility.minCoverageScore
   ) {
     autoSelectedMuiPlan = "enterprise";
   } else if (
-    planFits.premium.coverageScore >= 62 &&
-    !(simpleScope && supportNeed <= 1) &&
+    planFits.premium.coverageScore >=
+      RECOMMENDATION_POLICY.premiumEligibility.minCoverageScore &&
+    !(
+      RECOMMENDATION_POLICY.premiumEligibility
+        .disallowForSimpleLowSupportScope &&
+      simpleScope &&
+      supportNeed <= 1
+    ) &&
     (functionalRisk >= 0.62 ||
       qualityRisk >= 0.56 ||
       rowScale >= 3 ||
@@ -1371,15 +1602,17 @@ function buildScorecard(input, derivedFactors) {
     performanceSensitivity
   });
   const buildCompetitiveIndex = clamp(
-    100 -
-      functionalRisk * 36 -
-      qualityRisk * 22 -
-      ownershipRisk * 22 -
-      deliveryRisk * 20 +
-      (maturity - 1) * 6 -
-      supportNeed * 7 +
-      standardizationIntent * 2 -
-      productionCriticalityNormalized * 2,
+    pathScoreWeights.buildCompetitiveIndex.base -
+      functionalRisk * pathScoreWeights.buildCompetitiveIndex.functionalRisk -
+      qualityRisk * pathScoreWeights.buildCompetitiveIndex.qualityRisk -
+      ownershipRisk * pathScoreWeights.buildCompetitiveIndex.ownershipRisk -
+      deliveryRisk * pathScoreWeights.buildCompetitiveIndex.deliveryRisk +
+      (maturity - 1) * pathScoreWeights.buildCompetitiveIndex.maturityBonus -
+      supportNeed * pathScoreWeights.buildCompetitiveIndex.supportNeed +
+      standardizationIntent *
+        pathScoreWeights.buildCompetitiveIndex.standardizationIntent -
+      productionCriticalityNormalized *
+        pathScoreWeights.buildCompetitiveIndex.productionCriticality,
     0,
     100
   );
@@ -1478,6 +1711,7 @@ function buildScorecard(input, derivedFactors) {
 }
 
 function buildScenarioLevers(input, scorecard) {
+  const scenarioWeights = SCENARIO_LEVER_WEIGHTS;
   const planFit = scorecard.effectivePlanFit;
   const featureCount = input.advancedFeatures.length;
   const rowScale = EXPECTED_ROWS_INDEX[input.expectedRows];
@@ -1525,7 +1759,8 @@ function buildScenarioLevers(input, scorecard) {
     unknown: 0.52
   }[input.designDevHandoffFriction];
   const standardizationIntent =
-    COMPONENT_STANDARDIZATION_GOAL_INDEX[input.componentStandardizationGoal] / 3;
+    COMPONENT_STANDARDIZATION_GOAL_INDEX[input.componentStandardizationGoal] /
+    3;
   const performancePressure =
     PERFORMANCE_SENSITIVITY_INDEX[input.performanceSensitivity] / 3;
   const productionPressure =
@@ -1591,16 +1826,17 @@ function buildScenarioLevers(input, scorecard) {
   }[input.primaryUseCase];
 
   const internalAbsorptionScore = clamp(
-    scorecard.deliveryStrength * 0.28 +
-      maturityStrength * 0.18 +
-      ownershipClarity * 0.18 +
-      teamFocus * 0.13 +
-      reworkStability * 0.1 +
-      knowledgeSpread * 0.08 +
-      handoffAlignment * 0.04 +
-      deadlineSlack * 0.08 +
-      supportLightness * 0.03 +
-      appFocus * 0.02,
+    scorecard.deliveryStrength *
+      scenarioWeights.internalAbsorption.deliveryStrength +
+      maturityStrength * scenarioWeights.internalAbsorption.maturityStrength +
+      ownershipClarity * scenarioWeights.internalAbsorption.ownershipClarity +
+      teamFocus * scenarioWeights.internalAbsorption.teamFocus +
+      reworkStability * scenarioWeights.internalAbsorption.reworkStability +
+      knowledgeSpread * scenarioWeights.internalAbsorption.knowledgeSpread +
+      handoffAlignment * scenarioWeights.internalAbsorption.handoffAlignment +
+      deadlineSlack * scenarioWeights.internalAbsorption.deadlineSlack +
+      supportLightness * scenarioWeights.internalAbsorption.supportLightness +
+      appFocus * scenarioWeights.internalAbsorption.appFocus,
     0,
     1
   );
@@ -1615,15 +1851,20 @@ function buildScenarioLevers(input, scorecard) {
         ? 0.02
         : -0.08;
   const buildReuseLeverageScore = clamp(
-    maturityStrength * 0.28 +
-      ownershipClarity * 0.16 +
-      teamFocus * 0.1 +
-      knowledgeSpread * 0.05 +
-      handoffAlignment * 0.06 +
-      scopeSimplicity * 0.26 +
-      clamp(1 - featureCount / 7, 0.18, 1) * 0.1 +
-      standardizationIntent * maturityStrength * ownershipClarity * 0.08 +
-      clamp(1 - (rowScale + columnScale - 2) / 5, 0.18, 1) * 0.1 +
+    maturityStrength * scenarioWeights.buildReuse.maturityStrength +
+      ownershipClarity * scenarioWeights.buildReuse.ownershipClarity +
+      teamFocus * scenarioWeights.buildReuse.teamFocus +
+      knowledgeSpread * scenarioWeights.buildReuse.knowledgeSpread +
+      handoffAlignment * scenarioWeights.buildReuse.handoffAlignment +
+      scopeSimplicity * scenarioWeights.buildReuse.scopeSimplicity +
+      clamp(1 - featureCount / 7, 0.18, 1) *
+        scenarioWeights.buildReuse.featureCount +
+      standardizationIntent *
+        maturityStrength *
+        ownershipClarity *
+        scenarioWeights.buildReuse.standardizationInteraction +
+      clamp(1 - (rowScale + columnScale - 2) / 5, 0.18, 1) *
+        scenarioWeights.buildReuse.scaleProfile +
       buildReuseBonus,
     0,
     1
@@ -1647,11 +1888,11 @@ function buildScenarioLevers(input, scorecard) {
     0.55
   );
   const muiPerformanceReadiness = clamp(
-    (planFit.coverageScore / 100) * 0.32 +
-      (1 - planFit.coverageGap) * 0.2 +
-      (1 - planFit.integrationRisk) * 0.16 +
-      muiUsageReadiness * 0.12 +
-      handoffAlignment * 0.08 +
+    (planFit.coverageScore / 100) * scenarioWeights.muiLeverage.coverageScore +
+      (1 - planFit.coverageGap) * scenarioWeights.muiLeverage.coverageGap +
+      (1 - planFit.integrationRisk) * scenarioWeights.muiLeverage.supportGap +
+      muiUsageReadiness * scenarioWeights.muiLeverage.existingMuiUsage +
+      handoffAlignment * scenarioWeights.muiLeverage.handoffAlignment +
       scorecard.deliveryStrength * 0.07 +
       planPowerReadiness * 0.05 -
       featurePerformanceStress,
@@ -1659,7 +1900,8 @@ function buildScenarioLevers(input, scorecard) {
     1
   );
   const muiPerformanceRelief = performancePressure * muiPerformanceReadiness;
-  const muiPerformanceBurden = performancePressure * (1 - muiPerformanceReadiness);
+  const muiPerformanceBurden =
+    performancePressure * (1 - muiPerformanceReadiness);
   const buildPerformanceReadiness = clamp(
     internalAbsorptionScore * 0.34 +
       buildReuseLeverageScore * 0.24 +
@@ -1673,25 +1915,19 @@ function buildScenarioLevers(input, scorecard) {
   const buildPerformanceBurden =
     performancePressure * (1 - buildPerformanceReadiness);
 
-  const internalAbsorption = buildLever(
-    internalAbsorptionScore,
-    [
-      `${input.changeLeadTime} lead time, ${input.reworkFrequency} rework, and ${input.deadlinePressure} pressure set the delivery absorption baseline.`,
-      `${input.designSystemMaturity} design-system maturity and ${input.ownershipModel} ownership determine how much custom work the team can absorb cleanly.`,
-      `${input.dependentTeams} dependent teams and ${input.reactApps} React app${input.reactApps === 1 ? "" : "s"} limit how much coordination drag the build path has to carry.`,
-      `${knowledgeConcentrationLabel} and ${handoffFrictionLabel} shape key-person and rework resilience.`
-    ]
-  );
+  const internalAbsorption = buildLever(internalAbsorptionScore, [
+    `${input.changeLeadTime} lead time, ${input.reworkFrequency} rework, and ${input.deadlinePressure} pressure set the delivery absorption baseline.`,
+    `${input.designSystemMaturity} design-system maturity and ${input.ownershipModel} ownership determine how much custom work the team can absorb cleanly.`,
+    `${input.dependentTeams} dependent teams and ${input.reactApps} React app${input.reactApps === 1 ? "" : "s"} limit how much coordination drag the build path has to carry.`,
+    `${knowledgeConcentrationLabel} and ${handoffFrictionLabel} shape key-person and rework resilience.`
+  ]);
 
-  const buildReuseLeverage = buildLever(
-    buildReuseLeverageScore,
-    [
-      `${input.designSystemMaturity} design-system maturity and ${input.ownershipModel} ownership determine how much prior UI investment can be reused.`,
-      `${input.existingMuiUsage} MUI usage ${input.existingMuiUsage === "standardized" ? "reduces build-side reuse leverage because packaged standards already exist" : "keeps more room for internal reuse to matter on the build path"}.`,
-      `${input.primaryUseCase}, ${featureCount} advanced feature${featureCount === 1 ? "" : "s"}, and the ${input.expectedRows}/${input.expectedColumns} scale profile still limit how much reuse can offset complexity.`,
-      `${standardizationGoalLabel} only helps the build path when the team can actually reuse patterns cleanly.`
-    ]
-  );
+  const buildReuseLeverage = buildLever(buildReuseLeverageScore, [
+    `${input.designSystemMaturity} design-system maturity and ${input.ownershipModel} ownership determine how much prior UI investment can be reused.`,
+    `${input.existingMuiUsage} MUI usage ${input.existingMuiUsage === "standardized" ? "reduces build-side reuse leverage because packaged standards already exist" : "keeps more room for internal reuse to matter on the build path"}.`,
+    `${input.primaryUseCase}, ${featureCount} advanced feature${featureCount === 1 ? "" : "s"}, and the ${input.expectedRows}/${input.expectedColumns} scale profile still limit how much reuse can offset complexity.`,
+    `${standardizationGoalLabel} only helps the build path when the team can actually reuse patterns cleanly.`
+  ]);
 
   const muiPerformanceReadinessDrivers = [];
 
@@ -1706,17 +1942,21 @@ function buildScenarioLevers(input, scorecard) {
   }
 
   const muiLeverage = buildLever(
-    clamp(planFit.coverageScore / 100, 0, 1) * 0.42 +
-      clamp(1 - planFit.coverageGap, 0, 1) * 0.2 +
-      clamp(1 - planFit.supportGap, 0, 1) * 0.14 +
+    clamp(planFit.coverageScore / 100, 0, 1) *
+      scenarioWeights.muiLeverage.coverageScore +
+      clamp(1 - planFit.coverageGap, 0, 1) *
+        scenarioWeights.muiLeverage.coverageGap +
+      clamp(1 - planFit.supportGap, 0, 1) *
+        scenarioWeights.muiLeverage.supportGap +
       { none: 0.22, some: 0.58, standardized: 1 }[input.existingMuiUsage] *
-        0.12 +
+        scenarioWeights.muiLeverage.existingMuiUsage +
       standardizationIntent *
         clamp(planFit.coverageScore / 100, 0, 1) *
-        0.08 +
-      packagedAffinity * 0.07 +
-      clamp(featureCount / 6, 0.08, 1) * 0.05 +
-      muiPerformanceRelief * 0.06,
+        scenarioWeights.muiLeverage.standardizationIntent +
+      packagedAffinity * scenarioWeights.muiLeverage.packagedAffinity +
+      clamp(featureCount / 6, 0.08, 1) *
+        scenarioWeights.muiLeverage.featureCount +
+      muiPerformanceRelief * scenarioWeights.muiLeverage.performanceRelief,
     [
       `${PLAN_CONFIG[scorecard.effectiveMuiPlan].label} coverage is ${roundTo(planFit.coverageScore)}/100, which sets the main packaged leverage baseline.`,
       `${input.existingMuiUsage} MUI usage and ${input.primaryUseCase} determine how much implementation work the packaged path can realistically absorb.`,
@@ -1727,28 +1967,35 @@ function buildScenarioLevers(input, scorecard) {
   );
 
   const muiAdoptionBurden = buildLever(
-    { none: 0.34, some: 0.16, standardized: 0.05 }[input.existingMuiUsage] +
+    scenarioWeights.muiAdoptionBurden.existingMuiUsage[input.existingMuiUsage] +
       (input.existingMuiUsage === "none" &&
       input.designSystemMaturity === "high"
-        ? 0.1
+        ? scenarioWeights.muiAdoptionBurden.noMuiHighMaturity
         : input.existingMuiUsage === "none" &&
             input.designSystemMaturity === "medium"
-          ? 0.05
+          ? scenarioWeights.muiAdoptionBurden.noMuiMediumMaturity
           : 0) +
-      {
-        "same-product-team": 0.05,
-        "frontend-platform-team": 0.09,
-        "several-teams-informal": 0.13,
-        unclear: 0.15
-      }[input.ownershipModel] +
-      (input.advancedFeatures.includes("custom-rendering") ? 0.1 : 0) +
-      (input.advancedFeatures.includes("drag-and-drop") ? 0.08 : 0) +
-      (input.advancedFeatures.includes("timezone-logic") ? 0.06 : 0) +
-      (input.advancedFeatures.includes("i18n-localization") ? 0.06 : 0) +
-      (1 - handoffAlignment) * 0.08 +
-      muiPerformanceBurden * 0.1 +
-      productionPressure * planFit.supportGap * 0.05 +
-      planFit.coverageGap * 0.12,
+      scenarioWeights.muiAdoptionBurden.ownershipModel[input.ownershipModel] +
+      (input.advancedFeatures.includes("custom-rendering")
+        ? scenarioWeights.muiAdoptionBurden.customRendering
+        : 0) +
+      (input.advancedFeatures.includes("drag-and-drop")
+        ? scenarioWeights.muiAdoptionBurden.dragAndDrop
+        : 0) +
+      (input.advancedFeatures.includes("timezone-logic")
+        ? scenarioWeights.muiAdoptionBurden.timezoneLogic
+        : 0) +
+      (input.advancedFeatures.includes("i18n-localization")
+        ? scenarioWeights.muiAdoptionBurden.i18nLocalization
+        : 0) +
+      (1 - handoffAlignment) *
+        scenarioWeights.muiAdoptionBurden.handoffAlignment +
+      muiPerformanceBurden *
+        scenarioWeights.muiAdoptionBurden.performanceBurden +
+      productionPressure *
+        planFit.supportGap *
+        scenarioWeights.muiAdoptionBurden.productionPressureSupportGap +
+      planFit.coverageGap * scenarioWeights.muiAdoptionBurden.coverageGap,
     [
       `${input.existingMuiUsage} current MUI usage sets the base adoption burden.`,
       `${input.designSystemMaturity} design-system maturity ${input.existingMuiUsage === "none" && input.designSystemMaturity === "high" ? "adds modest adaptation work because existing internal patterns still need to be preserved" : "changes how much theming and adaptation work remains"}.`,
@@ -1775,35 +2022,41 @@ function buildScenarioLevers(input, scorecard) {
   }
 
   const downsideTailRisk = buildLever(
-    scorecard.ownershipRisk * 0.22 +
-      scorecard.deliveryRisk * 0.2 +
-      scorecard.qualityRisk * 0.17 +
-      scorecard.functionalRisk * 0.16 +
-      {
-        one: 0.12,
-        "two-three": 0.32,
-        "four-seven": 0.58,
-        "eight-plus": 0.78
-      }[input.dependentTeams] *
-        0.08 +
-      clamp(input.reactApps / 5, 0.08, 1) * 0.04 +
-      { none: 0.08, "wcag-a": 0.18, "wcag-aa": 0.38, "wcag-aaa-regulated": 0.62 }[
+    scorecard.ownershipRisk * scenarioWeights.downsideTailRisk.ownershipRisk +
+      scorecard.deliveryRisk * scenarioWeights.downsideTailRisk.deliveryRisk +
+      scorecard.qualityRisk * scenarioWeights.downsideTailRisk.qualityRisk +
+      scorecard.functionalRisk *
+        scenarioWeights.downsideTailRisk.functionalRisk +
+      scenarioWeights.downsideTailRisk.dependentTeams[input.dependentTeams] *
+        scenarioWeights.downsideTailRisk.dependentTeamsMultiplier +
+      clamp(input.reactApps / 5, 0.08, 1) *
+        scenarioWeights.downsideTailRisk.reactApps +
+      scenarioWeights.downsideTailRisk.accessibilityTarget[
         input.accessibilityTarget
       ] *
-        0.04 +
-      clamp(featureCount / 6, 0, 1) * 0.03 +
-      clamp((rowScale + columnScale - 2) / 5, 0, 1) * 0.03 +
-      { low: 0.08, medium: 0.36, high: 0.72 }[input.deadlinePressure] * 0.03 +
-      (1 - knowledgeSpread) * 0.08 +
-      (1 - handoffAlignment) * 0.05 +
-      performancePressure * 0.03 +
-      buildPerformanceBurden * 0.05 +
-      muiPerformanceBurden * 0.03 +
-      productionPressure * 0.08 +
-      (standardizationIntent *
+        scenarioWeights.downsideTailRisk.accessibilityTargetMultiplier +
+      clamp(featureCount / 6, 0, 1) *
+        scenarioWeights.downsideTailRisk.featureCount +
+      clamp((rowScale + columnScale - 2) / 5, 0, 1) *
+        scenarioWeights.downsideTailRisk.scaleProfile +
+      scenarioWeights.downsideTailRisk.deadlinePressure[
+        input.deadlinePressure
+      ] *
+        scenarioWeights.downsideTailRisk.deadlinePressureMultiplier +
+      (1 - knowledgeSpread) * scenarioWeights.downsideTailRisk.knowledgeSpread +
+      (1 - handoffAlignment) *
+        scenarioWeights.downsideTailRisk.handoffAlignment +
+      performancePressure *
+        scenarioWeights.downsideTailRisk.performancePressure +
+      buildPerformanceBurden *
+        scenarioWeights.downsideTailRisk.buildPerformanceBurden +
+      muiPerformanceBurden *
+        scenarioWeights.downsideTailRisk.muiPerformanceBurden +
+      productionPressure * scenarioWeights.downsideTailRisk.productionPressure +
+      standardizationIntent *
         (input.dependentTeams === "one" || input.dependentTeams === "two-three"
           ? 0
-          : 0.04)),
+          : scenarioWeights.downsideTailRisk.standardizationIntent),
     [
       `Functional, quality, delivery, and ownership risk still dominate the downside tail in the model.`,
       `${input.dependentTeams} dependent teams, ${input.reactApps} React app${input.reactApps === 1 ? "" : "s"}, and ${input.accessibilityTarget} accessibility increase long-tail coordination and QA exposure.`,
@@ -1866,7 +2119,910 @@ function estimateLicensedDevelopers(input, effectiveMuiPlan) {
   return estimatedSeats;
 }
 
+function buildDeterministicConfidence(scorecard, estimateBreakdown) {
+  const buildLaunchWeeks = estimateBreakdown.build.schedule.launchWeeks;
+  const muiLaunchWeeks = estimateBreakdown.mui.schedule.launchWeeks;
+  const buildTco = estimateBreakdown.build.cost.totalCost;
+  const muiTco = estimateBreakdown.mui.cost.totalCost;
+  const buildTierScore = scorecard.buildTierScore;
+  const selectedMuiPlanScore =
+    scorecard[`${scorecard.effectiveMuiPlan}TierScore`];
+  const launchSeparation = Math.abs(buildLaunchWeeks - muiLaunchWeeks);
+  const tcoSeparation =
+    Math.abs(buildTco - muiTco) / Math.max(Math.max(buildTco, muiTco), 1);
+  const pathScoreSeparation =
+    Math.abs(selectedMuiPlanScore - buildTierScore) / 100;
+
+  return clamp(
+    Math.round(
+      42 +
+        launchSeparation * 4.5 +
+        tcoSeparation * 110 +
+        pathScoreSeparation * 24
+    ),
+    0,
+    100
+  );
+}
+
+function buildDeterministicSnapshot(input) {
+  const derivedFactors = buildDerivedFactors(input);
+  const scorecard = buildScorecard(input, derivedFactors);
+  const estimateBreakdown = buildDeterministicEstimate(input, scorecard);
+  const buildLaunchWeeks = estimateBreakdown.build.schedule.launchWeeks;
+  const muiLaunchWeeks = estimateBreakdown.mui.schedule.launchWeeks;
+  const buildTco = estimateBreakdown.build.cost.totalCost;
+  const muiTco = estimateBreakdown.mui.cost.totalCost;
+  const buildTierScore = scorecard.buildTierScore;
+  const selectedMuiPlanScore =
+    scorecard[`${scorecard.effectiveMuiPlan}TierScore`];
+  const confidence = buildDeterministicConfidence(scorecard, estimateBreakdown);
+
+  return {
+    scorecard,
+    estimateBreakdown,
+    buildLaunchWeeks,
+    muiLaunchWeeks,
+    buildTco,
+    muiTco,
+    tcoDelta: muiTco - buildTco,
+    buildTierScore,
+    selectedMuiPlanScore,
+    confidence
+  };
+}
+
+function formatSignedWeeks(value) {
+  const normalized = roundTo(value, 1);
+  return `${normalized >= 0 ? "+" : ""}${normalized}w`;
+}
+
+function formatSignedCurrency(value) {
+  const rounded = Math.round(value);
+  return `${rounded >= 0 ? "+" : ""}$${Math.abs(rounded).toLocaleString("en-US")}`;
+}
+
+function formatSignedScore(value) {
+  const normalized = roundTo(value, 1);
+  return `${normalized >= 0 ? "+" : ""}${normalized}`;
+}
+
+function buildDirectionLabel(candidate, base) {
+  const buildLaunchDelta = candidate.buildLaunchWeeks - base.buildLaunchWeeks;
+  const muiLaunchDelta = candidate.muiLaunchWeeks - base.muiLaunchWeeks;
+  const buildTcoDelta = candidate.buildTco - base.buildTco;
+  const muiTcoDelta = candidate.muiTco - base.muiTco;
+  const selectedMuiScoreDelta =
+    candidate.selectedMuiPlanScore - base.selectedMuiPlanScore;
+  const buildBurden =
+    Math.max(0, buildLaunchDelta) * 1.8 + Math.max(0, buildTcoDelta) / 18000;
+  const buildRelief =
+    Math.max(0, -buildLaunchDelta) * 1.8 + Math.max(0, -buildTcoDelta) / 18000;
+  const muiBurden =
+    Math.max(0, muiLaunchDelta) * 1.8 + Math.max(0, muiTcoDelta) / 18000;
+  const muiRelief =
+    Math.max(0, -muiLaunchDelta) * 1.8 + Math.max(0, -muiTcoDelta) / 18000;
+  const recommendationShift =
+    candidate.selectedMuiPlanScore -
+    candidate.buildTierScore -
+    (base.selectedMuiPlanScore - base.buildTierScore);
+
+  if (candidate.costOnly) {
+    return "cost-only";
+  }
+
+  if (buildBurden >= muiBurden * 1.2 && buildBurden > 0.05) {
+    return buildRelief > buildBurden
+      ? "reduces-build-burden"
+      : "increases-build-burden";
+  }
+
+  if (muiBurden >= buildBurden * 1.2 && muiBurden > 0.05) {
+    return muiRelief > muiBurden
+      ? "reduces-mui-burden"
+      : "increases-mui-burden";
+  }
+
+  if (recommendationShift > 1.5) {
+    return "increases-mui-relevance";
+  }
+
+  if (recommendationShift < -1.5) {
+    return "increases-build-credibility";
+  }
+
+  if (
+    selectedMuiScoreDelta > 0 &&
+    buildLaunchDelta >= 0 &&
+    muiLaunchDelta <= 0
+  ) {
+    return "increases-mui-relevance";
+  }
+
+  if (
+    selectedMuiScoreDelta < 0 &&
+    buildLaunchDelta <= 0 &&
+    muiLaunchDelta >= 0
+  ) {
+    return "increases-build-credibility";
+  }
+
+  return "mixed";
+}
+
+function buildImpactSummary(candidate, base) {
+  const parts = [];
+  const buildLaunchDelta = candidate.buildLaunchWeeks - base.buildLaunchWeeks;
+  const muiLaunchDelta = candidate.muiLaunchWeeks - base.muiLaunchWeeks;
+  const tcoDeltaDelta = candidate.tcoDelta - base.tcoDelta;
+  const buildTierDelta = candidate.buildTierScore - base.buildTierScore;
+  const selectedMuiPlanScoreDelta =
+    candidate.selectedMuiPlanScore - base.selectedMuiPlanScore;
+  const confidenceDelta = candidate.confidence - base.confidence;
+
+  if (Math.abs(buildLaunchDelta) >= 0.1) {
+    parts.push(`Build launch ${formatSignedWeeks(buildLaunchDelta)}`);
+  }
+
+  if (Math.abs(muiLaunchDelta) >= 0.1) {
+    parts.push(`MUI launch ${formatSignedWeeks(muiLaunchDelta)}`);
+  }
+
+  if (Math.abs(tcoDeltaDelta) >= 1) {
+    parts.push(`TCO delta ${formatSignedCurrency(tcoDeltaDelta)}`);
+  }
+
+  if (
+    Math.abs(buildTierDelta) >= 0.5 ||
+    Math.abs(selectedMuiPlanScoreDelta) >= 0.5
+  ) {
+    parts.push(
+      `Path score gap ${formatSignedScore(
+        selectedMuiPlanScoreDelta - buildTierDelta
+      )}`
+    );
+  }
+
+  if (Math.abs(confidenceDelta) >= 1) {
+    parts.push(`Confidence ${formatSignedScore(confidenceDelta)}`);
+  }
+
+  return parts.length > 0
+    ? parts.join("; ")
+    : "No material deterministic change.";
+}
+
+function scoreSensitivityCandidate(candidate, base) {
+  return (
+    Math.abs(candidate.buildLaunchWeeks - base.buildLaunchWeeks) * 2.4 +
+    Math.abs(candidate.muiLaunchWeeks - base.muiLaunchWeeks) * 2.4 +
+    Math.abs(candidate.tcoDelta - base.tcoDelta) / 2200 +
+    Math.abs(candidate.buildTierScore - base.buildTierScore) * 0.7 +
+    Math.abs(candidate.selectedMuiPlanScore - base.selectedMuiPlanScore) * 0.7 +
+    Math.abs(candidate.confidence - base.confidence) * 1.2
+  );
+}
+
+function buildSensitivityDiagnostics(input, baseResult) {
+  const baseSnapshot =
+    baseResult?.scorecard && baseResult?.estimateBreakdown
+      ? {
+          scorecard: baseResult.scorecard,
+          estimateBreakdown: baseResult.estimateBreakdown,
+          buildLaunchWeeks: baseResult.buildLaunchWeeks,
+          muiLaunchWeeks: baseResult.muiLaunchWeeks,
+          buildTco: baseResult.buildTco,
+          muiTco: baseResult.muiTco,
+          tcoDelta: baseResult.tcoDelta,
+          buildTierScore: baseResult.buildTierScore,
+          selectedMuiPlanScore: baseResult.selectedMuiPlanScore,
+          confidence:
+            Number.isFinite(baseResult.confidence) &&
+            baseResult.confidence !== null
+              ? baseResult.confidence
+              : buildDeterministicConfidence(
+                  baseResult.scorecard,
+                  baseResult.estimateBreakdown
+                )
+        }
+      : buildDeterministicSnapshot(input);
+  const candidateSpecs = [];
+  const seenInputs = new Set([JSON.stringify(input)]);
+
+  const addCandidate = (inputKey, testedChange, mutate, costOnly = false) => {
+    const candidateInput = mutate();
+    const candidateSignature = JSON.stringify(candidateInput);
+    if (seenInputs.has(candidateSignature)) {
+      return;
+    }
+
+    seenInputs.add(candidateSignature);
+    candidateSpecs.push({
+      inputKey,
+      label: getSensitivityLabel(inputKey),
+      testedChange,
+      costOnly,
+      candidateInput
+    });
+  };
+
+  const addAdjacentCandidates = (
+    inputKey,
+    order,
+    testedChangeFromValue,
+    costOnly = false
+  ) => {
+    const currentValue = input[inputKey];
+    const previousValue = getAdjacentValue(order, currentValue, -1);
+    const nextValue = getAdjacentValue(order, currentValue, 1);
+
+    if (previousValue !== null) {
+      addCandidate(
+        inputKey,
+        testedChangeFromValue(currentValue, previousValue),
+        () => ({ ...input, [inputKey]: previousValue }),
+        costOnly
+      );
+    }
+
+    if (nextValue !== null) {
+      addCandidate(
+        inputKey,
+        testedChangeFromValue(currentValue, nextValue),
+        () => ({ ...input, [inputKey]: nextValue }),
+        costOnly
+      );
+    }
+  };
+
+  addAdjacentCandidates(
+    "dependentTeams",
+    DEPENDENT_TEAMS_ORDER,
+    (currentValue, nextValue) => `${currentValue} -> ${nextValue}`
+  );
+  addAdjacentCandidates(
+    "ownershipModel",
+    OWNERSHIP_MODEL_ORDER,
+    (currentValue, nextValue) => `${currentValue} -> ${nextValue}`
+  );
+  addAdjacentCandidates(
+    "existingMuiUsage",
+    EXISTING_MUI_USAGE_ORDER,
+    (currentValue, nextValue) => `${currentValue} -> ${nextValue}`
+  );
+  addAdjacentCandidates(
+    "designSystemMaturity",
+    DESIGN_SYSTEM_MATURITY_ORDER,
+    (currentValue, nextValue) => `${currentValue} -> ${nextValue}`
+  );
+  addAdjacentCandidates(
+    "expectedRows",
+    EXPECTED_ROWS_ORDER,
+    (currentValue, nextValue) => `${currentValue} -> ${nextValue}`
+  );
+  addAdjacentCandidates(
+    "expectedColumns",
+    EXPECTED_COLUMNS_ORDER,
+    (currentValue, nextValue) => `${currentValue} -> ${nextValue}`
+  );
+  addAdjacentCandidates(
+    "accessibilityTarget",
+    ACCESSIBILITY_TARGET_ORDER,
+    (currentValue, nextValue) => `${currentValue} -> ${nextValue}`
+  );
+  addAdjacentCandidates(
+    "changeLeadTime",
+    CHANGE_LEAD_TIME_ORDER,
+    (currentValue, nextValue) => `${currentValue} -> ${nextValue}`
+  );
+  addAdjacentCandidates(
+    "reworkFrequency",
+    REWORK_FREQUENCY_ORDER,
+    (currentValue, nextValue) => `${currentValue} -> ${nextValue}`
+  );
+  addAdjacentCandidates(
+    "deadlinePressure",
+    PRESSURE_LEVEL_ORDER,
+    (currentValue, nextValue) => `${currentValue} -> ${nextValue}`
+  );
+  addAdjacentCandidates(
+    "supportRequirement",
+    SUPPORT_REQUIREMENT_ORDER,
+    (currentValue, nextValue) => `${currentValue} -> ${nextValue}`
+  );
+  addAdjacentCandidates(
+    "performanceSensitivity",
+    PERFORMANCE_SENSITIVITY_ORDER,
+    (currentValue, nextValue) => `${currentValue} -> ${nextValue}`
+  );
+  addAdjacentCandidates(
+    "knowledgeConcentration",
+    KNOWLEDGE_CONCENTRATION_ORDER,
+    (currentValue, nextValue) => `${currentValue} -> ${nextValue}`
+  );
+  addAdjacentCandidates(
+    "designDevHandoffFriction",
+    DESIGN_DEV_HANDOFF_FRICTION_ORDER,
+    (currentValue, nextValue) => `${currentValue} -> ${nextValue}`
+  );
+  addAdjacentCandidates(
+    "componentStandardizationGoal",
+    COMPONENT_STANDARDIZATION_GOAL_ORDER,
+    (currentValue, nextValue) => `${currentValue} -> ${nextValue}`
+  );
+  addAdjacentCandidates(
+    "productionCriticality",
+    PRODUCTION_CRITICALITY_ORDER,
+    (currentValue, nextValue) => `${currentValue} -> ${nextValue}`
+  );
+
+  for (const delta of [-2, 2]) {
+    const nextValue = Math.max(1, input.frontendDevelopers + delta);
+    if (nextValue !== input.frontendDevelopers) {
+      addCandidate(
+        "frontendDevelopers",
+        delta > 0 ? `+${delta}` : `${delta}`,
+        () => ({ ...input, frontendDevelopers: nextValue })
+      );
+    }
+  }
+
+  for (const delta of [-1, 1]) {
+    const nextValue = Math.max(1, input.reactApps + delta);
+    if (nextValue !== input.reactApps) {
+      addCandidate("reactApps", delta > 0 ? `+1` : `-1`, () => ({
+        ...input,
+        reactApps: nextValue
+      }));
+    }
+  }
+
+  for (const delta of [-2, 2]) {
+    const nextValue = Math.max(0, input.dataHeavyScreens + delta);
+    if (nextValue !== input.dataHeavyScreens) {
+      addCandidate(
+        "dataHeavyScreens",
+        delta > 0 ? `+${delta}` : `${delta}`,
+        () => ({ ...input, dataHeavyScreens: nextValue })
+      );
+    }
+  }
+
+  for (const multiplier of [0.8, 1.2]) {
+    const nextValue = Math.max(
+      1,
+      Math.round(input.engineerCostPerDay * multiplier)
+    );
+    if (nextValue !== input.engineerCostPerDay) {
+      addCandidate(
+        "engineerCostPerDay",
+        multiplier > 1 ? "+20%" : "-20%",
+        () => ({ ...input, engineerCostPerDay: nextValue }),
+        true
+      );
+    }
+  }
+
+  addAdjacentCandidates(
+    "maintenanceHorizonMonths",
+    MAINTENANCE_HORIZON_ORDER,
+    (currentValue, nextValue) => `${currentValue} -> ${nextValue}`,
+    true
+  );
+
+  if (
+    Array.isArray(input.advancedFeatures) &&
+    input.advancedFeatures.length === 0
+  ) {
+    addCandidate("advancedFeatures", "add custom-rendering", () => ({
+      ...input,
+      advancedFeatures: ["custom-rendering"]
+    }));
+  } else if (
+    Array.isArray(input.advancedFeatures) &&
+    input.advancedFeatures.length > 0
+  ) {
+    const featuresToTest = [...input.advancedFeatures]
+      .sort(
+        (left, right) =>
+          (ADVANCED_FEATURE_WEIGHTS[right] ?? 0) -
+          (ADVANCED_FEATURE_WEIGHTS[left] ?? 0)
+      )
+      .slice(0, 6);
+
+    for (const feature of featuresToTest) {
+      addCandidate("advancedFeatures", `remove ${feature}`, () => ({
+        ...input,
+        advancedFeatures: input.advancedFeatures.filter(
+          (selectedFeature) => selectedFeature !== feature
+        )
+      }));
+    }
+  }
+
+  const evaluatedCandidates = [];
+
+  for (const spec of candidateSpecs.slice(0, 40)) {
+    const snapshot = buildDeterministicSnapshot(spec.candidateInput);
+    const candidate = {
+      ...spec,
+      direction: buildDirectionLabel(
+        {
+          ...snapshot,
+          costOnly: spec.costOnly
+        },
+        baseSnapshot
+      ),
+      impactSummary: buildImpactSummary(snapshot, baseSnapshot),
+      deltas: {
+        buildLaunchWeeks: roundTo(
+          snapshot.buildLaunchWeeks - baseSnapshot.buildLaunchWeeks
+        ),
+        muiLaunchWeeks: roundTo(
+          snapshot.muiLaunchWeeks - baseSnapshot.muiLaunchWeeks
+        ),
+        tcoDelta: Math.round(snapshot.tcoDelta - baseSnapshot.tcoDelta),
+        buildTco: Math.round(snapshot.buildTco - baseSnapshot.buildTco),
+        muiTco: Math.round(snapshot.muiTco - baseSnapshot.muiTco),
+        buildTierScore: roundTo(
+          snapshot.buildTierScore - baseSnapshot.buildTierScore
+        ),
+        selectedMuiPlanScore: roundTo(
+          snapshot.selectedMuiPlanScore - baseSnapshot.selectedMuiPlanScore
+        ),
+        confidence: roundTo(snapshot.confidence - baseSnapshot.confidence)
+      },
+      score: scoreSensitivityCandidate(snapshot, baseSnapshot)
+    };
+
+    evaluatedCandidates.push(candidate);
+  }
+
+  const topDrivers = [...evaluatedCandidates]
+    .sort((left, right) => right.score - left.score)
+    .slice(0, 5)
+    .map(({ score, ...driver }) => driver);
+
+  const buildLaunchDrivers = [...evaluatedCandidates]
+    .sort(
+      (left, right) =>
+        Math.abs(right.deltas.buildLaunchWeeks) -
+        Math.abs(left.deltas.buildLaunchWeeks)
+    )
+    .slice(0, 5)
+    .map(({ score, ...driver }) => driver);
+
+  const muiLaunchDrivers = [...evaluatedCandidates]
+    .sort(
+      (left, right) =>
+        Math.abs(right.deltas.muiLaunchWeeks) -
+        Math.abs(left.deltas.muiLaunchWeeks)
+    )
+    .slice(0, 5)
+    .map(({ score, ...driver }) => driver);
+
+  const tcoDrivers = [...evaluatedCandidates]
+    .sort(
+      (left, right) =>
+        Math.abs(right.deltas.tcoDelta) - Math.abs(left.deltas.tcoDelta)
+    )
+    .slice(0, 5)
+    .map(({ score, ...driver }) => driver);
+
+  const recommendationDrivers = [...evaluatedCandidates]
+    .sort(
+      (left, right) =>
+        Math.abs(right.deltas.confidence) +
+        Math.abs(
+          right.deltas.selectedMuiPlanScore - right.deltas.buildTierScore
+        ) -
+        (Math.abs(left.deltas.confidence) +
+          Math.abs(
+            left.deltas.selectedMuiPlanScore - left.deltas.buildTierScore
+          ))
+    )
+    .slice(0, 5)
+    .map(({ score, ...driver }) => driver);
+
+  return {
+    method: "deterministic-adjacent-input-perturbation",
+    topDrivers,
+    buildLaunchDrivers,
+    muiLaunchDrivers,
+    tcoDrivers,
+    recommendationDrivers
+  };
+}
+
+function buildDeterministicEstimate(input, scorecard) {
+  const buildCalibration = SIMULATION_CALIBRATION.build;
+  const muiCalibration = SIMULATION_CALIBRATION.mui;
+  const planFit = scorecard.effectivePlanFit;
+  const estimatedLicensedDevelopers = estimateLicensedDevelopers(
+    input,
+    scorecard.effectiveMuiPlan
+  );
+  const horizonYears = input.maintenanceHorizonMonths / 12;
+  const laborCostPerWeek = input.engineerCostPerDay * 5;
+  const rowScale = EXPECTED_ROWS_INDEX[input.expectedRows];
+  const columnScale = EXPECTED_COLUMNS_INDEX[input.expectedColumns];
+  const scaleDemand = rowScale + columnScale;
+  const coverageStrength = clamp(planFit.coverageScore / 100, 0, 1);
+  const coverageShield =
+    coverageStrength >= 0.72 ? 0.14 : coverageStrength >= 0.58 ? 0.08 : 0;
+  const internalAbsorption = scorecard.internalAbsorption;
+  const buildReuseLeverage = scorecard.buildReuseLeverage;
+  const muiLeverage = scorecard.muiLeverage;
+  const muiAdoptionBurden = scorecard.muiAdoptionBurden;
+  const downsideTailRisk = scorecard.downsideTailRisk;
+  const buildAbsorptionShield = clamp(
+    internalAbsorption * 0.18 + buildReuseLeverage * 0.12,
+    0,
+    0.24
+  );
+  const buildTailPenalty =
+    downsideTailRisk >= 0.45 ? (downsideTailRisk - 0.45) * 0.22 : 0;
+  const buildVelocity = clamp(
+    0.84 +
+      scorecard.deliveryStrength * 0.36 -
+      scorecard.ownershipRisk * 0.06 +
+      internalAbsorption * 0.08 +
+      (input.frontendDevelopers >= 8
+        ? 0.08
+        : input.frontendDevelopers >= 4
+          ? 0.03
+          : -0.03),
+    0.58,
+    1.32
+  );
+  const muiVelocity = clamp(
+    0.96 +
+      scorecard.deliveryStrength * 0.18 -
+      scorecard.ownershipRisk * 0.03 +
+      muiLeverage * 0.06 -
+      muiAdoptionBurden * 0.04 +
+      (input.frontendDevelopers >= 8
+        ? 0.06
+        : input.frontendDevelopers >= 4
+          ? 0.02
+          : -0.01),
+    0.72,
+    1.4
+  );
+
+  const buildBaseEngineeringWeeks = buildCalibration.engineeringMeanWeeks.base;
+  const buildFunctionalRiskWeeks =
+    scorecard.functionalRisk *
+    buildCalibration.engineeringMeanWeeks.functionalRisk;
+  const buildQualityRiskWeeks =
+    scorecard.qualityRisk * buildCalibration.engineeringMeanWeeks.qualityRisk;
+  const buildOwnershipRiskWeeks =
+    scorecard.ownershipRisk *
+    buildCalibration.engineeringMeanWeeks.ownershipRisk;
+  const buildDeliveryRiskWeeks =
+    scorecard.deliveryRisk * buildCalibration.engineeringMeanWeeks.deliveryRisk;
+  const buildEnterpriseNeedWeeks =
+    scorecard.enterpriseNeed *
+    buildCalibration.engineeringMeanWeeks.enterpriseNeed;
+  const buildScaleAdjustmentWeeks =
+    scaleDemand >= 5
+      ? buildCalibration.engineeringMeanWeeks.largeScaleAdjustment
+      : 0;
+  const buildPreAdjustmentEngineeringWeeks =
+    buildBaseEngineeringWeeks +
+    buildFunctionalRiskWeeks +
+    buildQualityRiskWeeks +
+    buildOwnershipRiskWeeks +
+    buildDeliveryRiskWeeks +
+    buildEnterpriseNeedWeeks +
+    buildScaleAdjustmentWeeks;
+  const buildAbsorptionReductionWeeks =
+    buildPreAdjustmentEngineeringWeeks * buildAbsorptionShield;
+  const buildDownsideTailAdditionWeeks = downsideTailRisk * 0.9;
+  const buildAdjustedEngineeringWeeks = Math.max(
+    buildCalibration.engineeringMeanWeeks.minimum,
+    buildPreAdjustmentEngineeringWeeks -
+      buildAbsorptionReductionWeeks +
+      buildDownsideTailAdditionWeeks
+  );
+  const buildReworkBaseWeeks =
+    buildCalibration.reworkMeanWeeks.base +
+    scorecard.functionalRisk * buildCalibration.reworkMeanWeeks.functionalRisk +
+    scorecard.qualityRisk * buildCalibration.reworkMeanWeeks.qualityRisk +
+    scorecard.ownershipRisk * buildCalibration.reworkMeanWeeks.ownershipRisk +
+    scorecard.deliveryRisk * buildCalibration.reworkMeanWeeks.deliveryRisk +
+    (scaleDemand >= 5
+      ? buildCalibration.reworkMeanWeeks.largeScaleAdjustment
+      : 0);
+  const buildReworkAllowanceWeeks = Math.max(
+    buildCalibration.reworkMeanWeeks.minimum,
+    buildReworkBaseWeeks * (1 - buildAbsorptionShield * 0.85) +
+      downsideTailRisk * 0.28
+  );
+  const buildTotalEngineeringWeeks =
+    buildAdjustedEngineeringWeeks + buildReworkAllowanceWeeks;
+  const buildEngineeringCalendarWeeks =
+    buildTotalEngineeringWeeks / buildVelocity;
+  const buildSlipBaseWeeks =
+    buildCalibration.slipMeanWeeks.base +
+    scorecard.deliveryRisk * buildCalibration.slipMeanWeeks.deliveryRisk +
+    scorecard.functionalRisk * buildCalibration.slipMeanWeeks.functionalRisk +
+    scorecard.qualityRisk * buildCalibration.slipMeanWeeks.qualityRisk +
+    scorecard.ownershipRisk * buildCalibration.slipMeanWeeks.ownershipRisk +
+    scorecard.enterpriseNeed * buildCalibration.slipMeanWeeks.enterpriseNeed +
+    (scaleDemand >= 5
+      ? buildCalibration.slipMeanWeeks.largeScaleAdjustment
+      : 0);
+  const buildSlipWeeks = Math.max(
+    buildCalibration.slipFloorWeeks,
+    buildSlipBaseWeeks * (1 - buildAbsorptionShield * 0.72) +
+      buildTailPenalty * 3.6
+  );
+  const buildAppRolloutOverheadWeeks =
+    scorecard.appScale * buildCalibration.launch.appScaleOverheadWeeks;
+  const buildLaunchWeeks = Math.max(
+    buildCalibration.launch.minimumWeeks,
+    buildEngineeringCalendarWeeks +
+      buildSlipWeeks +
+      buildAppRolloutOverheadWeeks
+  );
+  const buildBaseMaintenanceWeeks =
+    horizonYears *
+    (buildCalibration.maintenanceWeeks.base +
+      scorecard.functionalRisk *
+        buildCalibration.maintenanceWeeks.functionalRisk +
+      scorecard.qualityRisk * buildCalibration.maintenanceWeeks.qualityRisk +
+      scorecard.ownershipRisk *
+        buildCalibration.maintenanceWeeks.ownershipRisk +
+      scorecard.deliveryRisk * buildCalibration.maintenanceWeeks.deliveryRisk +
+      (scaleDemand >= 5
+        ? buildCalibration.maintenanceWeeks.largeScaleAdjustment
+        : 0));
+  const buildAbsorptionReductionMaintenanceWeeks =
+    buildBaseMaintenanceWeeks * buildAbsorptionShield * 0.68;
+  const buildDownsideTailMaintenanceAdditionWeeks =
+    downsideTailRisk * 0.32 * horizonYears;
+  const buildMaintenanceWeeks = Math.max(
+    buildCalibration.maintenanceWeeks.minimum,
+    Math.max(
+      buildCalibration.maintenanceWeeks.minimumBase,
+      buildBaseMaintenanceWeeks
+    ) -
+      buildAbsorptionReductionMaintenanceWeeks +
+      buildDownsideTailMaintenanceAdditionWeeks
+  );
+  const buildEngineeringAndMaintenanceWeeks =
+    buildTotalEngineeringWeeks + buildMaintenanceWeeks;
+  const buildLaborCost = buildEngineeringAndMaintenanceWeeks * laborCostPerWeek;
+
+  const muiBaseEngineeringWeeks =
+    muiCalibration.engineeringMeanWeeks.base +
+    scorecard.functionalRisk *
+      muiCalibration.engineeringMeanWeeks.functionalRisk +
+    scorecard.qualityRisk * muiCalibration.engineeringMeanWeeks.qualityRisk +
+    scorecard.deliveryRisk * muiCalibration.engineeringMeanWeeks.deliveryRisk +
+    planFit.integrationRisk *
+      muiCalibration.engineeringMeanWeeks.integrationRisk +
+    planFit.coverageGap * muiCalibration.engineeringMeanWeeks.coverageGap +
+    planFit.supportGap * muiCalibration.engineeringMeanWeeks.supportGap;
+  const muiCoverageShieldReductionWeeks =
+    coverageShield *
+    muiCalibration.engineeringMeanWeeks.coverageShieldReduction;
+  const muiPreAdjustmentEngineeringWeeks =
+    muiBaseEngineeringWeeks -
+    muiCoverageShieldReductionWeeks +
+    muiCalibration.engineeringMeanWeeks.offset;
+  const muiAdoptionBurdenWeeks =
+    muiAdoptionBurden * muiCalibration.engineeringMeanWeeks.adoptionBurden;
+  const muiLeverageReductionWeeks =
+    muiLeverage * muiCalibration.engineeringMeanWeeks.leverageReduction;
+  const muiAdjustedEngineeringWeeks = Math.max(
+    muiCalibration.engineeringMeanWeeks.minimum,
+    muiPreAdjustmentEngineeringWeeks +
+      muiAdoptionBurdenWeeks -
+      muiLeverageReductionWeeks -
+      coverageShield *
+        muiCalibration.engineeringMeanWeeks.coverageShieldAdditionalReduction
+  );
+  const muiReworkBaseWeeks =
+    muiCalibration.reworkMeanWeeks.base +
+    planFit.coverageGap * muiCalibration.reworkMeanWeeks.coverageGap +
+    planFit.integrationRisk * muiCalibration.reworkMeanWeeks.integrationRisk +
+    scorecard.qualityRisk * muiCalibration.reworkMeanWeeks.qualityRisk +
+    planFit.supportGap * muiCalibration.reworkMeanWeeks.supportGap;
+  const muiReworkAllowanceWeeks = Math.max(
+    muiCalibration.reworkMeanWeeks.minimum,
+    muiReworkBaseWeeks +
+      muiAdoptionBurden * muiCalibration.reworkMeanWeeks.adoptionBurden -
+      muiLeverage * muiCalibration.reworkMeanWeeks.leverageReduction -
+      coverageShield *
+        muiCalibration.reworkMeanWeeks.coverageShieldAdditionalReduction
+  );
+  const muiTotalEngineeringWeeks =
+    muiAdjustedEngineeringWeeks + muiReworkAllowanceWeeks;
+  const muiEngineeringCalendarWeeks = muiTotalEngineeringWeeks / muiVelocity;
+  const muiSlipBaseWeeks =
+    muiCalibration.slipMeanWeeks.base +
+    scorecard.deliveryRisk * muiCalibration.slipMeanWeeks.deliveryRisk +
+    planFit.coverageGap * muiCalibration.slipMeanWeeks.coverageGap +
+    planFit.integrationRisk * muiCalibration.slipMeanWeeks.integrationRisk +
+    planFit.supportGap * muiCalibration.slipMeanWeeks.supportGap;
+  const muiSlipWeeks = Math.max(
+    muiCalibration.slipFloorWeeks,
+    muiSlipBaseWeeks
+  );
+  const muiAppRolloutOverheadWeeks =
+    scorecard.appScale * muiCalibration.launch.appScaleOverheadWeeks;
+  const muiLaunchWeeks = Math.max(
+    muiCalibration.launch.minimumWeeks,
+    muiEngineeringCalendarWeeks + muiSlipWeeks + muiAppRolloutOverheadWeeks
+  );
+  const muiBaseMaintenanceWeeks =
+    horizonYears *
+    (muiCalibration.maintenanceWeeks.base +
+      scorecard.functionalRisk *
+        muiCalibration.maintenanceWeeks.functionalRisk +
+      scorecard.qualityRisk * muiCalibration.maintenanceWeeks.qualityRisk +
+      planFit.integrationRisk *
+        muiCalibration.maintenanceWeeks.integrationRisk +
+      planFit.coverageGap * muiCalibration.maintenanceWeeks.coverageGap +
+      planFit.supportGap * muiCalibration.maintenanceWeeks.supportGap -
+      scorecard.muiUsage * muiCalibration.maintenanceWeeks.muiUsageReduction -
+      coverageShield * muiCalibration.maintenanceWeeks.coverageShieldReduction);
+  const muiAdoptionMaintenanceWeeks =
+    muiAdoptionBurden *
+    muiCalibration.maintenanceWeeks.adoptionBurden *
+    horizonYears;
+  const muiLeverageMaintenanceReductionWeeks =
+    muiLeverage *
+    muiCalibration.maintenanceWeeks.leverageReduction *
+    horizonYears;
+  const muiMaintenanceWeeks = Math.max(
+    muiCalibration.maintenanceWeeks.minimum,
+    Math.max(
+      muiCalibration.maintenanceWeeks.minimumBase,
+      muiBaseMaintenanceWeeks
+    ) +
+      muiAdoptionMaintenanceWeeks -
+      muiLeverageMaintenanceReductionWeeks -
+      coverageShield *
+        muiCalibration.maintenanceWeeks.coverageShieldAdditionalReduction
+  );
+  const muiEngineeringAndMaintenanceWeeks =
+    muiTotalEngineeringWeeks + muiMaintenanceWeeks;
+  const muiLaborCost = muiEngineeringAndMaintenanceWeeks * laborCostPerWeek;
+  const muiLicenseCost =
+    PLAN_CONFIG[scorecard.effectiveMuiPlan].licensePerDeveloperYear *
+    estimatedLicensedDevelopers *
+    horizonYears;
+  const muiTotalCost = muiLaborCost + muiLicenseCost;
+
+  return {
+    build: {
+      effort: {
+        baseEngineeringWeeks: roundTo(buildBaseEngineeringWeeks),
+        functionalRiskWeeks: roundTo(buildFunctionalRiskWeeks),
+        qualityRiskWeeks: roundTo(buildQualityRiskWeeks),
+        ownershipRiskWeeks: roundTo(buildOwnershipRiskWeeks),
+        deliveryRiskWeeks: roundTo(buildDeliveryRiskWeeks),
+        enterpriseNeedWeeks: roundTo(buildEnterpriseNeedWeeks),
+        scaleAdjustmentWeeks: roundTo(buildScaleAdjustmentWeeks),
+        preAdjustmentEngineeringWeeks: roundTo(
+          buildPreAdjustmentEngineeringWeeks
+        ),
+        absorptionReductionWeeks: roundTo(buildAbsorptionReductionWeeks),
+        downsideTailAdditionWeeks: roundTo(buildDownsideTailAdditionWeeks),
+        adjustedEngineeringWeeks: roundTo(buildAdjustedEngineeringWeeks),
+        reworkAllowanceWeeks: roundTo(buildReworkAllowanceWeeks),
+        totalEngineeringWeeks: roundTo(buildTotalEngineeringWeeks)
+      },
+      schedule: {
+        velocityFactor: roundTo(buildVelocity, 2),
+        engineeringCalendarWeeks: roundTo(buildEngineeringCalendarWeeks),
+        slipWeeks: roundTo(buildSlipWeeks),
+        appRolloutOverheadWeeks: roundTo(buildAppRolloutOverheadWeeks),
+        launchWeeks: roundTo(buildLaunchWeeks)
+      },
+      maintenance: {
+        baseMaintenanceWeeks: roundTo(buildBaseMaintenanceWeeks),
+        absorptionReductionWeeks: roundTo(
+          buildAbsorptionReductionMaintenanceWeeks
+        ),
+        downsideTailAdditionWeeks: roundTo(
+          buildDownsideTailMaintenanceAdditionWeeks
+        ),
+        maintenanceWeeks: roundTo(buildMaintenanceWeeks)
+      },
+      cost: {
+        laborCostPerWeek: roundTo(laborCostPerWeek, 0),
+        engineeringAndMaintenanceWeeks: roundTo(
+          buildEngineeringAndMaintenanceWeeks
+        ),
+        laborCost: Math.round(buildLaborCost),
+        licenseCost: 0,
+        totalCost: Math.round(buildLaborCost)
+      }
+    },
+    mui: {
+      effort: {
+        baseEngineeringWeeks: roundTo(muiBaseEngineeringWeeks),
+        functionalRiskWeeks: roundTo(
+          scorecard.functionalRisk *
+            muiCalibration.engineeringMeanWeeks.functionalRisk
+        ),
+        qualityRiskWeeks: roundTo(
+          scorecard.qualityRisk *
+            muiCalibration.engineeringMeanWeeks.qualityRisk
+        ),
+        deliveryRiskWeeks: roundTo(
+          scorecard.deliveryRisk *
+            muiCalibration.engineeringMeanWeeks.deliveryRisk
+        ),
+        integrationRiskWeeks: roundTo(
+          planFit.integrationRisk *
+            muiCalibration.engineeringMeanWeeks.integrationRisk
+        ),
+        coverageGapWeeks: roundTo(
+          planFit.coverageGap * muiCalibration.engineeringMeanWeeks.coverageGap
+        ),
+        supportGapWeeks: roundTo(
+          planFit.supportGap * muiCalibration.engineeringMeanWeeks.supportGap
+        ),
+        coverageShieldReductionWeeks: roundTo(muiCoverageShieldReductionWeeks),
+        preAdjustmentEngineeringWeeks: roundTo(
+          muiPreAdjustmentEngineeringWeeks
+        ),
+        adoptionBurdenWeeks: roundTo(muiAdoptionBurdenWeeks),
+        leverageReductionWeeks: roundTo(muiLeverageReductionWeeks),
+        adjustedEngineeringWeeks: roundTo(muiAdjustedEngineeringWeeks),
+        reworkAllowanceWeeks: roundTo(muiReworkAllowanceWeeks),
+        totalEngineeringWeeks: roundTo(muiTotalEngineeringWeeks)
+      },
+      schedule: {
+        velocityFactor: roundTo(muiVelocity, 2),
+        engineeringCalendarWeeks: roundTo(muiEngineeringCalendarWeeks),
+        slipWeeks: roundTo(muiSlipWeeks),
+        appRolloutOverheadWeeks: roundTo(muiAppRolloutOverheadWeeks),
+        launchWeeks: roundTo(muiLaunchWeeks)
+      },
+      maintenance: {
+        baseMaintenanceWeeks: roundTo(muiBaseMaintenanceWeeks),
+        integrationRiskWeeks: roundTo(
+          planFit.integrationRisk *
+            muiCalibration.maintenanceWeeks.integrationRisk *
+            horizonYears
+        ),
+        coverageGapWeeks: roundTo(
+          planFit.coverageGap *
+            muiCalibration.maintenanceWeeks.coverageGap *
+            horizonYears
+        ),
+        supportGapWeeks: roundTo(
+          planFit.supportGap *
+            muiCalibration.maintenanceWeeks.supportGap *
+            horizonYears
+        ),
+        adoptionBurdenWeeks: roundTo(muiAdoptionMaintenanceWeeks),
+        leverageReductionWeeks: roundTo(muiLeverageMaintenanceReductionWeeks),
+        maintenanceWeeks: roundTo(muiMaintenanceWeeks)
+      },
+      cost: {
+        laborCostPerWeek: roundTo(laborCostPerWeek, 0),
+        engineeringAndMaintenanceWeeks: roundTo(
+          muiEngineeringAndMaintenanceWeeks
+        ),
+        laborCost: Math.round(muiLaborCost),
+        estimatedLicensedDevelopers,
+        licenseCost: Math.round(muiLicenseCost),
+        totalCost: Math.round(muiTotalCost)
+      }
+    }
+  };
+}
+
 function runSimulation(input, scorecard) {
+  const buildCalibration = SIMULATION_CALIBRATION.build;
+  const muiCalibration = SIMULATION_CALIBRATION.mui;
   const rng = createRng(
     JSON.stringify({
       ...input,
@@ -1985,41 +3141,54 @@ function runSimulation(input, scorecard) {
       maxImpact: 0.1
     });
     const buildEngineeringMean =
-      3.4 +
-      scorecard.functionalRisk * 11.8 +
-      scorecard.qualityRisk * 7.4 +
-      scorecard.ownershipRisk * 6.6 +
-      scorecard.deliveryRisk * 5.2 +
-      scorecard.enterpriseNeed * 1.1 +
-      (scaleDemand >= 5 ? 0.9 : 0);
+      buildCalibration.engineeringMeanWeeks.base +
+      scorecard.functionalRisk *
+        buildCalibration.engineeringMeanWeeks.functionalRisk +
+      scorecard.qualityRisk *
+        buildCalibration.engineeringMeanWeeks.qualityRisk +
+      scorecard.ownershipRisk *
+        buildCalibration.engineeringMeanWeeks.ownershipRisk +
+      scorecard.deliveryRisk *
+        buildCalibration.engineeringMeanWeeks.deliveryRisk +
+      scorecard.enterpriseNeed *
+        buildCalibration.engineeringMeanWeeks.enterpriseNeed +
+      (scaleDemand >= 5
+        ? buildCalibration.engineeringMeanWeeks.largeScaleAdjustment
+        : 0);
     const buildEngineeringMeanCalibrated = Math.max(
-      2.4,
+      buildCalibration.engineeringMeanWeeks.minimum,
       (buildEngineeringMean * (1 - buildAbsorptionShield) +
         downsideTailRisk * 0.9) *
         buildBaselineSampler *
         buildFatTailMultiplier
     );
     const buildEngineeringVariance =
-      0.08 +
-      scorecard.functionalRisk * 0.11 +
-      scorecard.qualityRisk * 0.08 +
-      scorecard.ownershipRisk * 0.07 +
-      scorecard.deliveryRisk * 0.06;
+      buildCalibration.engineeringVariance.base +
+      scorecard.functionalRisk *
+        buildCalibration.engineeringVariance.functionalRisk +
+      scorecard.qualityRisk * buildCalibration.engineeringVariance.qualityRisk +
+      scorecard.ownershipRisk *
+        buildCalibration.engineeringVariance.ownershipRisk +
+      scorecard.deliveryRisk *
+        buildCalibration.engineeringVariance.deliveryRisk;
     const buildEngineeringVarianceCalibrated = clamp(
       buildEngineeringVariance * (1 - buildAbsorptionShield * 0.7) +
         buildTailPenalty,
-      0.06,
-      0.36
+      buildCalibration.engineeringVariance.minimum,
+      buildCalibration.engineeringVariance.maximum
     );
     const buildReworkMean =
-      0.7 +
-      scorecard.functionalRisk * 2.6 +
-      scorecard.qualityRisk * 2 +
-      scorecard.ownershipRisk * 1.5 +
-      scorecard.deliveryRisk * 1 +
-      (scaleDemand >= 5 ? 0.4 : 0);
+      buildCalibration.reworkMeanWeeks.base +
+      scorecard.functionalRisk *
+        buildCalibration.reworkMeanWeeks.functionalRisk +
+      scorecard.qualityRisk * buildCalibration.reworkMeanWeeks.qualityRisk +
+      scorecard.ownershipRisk * buildCalibration.reworkMeanWeeks.ownershipRisk +
+      scorecard.deliveryRisk * buildCalibration.reworkMeanWeeks.deliveryRisk +
+      (scaleDemand >= 5
+        ? buildCalibration.reworkMeanWeeks.largeScaleAdjustment
+        : 0);
     const buildReworkMeanCalibrated = Math.max(
-      0.35,
+      buildCalibration.reworkMeanWeeks.minimum,
       (buildReworkMean * (1 - buildAbsorptionShield * 0.85) +
         downsideTailRisk * 0.28) *
         sampleBoundedMultiplier(rng, {
@@ -2041,22 +3210,24 @@ function runSimulation(input, scorecard) {
       )
     );
     const buildEngineering = Math.max(
-      2,
+      buildCalibration.engineeringFloorWeeks,
       buildEngineeringMeanCalibrated *
         (1 + randomNormal(rng, 0, buildEngineeringVarianceCalibrated)) +
         buildRework
     );
 
     const buildSlipMean =
-      1.5 +
-      scorecard.deliveryRisk * 2.3 +
-      scorecard.functionalRisk * 1.2 +
-      scorecard.qualityRisk * 0.8 +
-      scorecard.ownershipRisk * 0.6 +
-      scorecard.enterpriseNeed * 0.2 +
-      (scaleDemand >= 5 ? 0.3 : 0);
+      buildCalibration.slipMeanWeeks.base +
+      scorecard.deliveryRisk * buildCalibration.slipMeanWeeks.deliveryRisk +
+      scorecard.functionalRisk * buildCalibration.slipMeanWeeks.functionalRisk +
+      scorecard.qualityRisk * buildCalibration.slipMeanWeeks.qualityRisk +
+      scorecard.ownershipRisk * buildCalibration.slipMeanWeeks.ownershipRisk +
+      scorecard.enterpriseNeed * buildCalibration.slipMeanWeeks.enterpriseNeed +
+      (scaleDemand >= 5
+        ? buildCalibration.slipMeanWeeks.largeScaleAdjustment
+        : 0);
     const buildSlipMeanCalibrated = Math.max(
-      0.5,
+      buildCalibration.slipMeanWeeks.minimum,
       (buildSlipMean * (1 - buildAbsorptionShield * 0.72) +
         buildTailPenalty * 3.6) *
         sampleBoundedMultiplier(rng, {
@@ -2067,7 +3238,7 @@ function runSimulation(input, scorecard) {
         (1 + (buildFatTailMultiplier - 1) * 0.82)
     );
     const buildSlip = Math.max(
-      0.6,
+      buildCalibration.slipFloorWeeks,
       randomNormal(
         rng,
         buildSlipMeanCalibrated,
@@ -2078,55 +3249,68 @@ function runSimulation(input, scorecard) {
       )
     );
     const buildLaunch = Math.max(
-      2,
-      buildEngineering / buildVelocity + buildSlip + scorecard.appScale * 0.65
+      buildCalibration.launch.minimumWeeks,
+      buildEngineering / buildVelocity +
+        buildSlip +
+        scorecard.appScale * buildCalibration.launch.appScaleOverheadWeeks
     );
 
     const muiEngineeringMean =
-      2.2 +
-      scorecard.functionalRisk * 5.2 +
-      scorecard.qualityRisk * 2.9 +
-      scorecard.deliveryRisk * 1.5 +
-      planFit.integrationRisk * 2.4 +
-      planFit.coverageGap * 3.8 +
-      planFit.supportGap * 1.5 -
-      coverageShield * 0.18;
+      muiCalibration.engineeringMeanWeeks.base +
+      scorecard.functionalRisk *
+        muiCalibration.engineeringMeanWeeks.functionalRisk +
+      scorecard.qualityRisk * muiCalibration.engineeringMeanWeeks.qualityRisk +
+      scorecard.deliveryRisk *
+        muiCalibration.engineeringMeanWeeks.deliveryRisk +
+      planFit.integrationRisk *
+        muiCalibration.engineeringMeanWeeks.integrationRisk +
+      planFit.coverageGap * muiCalibration.engineeringMeanWeeks.coverageGap +
+      planFit.supportGap * muiCalibration.engineeringMeanWeeks.supportGap -
+      coverageShield *
+        muiCalibration.engineeringMeanWeeks.coverageShieldReduction;
     const muiEngineeringMeanCalibrated = Math.max(
-      1.6,
+      muiCalibration.engineeringMeanWeeks.minimum,
       (muiEngineeringMean +
-        1 +
-        muiAdoptionBurden * 2.4 -
-        muiLeverage * 1.6 -
-        coverageShield * 0.15) *
+        muiCalibration.engineeringMeanWeeks.offset +
+        muiAdoptionBurden * muiCalibration.engineeringMeanWeeks.adoptionBurden -
+        muiLeverage * muiCalibration.engineeringMeanWeeks.leverageReduction -
+        coverageShield *
+          muiCalibration.engineeringMeanWeeks
+            .coverageShieldAdditionalReduction) *
         muiBaselineSampler *
         muiFatTailMultiplier
     );
     const muiEngineeringVariance =
-      0.06 +
-      scorecard.functionalRisk * 0.05 +
-      planFit.integrationRisk * 0.05 +
-      planFit.coverageGap * 0.05 -
-      coverageShield * 0.01;
+      muiCalibration.engineeringVariance.base +
+      scorecard.functionalRisk *
+        muiCalibration.engineeringVariance.functionalRisk +
+      planFit.integrationRisk *
+        muiCalibration.engineeringVariance.integrationRisk +
+      planFit.coverageGap * muiCalibration.engineeringVariance.coverageGap -
+      coverageShield *
+        muiCalibration.engineeringVariance.coverageShieldReduction;
     const muiEngineeringVarianceCalibrated = clamp(
       muiEngineeringVariance +
-        muiAdoptionBurden * 0.04 -
-        muiLeverageShield * 0.18,
-      0.05,
-      0.24
+        muiAdoptionBurden * muiCalibration.engineeringVariance.adoptionBurden -
+        muiLeverageShield *
+          muiCalibration.engineeringVariance.leverageShieldReduction,
+      muiCalibration.engineeringVariance.minimum,
+      muiCalibration.engineeringVariance.maximum
     );
     const muiReworkMean =
-      0.35 +
-      planFit.coverageGap * 1.3 +
-      planFit.integrationRisk * 1.05 +
-      scorecard.qualityRisk * 0.65 +
-      planFit.supportGap * 0.35 -
-      coverageShield * 0.08;
+      muiCalibration.reworkMeanWeeks.base +
+      planFit.coverageGap * muiCalibration.reworkMeanWeeks.coverageGap +
+      planFit.integrationRisk * muiCalibration.reworkMeanWeeks.integrationRisk +
+      scorecard.qualityRisk * muiCalibration.reworkMeanWeeks.qualityRisk +
+      planFit.supportGap * muiCalibration.reworkMeanWeeks.supportGap -
+      coverageShield * muiCalibration.reworkMeanWeeks.coverageShieldReduction;
     const muiReworkMeanCalibrated = Math.max(
-      0.18,
+      muiCalibration.reworkMeanWeeks.minimum,
       (muiReworkMean +
-        muiAdoptionBurden * 0.85 -
-        muiLeverage * 0.58 -
-        coverageShield * 0.1) *
+        muiAdoptionBurden * muiCalibration.reworkMeanWeeks.adoptionBurden -
+        muiLeverage * muiCalibration.reworkMeanWeeks.leverageReduction -
+        coverageShield *
+          muiCalibration.reworkMeanWeeks.coverageShieldAdditionalReduction) *
         sampleBoundedMultiplier(rng, {
           deviation: 0.018 + muiAdoptionLoad * 0.05,
           min: 0.97,
@@ -2146,25 +3330,26 @@ function runSimulation(input, scorecard) {
       )
     );
     const muiEngineering = Math.max(
-      1.5,
+      muiCalibration.engineeringFloorWeeks,
       muiEngineeringMeanCalibrated *
         (1 + randomNormal(rng, 0, muiEngineeringVarianceCalibrated)) +
         muiRework
     );
 
     const muiSlipMean =
-      0.85 +
-      scorecard.deliveryRisk * 1 +
-      planFit.coverageGap * 0.9 +
-      planFit.integrationRisk * 0.7 +
-      planFit.supportGap * 0.35 -
-      coverageShield * 0.1;
+      muiCalibration.slipMeanWeeks.base +
+      scorecard.deliveryRisk * muiCalibration.slipMeanWeeks.deliveryRisk +
+      planFit.coverageGap * muiCalibration.slipMeanWeeks.coverageGap +
+      planFit.integrationRisk * muiCalibration.slipMeanWeeks.integrationRisk +
+      planFit.supportGap * muiCalibration.slipMeanWeeks.supportGap -
+      coverageShield * muiCalibration.slipMeanWeeks.coverageShieldReduction;
     const muiSlipMeanCalibrated = Math.max(
-      0.25,
+      muiCalibration.slipMeanWeeks.minimum,
       (muiSlipMean +
-        muiAdoptionBurden * 0.8 -
-        muiLeverage * 0.52 -
-        coverageShield * 0.08) *
+        muiAdoptionBurden * muiCalibration.slipMeanWeeks.adoptionBurden -
+        muiLeverage * muiCalibration.slipMeanWeeks.leverageReduction -
+        coverageShield *
+          muiCalibration.slipMeanWeeks.coverageShieldAdditionalReduction) *
         sampleBoundedMultiplier(rng, {
           deviation: 0.017 + muiAdoptionLoad * 0.04,
           min: 0.97,
@@ -2173,7 +3358,7 @@ function runSimulation(input, scorecard) {
         (1 + (muiFatTailMultiplier - 1) * 0.62)
     );
     const muiSlip = Math.max(
-      0.3,
+      muiCalibration.slipFloorWeeks,
       randomNormal(
         rng,
         muiSlipMeanCalibrated,
@@ -2184,20 +3369,27 @@ function runSimulation(input, scorecard) {
       )
     );
     const muiLaunch = Math.max(
-      1.4,
-      muiEngineering / muiVelocity + muiSlip + scorecard.appScale * 0.38
+      muiCalibration.launch.minimumWeeks,
+      muiEngineering / muiVelocity +
+        muiSlip +
+        scorecard.appScale * muiCalibration.launch.appScaleOverheadWeeks
     );
 
     const buildMaintenanceBase =
       horizonYears *
-      (0.95 +
-        scorecard.functionalRisk * 2.8 +
-        scorecard.qualityRisk * 1.7 +
-        scorecard.ownershipRisk * 2 +
-        scorecard.deliveryRisk * 0.55 +
-        (scaleDemand >= 5 ? 0.18 : 0));
+      (buildCalibration.maintenanceWeeks.base +
+        scorecard.functionalRisk *
+          buildCalibration.maintenanceWeeks.functionalRisk +
+        scorecard.qualityRisk * buildCalibration.maintenanceWeeks.qualityRisk +
+        scorecard.ownershipRisk *
+          buildCalibration.maintenanceWeeks.ownershipRisk +
+        scorecard.deliveryRisk *
+          buildCalibration.maintenanceWeeks.deliveryRisk +
+        (scaleDemand >= 5
+          ? buildCalibration.maintenanceWeeks.largeScaleAdjustment
+          : 0));
     const buildMaintenanceBaseCalibrated = Math.max(
-      0.75,
+      buildCalibration.maintenanceWeeks.minimumBase,
       (buildMaintenanceBase * (1 - buildAbsorptionShield * 0.68) +
         downsideTailRisk * 0.32 * horizonYears) *
         sampleBoundedMultiplier(rng, {
@@ -2208,34 +3400,40 @@ function runSimulation(input, scorecard) {
         (1 + (buildFatTailMultiplier - 1) * 0.58)
     );
     const buildMaintenance = Math.max(
-      0.8,
+      buildCalibration.maintenanceWeeks.minimum,
       buildMaintenanceBaseCalibrated *
         (1 +
           randomNormal(
             rng,
             0,
-            0.18 +
-              scorecard.ownershipRisk * 0.05 +
-              buildTailPenalty * 0.42
+            0.18 + scorecard.ownershipRisk * 0.05 + buildTailPenalty * 0.42
           ))
     );
 
     const muiMaintenanceBase =
       horizonYears *
-      (0.55 +
-        scorecard.functionalRisk * 1 +
-        scorecard.qualityRisk * 0.68 +
-        planFit.integrationRisk * 0.88 +
-        planFit.coverageGap * 1.22 +
-        planFit.supportGap * 0.68 -
-        scorecard.muiUsage * 0.08 -
-        coverageShield * 0.12);
+      (muiCalibration.maintenanceWeeks.base +
+        scorecard.functionalRisk *
+          muiCalibration.maintenanceWeeks.functionalRisk +
+        scorecard.qualityRisk * muiCalibration.maintenanceWeeks.qualityRisk +
+        planFit.integrationRisk *
+          muiCalibration.maintenanceWeeks.integrationRisk +
+        planFit.coverageGap * muiCalibration.maintenanceWeeks.coverageGap +
+        planFit.supportGap * muiCalibration.maintenanceWeeks.supportGap -
+        scorecard.muiUsage * muiCalibration.maintenanceWeeks.muiUsageReduction -
+        coverageShield *
+          muiCalibration.maintenanceWeeks.coverageShieldReduction);
     const muiMaintenanceBaseCalibrated = Math.max(
-      0.42,
+      muiCalibration.maintenanceWeeks.minimumBase,
       (muiMaintenanceBase +
-        muiAdoptionBurden * 0.42 * horizonYears -
-        muiLeverage * 0.32 * horizonYears -
-        coverageShield * 0.08) *
+        muiAdoptionBurden *
+          muiCalibration.maintenanceWeeks.adoptionBurden *
+          horizonYears -
+        muiLeverage *
+          muiCalibration.maintenanceWeeks.leverageReduction *
+          horizonYears -
+        coverageShield *
+          muiCalibration.maintenanceWeeks.coverageShieldAdditionalReduction) *
         sampleBoundedMultiplier(rng, {
           deviation: 0.016 + muiAdoptionLoad * 0.03,
           min: 0.98,
@@ -2244,7 +3442,7 @@ function runSimulation(input, scorecard) {
         (1 + (muiFatTailMultiplier - 1) * 0.42)
     );
     const muiMaintenance = Math.max(
-      0.4,
+      muiCalibration.maintenanceWeeks.minimum,
       muiMaintenanceBaseCalibrated *
         (1 +
           randomNormal(
@@ -2359,6 +3557,8 @@ function runSimulation(input, scorecard) {
 }
 
 function buildRecommendation(input, scorecard, simulation) {
+  const recommendationWeights = RECOMMENDATION_POLICY_WEIGHTS;
+  const recommendationPolicy = RECOMMENDATION_POLICY;
   const comparison = simulation.comparison;
   const selectedPlan = PLAN_CONFIG[scorecard.effectiveMuiPlan];
   const planFit = scorecard.effectivePlanFit;
@@ -2367,18 +3567,31 @@ function buildRecommendation(input, scorecard, simulation) {
     comparison.probabilityBuildExceeds20Weeks -
     comparison.probabilityMuiExceeds20Weeks;
   const muiDeliveryFavored =
-    comparison.probabilityMuiFaster >= 55 || deliveryRiskReduction >= 12;
-  const muiCostFavored = comparison.probabilityMuiLowerTco >= 55;
+    comparison.probabilityMuiFaster >=
+      recommendationWeights.muiDeliveryFavoredProbability ||
+    deliveryRiskReduction >= recommendationWeights.deliveryRiskReduction;
+  const muiCostFavored =
+    comparison.probabilityMuiLowerTco >=
+    recommendationWeights.muiCostFavoredProbability;
   const packagedPathCostPenalty =
     comparison.probabilityMuiLowerTco <= 50 && comparison.tcoDeltaMedian >= 0;
   const deliveryOnlyMuiAdvantage =
-    comparison.probabilityMuiFaster >= 75 &&
+    comparison.probabilityMuiFaster >=
+      recommendationWeights.deliveryOnlyMuiAdvantageProbability &&
     comparison.launchWeekDeltaMedian < 0 &&
-    (comparison.probabilityMuiLowerTco < 60 || comparison.tcoDeltaMedian > 0);
+    (comparison.probabilityMuiLowerTco <
+      recommendationPolicy.dominance.deliveryOnlyMuiAdvantage
+        .minProbabilityLowerTco ||
+      comparison.tcoDeltaMedian >
+        recommendationPolicy.dominance.deliveryOnlyMuiAdvantage
+          .maxTcoDeltaMedian);
   const buildStillCompetitive =
     simulation.buildPath.medianLaunchWeeks <=
-      simulation.muiPath.medianLaunchWeeks + 1.5 &&
-    simulation.buildPath.medianTco <= simulation.muiPath.medianTco * 1.1;
+      simulation.muiPath.medianLaunchWeeks +
+        recommendationPolicy.buildCredibility.maxLaunchDisadvantageWeeks &&
+    simulation.buildPath.medianTco <=
+      simulation.muiPath.medianTco *
+        (1 + recommendationPolicy.buildCredibility.maxTcoDisadvantageRatio);
   const nonSpeedMuiSignal =
     scorecard.muiAdoptionUseful ||
     scorecard.supportOrProcurementNeed ||
@@ -2387,19 +3600,33 @@ function buildRecommendation(input, scorecard, simulation) {
     (["shared-pattern", "platform-standard"].includes(
       input.componentStandardizationGoal
     ) &&
-      (planFit.coverageScore >= 65 || input.existingMuiUsage !== "none")) ||
-    (planFit.coverageScore >= 74 && scorecard.buildCompetitiveIndex < 58);
+      (planFit.coverageScore >=
+        recommendationPolicy.buildCredibility.minCoverageForNonCoreReuse ||
+        input.existingMuiUsage !== "none")) ||
+    (planFit.coverageScore >=
+      recommendationPolicy.buildCredibility.minCoverageForStrongNonCoreSignal &&
+      scorecard.buildCompetitiveIndex <
+        recommendationPolicy.buildCredibility.minCompetitiveIndex);
   const muiDominatesSimulation =
-    comparison.probabilityMuiFaster >= 75 &&
-    comparison.probabilityMuiLowerTco >= 75 &&
-    comparison.launchWeekDeltaMedian < 0 &&
-    comparison.tcoDeltaMedian <= 0;
+    comparison.probabilityMuiFaster >=
+      recommendationPolicy.dominance.mui.minProbabilityFaster &&
+    comparison.probabilityMuiLowerTco >=
+      recommendationPolicy.dominance.mui.minProbabilityLowerTco &&
+    comparison.launchWeekDeltaMedian <
+      recommendationPolicy.dominance.mui.maxLaunchWeekDeltaMedian &&
+    comparison.tcoDeltaMedian <=
+      recommendationPolicy.dominance.mui.maxTcoDeltaMedian;
   const buildDominatesSimulation =
-    comparison.probabilityMuiFaster <= 25 &&
-    comparison.probabilityMuiLowerTco <= 25 &&
-    comparison.launchWeekDeltaMedian >= 0 &&
-    comparison.tcoDeltaMedian >= 0;
+    comparison.probabilityMuiFaster <=
+      recommendationPolicy.dominance.build.maxProbabilityMuiFaster &&
+    comparison.probabilityMuiLowerTco <=
+      recommendationPolicy.dominance.build.maxProbabilityMuiLowerTco &&
+    comparison.launchWeekDeltaMedian >=
+      recommendationPolicy.dominance.build.minLaunchWeekDeltaMedian &&
+    comparison.tcoDeltaMedian >=
+      recommendationPolicy.dominance.build.minTcoDeltaMedian;
   const coreNeedsStrongerEvidence =
+    recommendationPolicy.coreEvidence.buildFriendlyRequiresStrongerEvidence &&
     scorecard.effectiveMuiPlan === "core" &&
     input.existingMuiUsage === "none" &&
     input.dependentTeams === "one" &&
@@ -2409,7 +3636,8 @@ function buildRecommendation(input, scorecard, simulation) {
   const coreMaterialAdvantage =
     muiCostFavored &&
     muiDeliveryFavored &&
-    comparison.launchWeekDeltaMedian <= -2;
+    comparison.launchWeekDeltaMedian <=
+      -recommendationPolicy.coreEvidence.minLaunchAdvantageWeeks;
 
   let option = "Build in-house";
   let summary =
@@ -2432,44 +3660,26 @@ function buildRecommendation(input, scorecard, simulation) {
     input.deadlinePressure === "low" &&
     ["none", "wcag-a"].includes(input.accessibilityTarget)
   ) {
+    // Policy config keeps the build-friendly exception explicit rather than
+    // burying the thresholds inside the branch body.
     option = "Build in-house";
     summary =
       "High maturity, shared knowledge, low handoff friction, and a reusable-pattern goal keep the build path credible even with a core packaged comparison available.";
   } else if (muiDominatesSimulation) {
     option = selectedPlan.recommendationLabel;
-    summary =
-      `${selectedPlan.label} is both faster and lower in modeled total cost across the simulation, so the packaged path now has the stronger recommendation case. Build still remains credible only as a higher-control tradeoff, not the favored path.`;
+    summary = `${selectedPlan.label} is both faster and lower in modeled total cost across the simulation, so the packaged path now has the stronger recommendation case. Build still remains credible only as a higher-control tradeoff, not the favored path.`;
   } else if (buildDominatesSimulation) {
     option = "Build in-house";
     summary =
       "The custom path is at least as fast and as cheap in the modeled distribution, so the recommendation should stay with building in-house.";
-  } else if (
-    scorecard.effectiveMuiPlan === "core" &&
-    input.designSystemMaturity === "high" &&
-    input.ownershipModel === "same-product-team" &&
-    input.knowledgeConcentration === "shared" &&
-    input.designDevHandoffFriction === "low" &&
-    ["shared-pattern", "platform-standard"].includes(
-      input.componentStandardizationGoal
-    ) &&
-    input.existingMuiUsage === "none" &&
-    scorecard.lowSupportNeed &&
-    input.dependentTeams === "one" &&
-    input.changeLeadTime === "less-than-day" &&
-    input.reworkFrequency === "rare" &&
-    input.deadlinePressure === "low" &&
-    ["none", "wcag-a"].includes(input.accessibilityTarget)
-  ) {
-    option = "Build in-house";
-    summary =
-      "High maturity, shared knowledge, low handoff friction, and a reusable-pattern goal keep the build path credible even with a core packaged comparison available.";
   } else if (
     scorecard.simpleScope &&
     scorecard.lowSupportNeed &&
     input.designSystemMaturity === "high" &&
     input.dependentTeams === "one" &&
     input.ownershipModel === "same-product-team" &&
-    scorecard.buildCompetitiveIndex >= 58 &&
+    scorecard.buildCompetitiveIndex >=
+      recommendationPolicy.buildCredibility.minCompetitiveIndex &&
     buildStillCompetitive
   ) {
     option = "Build in-house";
@@ -2477,17 +3687,21 @@ function buildRecommendation(input, scorecard, simulation) {
       "The scope is controlled, support need is low, and the existing design-system baseline is strong enough that an internal build remains competitive.";
   } else if (
     deliveryOnlyMuiAdvantage &&
-    internalAbsorption >= 0.74 &&
-    scorecard.buildCompetitiveIndex >= 58 &&
+    internalAbsorption >=
+      recommendationPolicy.buildCredibility
+        .minInternalAbsorptionForBuildTradeoff &&
+    scorecard.buildCompetitiveIndex >=
+      recommendationPolicy.buildCredibility.minCompetitiveIndex &&
     !scorecard.enterpriseFitStrong
   ) {
     option = "Build in-house";
-    summary =
-      `${selectedPlan.label} is modeled to land sooner, but not to win clearly enough on total ownership cost. With strong internal absorption and build-friendly context, owning the component remains a credible recommendation with an explicit speed tradeoff.`;
+    summary = `${selectedPlan.label} is modeled to land sooner, but not to win clearly enough on total ownership cost. With strong internal absorption and build-friendly context, owning the component remains a credible recommendation with an explicit speed tradeoff.`;
   } else if (
     scorecard.enterpriseFitStrong &&
     scorecard.effectiveMuiPlan === "enterprise" &&
-    (muiDeliveryFavored || planFit.supportGap < 0.18)
+    (muiDeliveryFavored ||
+      planFit.supportGap <
+        recommendationPolicy.enterpriseEligibility.maxSupportGap)
   ) {
     option = "Enterprise";
     summary =
@@ -2495,7 +3709,10 @@ function buildRecommendation(input, scorecard, simulation) {
   } else if (
     scorecard.effectiveMuiPlan === "premium" &&
     !scorecard.supportOrProcurementNeed &&
-    (muiDeliveryFavored || planFit.coverageScore >= 68 || nonSpeedMuiSignal)
+    (muiDeliveryFavored ||
+      planFit.coverageScore >=
+        recommendationPolicy.premiumEligibility.minCoverageScore ||
+      nonSpeedMuiSignal)
   ) {
     option = "Premium";
     summary =
@@ -2512,8 +3729,8 @@ function buildRecommendation(input, scorecard, simulation) {
         : "The inputs show strong internal ownership, mature delivery conditions, and low support pressure. Even with the Core path modeled as the faster comparison option, the context is internally credible enough that building in-house remains the better recommendation.";
   } else if (
     scorecard.effectiveMuiPlan === "core" &&
-    ((muiDominatesSimulation || coreMaterialAdvantage) &&
-      (!coreNeedsStrongerEvidence || muiDominatesSimulation))
+    (muiDominatesSimulation || coreMaterialAdvantage) &&
+    (!coreNeedsStrongerEvidence || muiDominatesSimulation)
   ) {
     option = "MUI Core";
     summary =
@@ -2521,7 +3738,8 @@ function buildRecommendation(input, scorecard, simulation) {
         ? "The Core path only clears the recommendation bar because it is materially faster and lower in modeled cost, not just because it is the default packaged comparison."
         : "The Core path is modeled to remove enough delivery and ownership work to justify the packaged recommendation here.";
   } else if (
-    scorecard.buildCompetitiveIndex >= 62 &&
+    scorecard.buildCompetitiveIndex >=
+      recommendationPolicy.buildCredibility.minStrongCompetitiveIndex &&
     !scorecard.enterpriseFitStrong &&
     scorecard.functionalRisk < 0.55 &&
     buildStillCompetitive
@@ -2563,17 +3781,25 @@ function buildRecommendation(input, scorecard, simulation) {
     clamp(Math.abs(deliveryRiskReduction) * 2.2, 0, 100) * 0.08 +
     (recommendationAligned ? 10 : 0) -
     (recommendationOpposed ? 28 : 0) -
-    (deliveryOnlyMuiAdvantage && isBuildRecommendation ? 6 : 0) -
-    (deliveryOnlyMuiAdvantage && !isBuildRecommendation && !muiCostFavored
-      ? 8
+    (deliveryOnlyMuiAdvantage && isBuildRecommendation
+      ? recommendationWeights.deliveryOnlyMuiAdvantagePenalty
       : 0) -
-    (coreNeedsStrongerEvidence && option === "MUI Core" && !muiDominatesSimulation
-      ? 6
+    (deliveryOnlyMuiAdvantage && !isBuildRecommendation && !muiCostFavored
+      ? recommendationWeights.deliveryOnlyMuiAdvantageMuiPenalty
+      : 0) -
+    (coreNeedsStrongerEvidence &&
+    option === "MUI Core" &&
+    !muiDominatesSimulation
+      ? recommendationWeights.coreNeedsStrongerEvidencePenalty
       : 0);
   const confidenceScore = clamp(
     Math.round(confidenceBase),
-    recommendationOpposed ? 42 : deliveryOnlyMuiAdvantage && isBuildRecommendation ? 62 : 48,
-    96
+    recommendationOpposed
+      ? recommendationPolicy.confidence.minOpposed
+      : deliveryOnlyMuiAdvantage && isBuildRecommendation
+        ? recommendationPolicy.confidence.minBuildWithDeliveryOnlyAdvantage
+        : recommendationPolicy.confidence.minQualified,
+    recommendationPolicy.confidence.max
   );
 
   return {
@@ -2584,14 +3810,15 @@ function buildRecommendation(input, scorecard, simulation) {
     confidence: {
       score: confidenceScore,
       level:
-      confidenceScore >= 80
+        confidenceScore >= recommendationPolicy.confidence.high
           ? "high"
-          : confidenceScore >= 62
+          : confidenceScore >= recommendationPolicy.confidence.medium
             ? "moderate"
             : "qualified",
       rationale:
         "Confidence reflects whether the selected recommendation is supported by the same-direction delivery and cost evidence, together with the rule-based fit scores. It is not a guarantee of outcome."
-    }
+    },
+    recommendationPolicyVersion: RECOMMENDATION_POLICY_VERSION
   };
 }
 
@@ -2660,6 +3887,25 @@ function buildResult(input) {
   const simulation = runSimulation(input, scorecard);
   const recommendation = buildRecommendation(input, scorecard, simulation);
   const evidenceBasis = buildEvidenceBasis(input, scorecard);
+  const estimateBreakdown = buildDeterministicEstimate(input, scorecard);
+  const baseDeterministicResult = {
+    scorecard,
+    estimateBreakdown,
+    buildLaunchWeeks: estimateBreakdown.build.schedule.launchWeeks,
+    muiLaunchWeeks: estimateBreakdown.mui.schedule.launchWeeks,
+    buildTco: estimateBreakdown.build.cost.totalCost,
+    muiTco: estimateBreakdown.mui.cost.totalCost,
+    tcoDelta:
+      estimateBreakdown.mui.cost.totalCost -
+      estimateBreakdown.build.cost.totalCost,
+    buildTierScore: scorecard.buildTierScore,
+    selectedMuiPlanScore: scorecard[`${scorecard.effectiveMuiPlan}TierScore`],
+    confidence: buildDeterministicConfidence(scorecard, estimateBreakdown)
+  };
+  const sensitivity = buildSensitivityDiagnostics(
+    input,
+    baseDeterministicResult
+  );
 
   const assumptions = [
     "The simulation uses 10,000 seeded iterations, so the same validated input returns the same result.",
@@ -2676,12 +3922,14 @@ function buildResult(input) {
     "Numerical outputs are scenario estimates based on user input and transparent heuristics."
   );
   assumptions.push(
-    "The latest model version is benchmark-informed-v5, and older saved reports may not reflect the current input schema."
+    `The latest model version is benchmark-informed-v5 and the active recommendation policy is ${RECOMMENDATION_POLICY_VERSION}. Older saved reports may not reflect the current input schema.`
   );
 
   return {
     ...recommendation,
     modelVersion: MODEL_VERSION,
+    calibrationVersion: CALIBRATION_VERSION,
+    recommendationPolicyVersion: RECOMMENDATION_POLICY_VERSION,
     publicSources: PUBLIC_BENCHMARK_SOURCES,
     derivedFactors,
     evidenceBasis,
@@ -2711,6 +3959,11 @@ function buildResult(input) {
     comparison: simulation.comparison,
     modelLevers: simulation.modelLevers,
     riskLayer: simulation.riskLayer,
+    diagnostics: {
+      estimateBreakdown,
+      sensitivity
+    },
+    sensitivity,
     assumptions
   };
 }

@@ -182,6 +182,7 @@ function MethodologyPage() {
             <Stack spacing={1.25}>
               <Bullet>Build-in-house and MUI paths are both simulated under the same input set.</Bullet>
               <Bullet>The simulation uses public software-estimation concepts such as effort drivers, delivery maturity, integration/adoption risk, rework, and lifecycle maintenance. The coefficients are product heuristics calibrated to the assessment inputs; they are not claimed as externally certified benchmark coefficients.</Bullet>
+              <Bullet>Model coefficients are heuristic calibration weights. They convert normalized risk and fit scores into scenario estimates. Public evidence informs variable selection and risk-shape choices, but the numeric coefficients are not externally certified benchmark parameters.</Bullet>
               <Bullet>Performance sensitivity, i18n/localization, knowledge concentration, design-dev handoff friction, component standardization, and production criticality are treated as scenario pressures rather than promised gains.</Bullet>
               <Bullet>Median and p90 ranges help expose long-tail delivery and cost risk.</Bullet>
               <Bullet>Probability outputs summarize how often each path wins across repeated modeled scenarios.</Bullet>
