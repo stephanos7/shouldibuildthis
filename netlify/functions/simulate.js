@@ -5,6 +5,7 @@ import {
   DERIVED_FACTOR_WEIGHTS,
   INPUT_SCALES,
   PATH_SCORE_WEIGHTS,
+  PLAN_FIT_RUNTIME,
   PLAN_FIT_WEIGHTS,
   PLAN_CONFIG,
   SCORE_BANDS,
@@ -1176,44 +1177,48 @@ function buildDerivedFactors(input) {
 
 function buildPlanFit(planKey, input, derivedFactors) {
   const planFitWeights = PLAN_FIT_WEIGHTS;
+  const planFitRuntime = PLAN_FIT_RUNTIME;
   const plan = PLAN_CONFIG[planKey];
   const featureDemand = input.advancedFeatures.reduce(
     (sum, feature) => sum + INPUT_SCALES.advancedFeatureWeights[feature],
     0
   );
   const performancePressure =
-    PERFORMANCE_SENSITIVITY_INDEX[input.performanceSensitivity] / 3;
+    PERFORMANCE_SENSITIVITY_INDEX[input.performanceSensitivity] /
+    planFitRuntime.performanceSensitivityMaxIndex;
   const useCaseCoverage = plan.useCaseCoverage[input.primaryUseCase];
   const rowScale = EXPECTED_ROWS_INDEX[input.expectedRows];
   const columnScale = EXPECTED_COLUMNS_INDEX[input.expectedColumns];
-  const scaleDemand = rowScale * 0.85 + columnScale * 0.65;
+  const scaleDemand =
+    rowScale * planFitRuntime.scaleDemand.rowScale +
+    columnScale * planFitRuntime.scaleDemand.columnScale;
   const planScaleCapacity = PLAN_FIT_WEIGHTS.planScaleCapacity[planKey];
   const featureCoverage = clamp(
     1 -
       Math.max(0, featureDemand - plan.featureCapacity) /
         planFitWeights.featureCoverageDenominator,
-    0.18,
-    1
+    planFitRuntime.featureCoverage.floor,
+    planFitRuntime.featureCoverage.ceiling
   );
   const scaleCoverage = clamp(
     1 -
       Math.max(0, scaleDemand - planScaleCapacity) /
         planFitWeights.scaleCoverageDenominator,
-    0.18,
-    1
+    planFitRuntime.scaleCoverage.floor,
+    planFitRuntime.scaleCoverage.ceiling
   );
-  const adoptionBoost = { none: 0, some: 0.06, standardized: 0.12 }[
-    input.existingMuiUsage
-  ];
+  const adoptionBoost = planFitRuntime.adoptionBoost[input.existingMuiUsage];
   const supportFit = clamp(
     1 -
       Math.max(
         0,
-        SUPPORT_INDEX[input.supportRequirement] - plan.supportCapability * 4
+        SUPPORT_INDEX[input.supportRequirement] -
+          plan.supportCapability *
+            planFitRuntime.supportFit.supportCapabilityMultiplier
       ) /
         planFitWeights.supportFitDenominator,
-    0.15,
-    1
+    planFitRuntime.supportFit.floor,
+    planFitRuntime.supportFit.ceiling
   );
   const qualityFit = clamp(
     1 -
@@ -1223,13 +1228,13 @@ function buildPlanFit(planKey, input, derivedFactors) {
           planFitWeights.qualityFitThresholds[planKey]
       ) *
         planFitWeights.qualityFitSlope,
-    0.2,
-    1
+    planFitRuntime.qualityFit.floor,
+    planFitRuntime.qualityFit.ceiling
   );
   const performanceFit = clamp(
     1 - performancePressure * planFitWeights.performanceFitMultipliers[planKey],
-    0.72,
-    1
+    planFitRuntime.performanceFit.floor,
+    planFitRuntime.performanceFit.ceiling
   );
 
   const coverageScore = clamp(
@@ -1283,9 +1288,9 @@ function buildPlanFit(planKey, input, derivedFactors) {
     Math.max(
       0,
       derivedFactors.enterpriseReadiness.score / 100 - plan.supportCapability
-    ) * 0.8,
-    0,
-    0.75
+    ) * planFitRuntime.supportGap.multiplier,
+    planFitRuntime.supportGap.floor,
+    planFitRuntime.supportGap.ceiling
   );
 
   return {

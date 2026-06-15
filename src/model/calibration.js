@@ -570,6 +570,74 @@ export const PLAN_FIT_WEIGHTS = {
 };
 
 /*
+ * Plan fit runtime controls
+ * -------------------------
+ *
+ * These values tune the deterministic runtime fit helper in simulate.js.
+ * They define how aggressively row/column scale contribute to demand, where
+ * fit terms stop shrinking, how existing adoption boosts packaged paths, and
+ * how support pressure and performance sensitivity are normalized.
+ */
+export const PLAN_FIT_RUNTIME = {
+  // Highest performance-sensitivity index the helper normalizes against.
+  performanceSensitivityMaxIndex: 3,
+  scaleDemand: {
+    // Weight applied to row scale when estimating packaged-path demand.
+    rowScale: 0.85,
+    // Weight applied to column scale when estimating packaged-path demand.
+    columnScale: 0.65
+  },
+  featureCoverage: {
+    // Lower bound for feature coverage so poor fits do not collapse to zero.
+    floor: 0.18,
+    // Upper bound for feature coverage.
+    ceiling: 1
+  },
+  scaleCoverage: {
+    // Lower bound for scale coverage so poor fits do not collapse to zero.
+    floor: 0.18,
+    // Upper bound for scale coverage.
+    ceiling: 1
+  },
+  adoptionBoost: {
+    // No existing MUI usage gives no adoption boost.
+    none: 0,
+    // Some existing MUI usage gives a modest adoption boost.
+    some: 0.06,
+    // Standardized MUI usage gives the largest adoption boost.
+    standardized: 0.12
+  },
+  supportFit: {
+    // Multiplier that turns support capability into support-fit headroom.
+    supportCapabilityMultiplier: 4,
+    // Lower bound for support fit so weak support does not collapse to zero.
+    floor: 0.15,
+    // Upper bound for support fit.
+    ceiling: 1
+  },
+  qualityFit: {
+    // Lower bound for quality fit so weak quality does not collapse to zero.
+    floor: 0.2,
+    // Upper bound for quality fit.
+    ceiling: 1
+  },
+  performanceFit: {
+    // Lower bound for performance fit so performance pressure cannot erase fit.
+    floor: 0.72,
+    // Upper bound for performance fit.
+    ceiling: 1
+  },
+  supportGap: {
+    // Multiplier that converts support shortfall into support gap.
+    multiplier: 0.8,
+    // Lower bound for support gap.
+    floor: 0,
+    // Upper bound for support gap.
+    ceiling: 0.75
+  }
+};
+
+/*
  * Path score weights
  * ------------------
  *
@@ -981,6 +1049,7 @@ export const CALIBRATION = {
   },
 
   planFit: {
+    runtime: PLAN_FIT_RUNTIME,
     featureCoverage: {},
     scaleCoverage: {},
     supportFit: {},
