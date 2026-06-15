@@ -82,6 +82,46 @@ export const MODEL_IMPACT_MAP = {
       }
     ]
   },
+  buildVelocity: {
+    label: "Build velocity",
+    group: "Delivery and velocity",
+    direction: "good",
+    summary:
+      "Build velocity is calibrated from delivery strength, ownership risk, internal absorption, and frontend capacity thresholds.",
+    impacts: [
+      {
+        artifact: "buildVelocity",
+        stage: "simulationPrep",
+        path: "Build",
+        direction: "good",
+        effectType: "linear",
+        effectScale: "small",
+        calculatedIn: "runSimulation",
+        calibrationRef: "simulation.velocity.build",
+        reason: "Base velocity, risk modifiers, and calibrated bounds determine the Build velocity multiplier."
+      }
+    ]
+  },
+  muiVelocity: {
+    label: "MUI velocity",
+    group: "Delivery and velocity",
+    direction: "good",
+    summary:
+      "MUI velocity is calibrated from delivery strength, ownership risk, adoption burden, and frontend capacity thresholds.",
+    impacts: [
+      {
+        artifact: "muiVelocity",
+        stage: "simulationPrep",
+        path: "MUI",
+        direction: "good",
+        effectType: "linear",
+        effectScale: "small",
+        calculatedIn: "runSimulation",
+        calibrationRef: "simulation.velocity.mui",
+        reason: "Base velocity, risk modifiers, leverage, burden, and calibrated bounds determine the MUI velocity multiplier."
+      }
+    ]
+  },
   reactApps: {
     label: "React apps",
     group: "Footprint and rollout",
@@ -957,6 +997,97 @@ export const MODEL_IMPACT_MAP = {
       }
     ]
   },
+  simpleScope: {
+    label: "Simple scope",
+    group: "Scope and policy",
+    direction: "contextual",
+    summary:
+      "A narrow, low-complexity scope can change which packaged paths remain attractive.",
+    impacts: [
+      {
+        artifact: "simpleScope",
+        stage: "pathScore",
+        path: "Both",
+        direction: "contextual",
+        effectType: "guardrail",
+        effectScale: "small",
+        calculatedIn: "buildScorecard",
+        calibrationRef: "pathScores.simpleScope",
+        reason: "The simple-scope rule is controlled by calibrated risk, feature, and scale caps."
+      }
+    ]
+  },
+  buildFriendlyContext: {
+    label: "Build-friendly context",
+    group: "Scope and policy",
+    direction: "contextual",
+    summary:
+      "A strong internal context can keep Build credible when the scope is narrow and support need is low.",
+    impacts: [
+      {
+        artifact: "buildFriendlyContext",
+        stage: "pathScore",
+        path: "Build",
+        direction: "contextual",
+        effectType: "interaction",
+        effectScale: "small",
+        calculatedIn: "buildScorecard",
+        calibrationRef: "pathScores.buildFriendlyContext",
+        reason: "The build-friendly guardrail uses calibrated row, column, feature, and accessibility caps."
+      }
+    ]
+  },
+  enterpriseFitStrong: {
+    label: "Enterprise fit strong",
+    group: "Scope and policy",
+    direction: "contextual",
+    summary:
+      "A strong Enterprise fit can make the enterprise tier eligible when support and coverage are aligned.",
+    impacts: [
+      {
+        artifact: "enterpriseFitStrong",
+        stage: "pathScore",
+        path: "MUI Enterprise",
+        direction: "contextual",
+        effectType: "guardrail",
+        effectScale: "small",
+        calculatedIn: "buildScorecard",
+        calibrationRef: "pathScores.enterpriseEligibility",
+        reason: "Enterprise fit is gated by calibrated enterprise-need, support, tier-score, and coverage thresholds."
+      }
+    ]
+  },
+  effectiveMuiPlan: {
+    label: "Effective MUI plan",
+    group: "Scope and policy",
+    direction: "contextual",
+    summary:
+      "The selected MUI tier is controlled by plan fit and calibrated eligibility thresholds.",
+    impacts: [
+      {
+        artifact: "effectiveMuiPlan",
+        stage: "pathScore",
+        path: "MUI Enterprise",
+        direction: "contextual",
+        effectType: "guardrail",
+        effectScale: "small",
+        calculatedIn: "buildScorecard",
+        calibrationRef: "pathScores.enterpriseEligibility",
+        reason: "Enterprise eligibility governs when the enterprise tier is selected."
+      },
+      {
+        artifact: "effectiveMuiPlan",
+        stage: "pathScore",
+        path: "MUI Premium",
+        direction: "contextual",
+        effectType: "guardrail",
+        effectScale: "small",
+        calculatedIn: "buildScorecard",
+        calibrationRef: "pathScores.premiumEligibility",
+        reason: "Premium eligibility governs when the premium tier is selected."
+      }
+    ]
+  },
   maintenanceHorizonMonths: {
     label: "Maintenance horizon months",
     group: "Lifecycle cost",
@@ -1244,6 +1375,57 @@ export const MODEL_IMPACT_MAP = {
         effectScale: "small",
         calculatedIn: "buildScorecard",
         reason: "Operationally sensitive work tends to amplify support demand."
+      }
+    ]
+  },
+  recommendation: {
+    label: "Recommendation",
+    group: "Policy and output",
+    direction: "contextual",
+    summary:
+      "Final recommendation selection is driven by dominance and evidence thresholds.",
+    impacts: [
+      {
+        artifact: "recommendation",
+        stage: "recommendation",
+        path: "Both",
+        direction: "contextual",
+        effectType: "guardrail",
+        effectScale: "small",
+        calculatedIn: "runSimulation",
+        calibrationRef: "recommendationPolicy.dominance",
+        reason: "Dominance thresholds decide when one path clearly wins on delivery or cost."
+      },
+      {
+        artifact: "recommendation",
+        stage: "recommendation",
+        path: "Both",
+        direction: "contextual",
+        effectType: "guardrail",
+        effectScale: "small",
+        calculatedIn: "runSimulation",
+        calibrationRef: "recommendationPolicy.coreEvidence",
+        reason: "Core recommendations require stronger evidence when the context is otherwise build-friendly."
+      }
+    ]
+  },
+  confidence: {
+    label: "Confidence",
+    group: "Policy and output",
+    direction: "neutral",
+    summary:
+      "Recommendation confidence is bounded by calibrated policy floors, ceilings, and cutoffs.",
+    impacts: [
+      {
+        artifact: "confidence",
+        stage: "recommendation",
+        path: "Both",
+        direction: "neutral",
+        effectType: "guardrail",
+        effectScale: "small",
+        calculatedIn: "runSimulation",
+        calibrationRef: "recommendationPolicy.confidence",
+        reason: "Confidence scoring uses calibrated floors, ceilings, and high/medium cutoffs."
       }
     ]
   }

@@ -2,7 +2,7 @@
 
 ## Responsibilities
 
-`CALIBRATION` is the numeric source of truth. It holds the tunable thresholds, coefficients, caps, floors, multipliers, and policy cutoffs that shape model behavior.
+`CALIBRATION` is the numeric source of truth. It holds the tunable thresholds, coefficients, caps, floors, multipliers, and policy cutoffs that shape model behavior. Thresholds and recommendation policy values should live here instead of in branching logic.
 
 `MODEL_ARTIFACT_GLOSSARY` is the artifact source of truth. It defines meaning, stage, path, and lifecycle notes for each artifact.
 
@@ -10,7 +10,7 @@
 
 `MODEL_STAGES` defines the stage vocabulary used across the glossary, impact map, and dependency docs.
 
-Calculation code should eventually read numeric values from `CALIBRATION`. The impact map should reference those values through `calibrationRef` instead of duplicating numbers inline.
+Calculation code should read numeric values from `CALIBRATION`. The impact map should reference those values through `calibrationRef` instead of duplicating numbers inline.
 
 ## Change Rules
 
@@ -20,6 +20,13 @@ When changing a threshold or coefficient:
 2. Confirm the matching `MODEL_IMPACT_MAP` entry still points to the right `calibrationRef`.
 3. Validate representative low-risk, medium-risk, and high-risk scenarios.
 4. Check launch, TCO, and P90 outputs if the change affects effort, cost, or variance.
+
+When adding a new model threshold:
+
+1. Add it to `CALIBRATION`.
+2. Reference it from the relevant formula or policy branch.
+3. Add or update the corresponding `MODEL_IMPACT_MAP` entry.
+4. Avoid introducing a new hardcoded threshold directly in simulation or scorecard code.
 
 To validate the metadata split locally, run the lightweight non-runtime checker:
 

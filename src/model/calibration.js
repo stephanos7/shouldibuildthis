@@ -1070,15 +1070,65 @@ export const CALIBRATION = {
   },
 
   pathScores: {
+    // Scorecard baselines used in buildScorecard() to rank Build and MUI tiers
+    // before simulation. These are not launch/TCO estimates; they are policy
+    // thresholds and score bonuses/penalties that decide which path is treated
+    // as the best fit for the input shape.
     buildTierScore: {},
+    // Core path score inputs. Higher values make the Core tier more or less
+    // competitive before recommendation logic runs.
     coreTierScore: {},
+    // Premium path score inputs. These values shape when the Premium tier
+    // becomes the preferred packaged MUI option.
     premiumTierScore: {},
+    // Enterprise path score inputs. These values determine when the model
+    // should consider the Enterprise tier the strongest MUI fit.
     enterpriseTierScore: {},
+    // Composite ideal-customer-profile score used to summarize how well the
+    // input matches the packaged-path pattern overall.
     icpScore: {},
-    simpleScope: {},
-    buildFriendlyContext: {},
-    enterpriseEligibility: {},
-    premiumEligibility: {}
+    // Hard caps that define when a scope is considered "simple". buildScorecard()
+    // uses this to boost or penalize tier scores and to keep simple scopes from
+    // being treated as more complex than they are.
+    simpleScope: {
+      maxFunctionalRisk: 0.38,
+      maxQualityRisk: 0.38,
+      maxAdvancedFeatures: 2,
+      maxDataHeavyScreens: 3,
+      maxRowScale: 2,
+      maxColumnScale: 2
+    },
+    // Additional guardrails for the Build-friendly exception. These values keep
+    // the explicit "Build still credible" branch narrow and auditable.
+    buildFriendlyContext: {
+      maxSupportNeed: 1,
+      maxRowScale: 2,
+      maxColumnScale: 2,
+      maxAdvancedFeatures: 0,
+      allowedAccessibilityTargets: ["none", "wcag-a"]
+    },
+    // Eligibility thresholds for selecting Enterprise during scorecard
+    // evaluation. All conditions must pass before the Enterprise tier is auto-
+    // selected.
+    enterpriseEligibility: {
+      minEnterpriseNeed: 0.68,
+      minSupportNeed: 2,
+      minEnterpriseTierScore: 78,
+      minCoverageScore: 66,
+      maxSupportGap: 0.18
+    },
+    // Eligibility thresholds for selecting Premium during scorecard
+    // evaluation. These gate the Premium path when the workload is not strong
+    // enough to justify Enterprise.
+    premiumEligibility: {
+      minCoverageScore: 62,
+      disallowForSimpleLowSupportScope: true,
+      minFunctionalRisk: 0.62,
+      minQualityRisk: 0.56,
+      minRowScale: 3,
+      minColumnScale: 3,
+      minAdvancedFeatureCount: 4
+    }
   },
 
   scenarioLevers: {
@@ -1139,8 +1189,23 @@ export const CALIBRATION = {
           ]
         }
       },
-      build: {},
-      mui: {}
+      build: {
+        base: 0.84,
+        deliveryStrength: 0.36,
+        ownershipRisk: -0.06,
+        internalAbsorption: 0.08,
+        minimum: 0.58,
+        maximum: 1.32
+      },
+      mui: {
+        base: 0.96,
+        deliveryStrength: 0.18,
+        ownershipRisk: -0.03,
+        muiLeverage: 0.06,
+        muiAdoptionBurden: -0.04,
+        minimum: 0.72,
+        maximum: 1.4
+      }
     },
 
     build: {
@@ -1166,11 +1231,48 @@ export const CALIBRATION = {
   },
 
   recommendationPolicy: {
-    dominance: {},
-    coreEvidence: {},
-    enterpriseEligibility: {},
-    premiumEligibility: {},
-    buildCredibility: {},
-    confidence: {}
+    dominance: {
+      mui: {
+        minProbabilityFaster: 75,
+        minProbabilityLowerTco: 75,
+        maxLaunchWeekDeltaMedian: 0,
+        maxTcoDeltaMedian: 0
+      },
+      build: {
+        maxProbabilityMuiFaster: 35,
+        maxProbabilityMuiLowerTco: 40,
+        minLaunchWeekDeltaMedian: 0,
+        minTcoDeltaMedian: 0
+      },
+      deliveryOnlyMuiAdvantage: {
+        minProbabilityFaster: 75,
+        minProbabilityLowerTco: 60,
+        maxTcoDeltaMedian: 0
+      }
+    },
+    coreEvidence: {
+      buildFriendlyRequiresStrongerEvidence: true,
+      minProbabilityFaster: 75,
+      minProbabilityLowerTco: 75,
+      minLaunchAdvantageWeeks: 2
+    },
+    buildCredibility: {
+      maxLaunchDisadvantageWeeks: 1.5,
+      maxTcoDisadvantageRatio: 0.1,
+      maxFunctionalRisk: 0.55,
+      minCompetitiveIndex: 58,
+      minStrongCompetitiveIndex: 62,
+      minCoverageForNonCoreReuse: 65,
+      minCoverageForStrongNonCoreSignal: 74,
+      minInternalAbsorptionForBuildTradeoff: 0.74
+    },
+    confidence: {
+      high: 78,
+      medium: 58,
+      minQualified: 48,
+      minBuildWithDeliveryOnlyAdvantage: 62,
+      minOpposed: 42,
+      max: 96
+    }
   }
 };

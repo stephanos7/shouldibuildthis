@@ -1,5 +1,6 @@
 import { PUBLIC_BENCHMARK_SOURCES } from "../../src/data/publicSources.js";
 import {
+  CALIBRATION,
   CALIBRATION_VERSION,
   DERIVED_FACTOR_WEIGHTS,
   PATH_SCORE_WEIGHTS,
@@ -8,10 +9,8 @@ import {
   SCENARIO_LEVER_WEIGHTS,
   SIMULATION_CALIBRATION
 } from "../../src/model/calibration.js";
-import {
-  RECOMMENDATION_POLICY,
-  RECOMMENDATION_POLICY_VERSION
-} from "../../src/model/recommendationPolicy.js";
+import { evaluateThresholdTable } from "../../src/model/evaluateCalibration.js";
+import { RECOMMENDATION_POLICY_VERSION } from "../../src/model/recommendationPolicy.js";
 
 const ITERATIONS = 10000;
 const MODEL_VERSION = "benchmark-informed-v5";
@@ -1420,6 +1419,7 @@ function buildPlanFit(planKey, input, derivedFactors) {
 
 function buildScorecard(input, derivedFactors) {
   const pathScoreWeights = PATH_SCORE_WEIGHTS;
+  const pathScores = CALIBRATION.pathScores;
   const functionalRisk = derivedFactors.functionalComplexity.score / 100;
   const qualityRisk = derivedFactors.qualityBurden.score / 100;
   const deliveryStrength = derivedFactors.deliveryMaturity.score / 100;
@@ -1467,12 +1467,12 @@ function buildScorecard(input, derivedFactors) {
   );
 
   const simpleScope =
-    functionalRisk <= 0.38 &&
-    qualityRisk <= 0.38 &&
-    input.advancedFeatures.length <= 2 &&
-    input.dataHeavyScreens <= 3 &&
-    rowScale <= 2 &&
-    columnScale <= 2;
+    functionalRisk <= pathScores.simpleScope.maxFunctionalRisk &&
+    qualityRisk <= pathScores.simpleScope.maxQualityRisk &&
+    input.advancedFeatures.length <= pathScores.simpleScope.maxAdvancedFeatures &&
+    input.dataHeavyScreens <= pathScores.simpleScope.maxDataHeavyScreens &&
+    rowScale <= pathScores.simpleScope.maxRowScale &&
+    columnScale <= pathScores.simpleScope.maxColumnScale;
   const coreTierScore = clamp(
     pathScoreWeights.coreTierScore.base +
       planFits.core.coverageScore *
@@ -1534,11 +1534,12 @@ function buildScorecard(input, derivedFactors) {
     100
   );
   const enterpriseFitStrong =
-    enterpriseNeed >=
-      RECOMMENDATION_POLICY.enterpriseEligibility.minEnterpriseNeed &&
-    supportNeed >= RECOMMENDATION_POLICY.enterpriseEligibility.minSupportNeed;
-  const lowSupportNeed = supportNeed <= 1;
-  const supportOrProcurementNeed = supportNeed >= 2;
+    enterpriseNeed >= pathScores.enterpriseEligibility.minEnterpriseNeed &&
+    supportNeed >= pathScores.enterpriseEligibility.minSupportNeed;
+  const lowSupportNeed =
+    supportNeed <= pathScores.buildFriendlyContext.maxSupportNeed;
+  const supportOrProcurementNeed =
+    supportNeed >= pathScores.enterpriseEligibility.minSupportNeed;
   const muiAdoptionUseful = muiUsage > 0 || input.reactApps >= 2;
   const buildFriendlyContext =
     lowSupportNeed &&
@@ -1548,35 +1549,37 @@ function buildScorecard(input, derivedFactors) {
     input.changeLeadTime === "less-than-day" &&
     input.reworkFrequency === "rare" &&
     input.deadlinePressure === "low" &&
-    rowScale <= 2 &&
-    columnScale <= 2 &&
-    input.advancedFeatures.length === 0 &&
-    ["none", "wcag-a"].includes(input.accessibilityTarget);
+    rowScale <= pathScores.buildFriendlyContext.maxRowScale &&
+    columnScale <= pathScores.buildFriendlyContext.maxColumnScale &&
+    input.advancedFeatures.length <= pathScores.buildFriendlyContext.maxAdvancedFeatures &&
+    pathScores.buildFriendlyContext.allowedAccessibilityTargets.includes(
+      input.accessibilityTarget
+    );
 
   let autoSelectedMuiPlan = "core";
 
   if (
     enterpriseFitStrong &&
     enterpriseTierScore >=
-      RECOMMENDATION_POLICY.enterpriseEligibility.minEnterpriseTierScore &&
+      pathScores.enterpriseEligibility.minEnterpriseTierScore &&
     planFits.enterprise.coverageScore >=
-      RECOMMENDATION_POLICY.enterpriseEligibility.minCoverageScore
+      pathScores.enterpriseEligibility.minCoverageScore
   ) {
     autoSelectedMuiPlan = "enterprise";
   } else if (
     planFits.premium.coverageScore >=
-      RECOMMENDATION_POLICY.premiumEligibility.minCoverageScore &&
+      pathScores.premiumEligibility.minCoverageScore &&
     !(
-      RECOMMENDATION_POLICY.premiumEligibility
-        .disallowForSimpleLowSupportScope &&
+      pathScores.premiumEligibility.disallowForSimpleLowSupportScope &&
       simpleScope &&
-      supportNeed <= 1
+      supportNeed <= pathScores.buildFriendlyContext.maxSupportNeed
     ) &&
-    (functionalRisk >= 0.62 ||
-      qualityRisk >= 0.56 ||
-      rowScale >= 3 ||
-      columnScale >= 3 ||
-      input.advancedFeatures.length >= 4)
+    (functionalRisk >= pathScores.premiumEligibility.minFunctionalRisk ||
+      qualityRisk >= pathScores.premiumEligibility.minQualityRisk ||
+      rowScale >= pathScores.premiumEligibility.minRowScale ||
+      columnScale >= pathScores.premiumEligibility.minColumnScale ||
+      input.advancedFeatures.length >=
+        pathScores.premiumEligibility.minAdvancedFeatureCount)
   ) {
     autoSelectedMuiPlan = "premium";
   }
@@ -2637,6 +2640,10 @@ function buildSensitivityDiagnostics(input, baseResult) {
 function buildDeterministicEstimate(input, scorecard) {
   const buildCalibration = SIMULATION_CALIBRATION.build;
   const muiCalibration = SIMULATION_CALIBRATION.mui;
+  const buildVelocityCalibration = CALIBRATION.simulation.velocity.build;
+  const muiVelocityCalibration = CALIBRATION.simulation.velocity.mui;
+  const frontendDeveloperVelocityCalibration =
+    CALIBRATION.simulation.velocity.frontendDevelopers;
   const planFit = scorecard.effectivePlanFit;
   const estimatedLicensedDevelopers = estimateLicensedDevelopers(
     input,
@@ -2662,32 +2669,32 @@ function buildDeterministicEstimate(input, scorecard) {
   );
   const buildTailPenalty =
     downsideTailRisk >= 0.45 ? (downsideTailRisk - 0.45) * 0.22 : 0;
+  const buildDeveloperVelocityAdjustment = evaluateThresholdTable(
+    input.frontendDevelopers,
+    frontendDeveloperVelocityCalibration.build
+  );
+  const muiDeveloperVelocityAdjustment = evaluateThresholdTable(
+    input.frontendDevelopers,
+    frontendDeveloperVelocityCalibration.mui
+  );
   const buildVelocity = clamp(
-    0.84 +
-      scorecard.deliveryStrength * 0.36 -
-      scorecard.ownershipRisk * 0.06 +
-      internalAbsorption * 0.08 +
-      (input.frontendDevelopers >= 8
-        ? 0.08
-        : input.frontendDevelopers >= 4
-          ? 0.03
-          : -0.03),
-    0.58,
-    1.32
+    buildVelocityCalibration.base +
+      scorecard.deliveryStrength * buildVelocityCalibration.deliveryStrength +
+      scorecard.ownershipRisk * buildVelocityCalibration.ownershipRisk +
+      internalAbsorption * buildVelocityCalibration.internalAbsorption +
+      buildDeveloperVelocityAdjustment,
+    buildVelocityCalibration.minimum,
+    buildVelocityCalibration.maximum
   );
   const muiVelocity = clamp(
-    0.96 +
-      scorecard.deliveryStrength * 0.18 -
-      scorecard.ownershipRisk * 0.03 +
-      muiLeverage * 0.06 -
-      muiAdoptionBurden * 0.04 +
-      (input.frontendDevelopers >= 8
-        ? 0.06
-        : input.frontendDevelopers >= 4
-          ? 0.02
-          : -0.01),
-    0.72,
-    1.4
+    muiVelocityCalibration.base +
+      scorecard.deliveryStrength * muiVelocityCalibration.deliveryStrength +
+      scorecard.ownershipRisk * muiVelocityCalibration.ownershipRisk +
+      muiLeverage * muiVelocityCalibration.muiLeverage +
+      muiAdoptionBurden * muiVelocityCalibration.muiAdoptionBurden +
+      muiDeveloperVelocityAdjustment,
+    muiVelocityCalibration.minimum,
+    muiVelocityCalibration.maximum
   );
 
   const buildBaseEngineeringWeeks = buildCalibration.engineeringMeanWeeks.base;
@@ -3023,6 +3030,10 @@ function buildDeterministicEstimate(input, scorecard) {
 function runSimulation(input, scorecard) {
   const buildCalibration = SIMULATION_CALIBRATION.build;
   const muiCalibration = SIMULATION_CALIBRATION.mui;
+  const buildVelocityCalibration = CALIBRATION.simulation.velocity.build;
+  const muiVelocityCalibration = CALIBRATION.simulation.velocity.mui;
+  const frontendDeveloperVelocityCalibration =
+    CALIBRATION.simulation.velocity.frontendDevelopers;
   const rng = createRng(
     JSON.stringify({
       ...input,
@@ -3077,32 +3088,33 @@ function runSimulation(input, scorecard) {
     0.82
   );
 
+  const buildDeveloperVelocityAdjustment = evaluateThresholdTable(
+    input.frontendDevelopers,
+    frontendDeveloperVelocityCalibration.build
+  );
+  const muiDeveloperVelocityAdjustment = evaluateThresholdTable(
+    input.frontendDevelopers,
+    frontendDeveloperVelocityCalibration.mui
+  );
+
   const buildVelocity = clamp(
-    0.84 +
-      scorecard.deliveryStrength * 0.36 -
-      scorecard.ownershipRisk * 0.06 +
-      internalAbsorption * 0.08 +
-      (input.frontendDevelopers >= 8
-        ? 0.08
-        : input.frontendDevelopers >= 4
-          ? 0.03
-          : -0.03),
-    0.58,
-    1.32
+    buildVelocityCalibration.base +
+      scorecard.deliveryStrength * buildVelocityCalibration.deliveryStrength -
+      scorecard.ownershipRisk * buildVelocityCalibration.ownershipRisk +
+      internalAbsorption * buildVelocityCalibration.internalAbsorption +
+      buildDeveloperVelocityAdjustment,
+    buildVelocityCalibration.minimum,
+    buildVelocityCalibration.maximum
   );
   const muiVelocity = clamp(
-    0.96 +
-      scorecard.deliveryStrength * 0.18 -
-      scorecard.ownershipRisk * 0.03 +
-      muiLeverage * 0.06 -
-      muiAdoptionBurden * 0.04 +
-      (input.frontendDevelopers >= 8
-        ? 0.06
-        : input.frontendDevelopers >= 4
-          ? 0.02
-          : -0.01),
-    0.72,
-    1.4
+    muiVelocityCalibration.base +
+      scorecard.deliveryStrength * muiVelocityCalibration.deliveryStrength -
+      scorecard.ownershipRisk * muiVelocityCalibration.ownershipRisk +
+      muiLeverage * muiVelocityCalibration.muiLeverage -
+      muiAdoptionBurden * muiVelocityCalibration.muiAdoptionBurden +
+      muiDeveloperVelocityAdjustment,
+    muiVelocityCalibration.minimum,
+    muiVelocityCalibration.maximum
   );
 
   const buildLaunchWeeks = [];
@@ -3558,7 +3570,8 @@ function runSimulation(input, scorecard) {
 
 function buildRecommendation(input, scorecard, simulation) {
   const recommendationWeights = RECOMMENDATION_POLICY_WEIGHTS;
-  const recommendationPolicy = RECOMMENDATION_POLICY;
+  const recommendationPolicy = CALIBRATION.recommendationPolicy;
+  const pathScores = CALIBRATION.pathScores;
   const comparison = simulation.comparison;
   const selectedPlan = PLAN_CONFIG[scorecard.effectiveMuiPlan];
   const planFit = scorecard.effectivePlanFit;
@@ -3700,8 +3713,7 @@ function buildRecommendation(input, scorecard, simulation) {
     scorecard.enterpriseFitStrong &&
     scorecard.effectiveMuiPlan === "enterprise" &&
     (muiDeliveryFavored ||
-      planFit.supportGap <
-        recommendationPolicy.enterpriseEligibility.maxSupportGap)
+      planFit.supportGap < pathScores.enterpriseEligibility.maxSupportGap)
   ) {
     option = "Enterprise";
     summary =
@@ -3710,8 +3722,7 @@ function buildRecommendation(input, scorecard, simulation) {
     scorecard.effectiveMuiPlan === "premium" &&
     !scorecard.supportOrProcurementNeed &&
     (muiDeliveryFavored ||
-      planFit.coverageScore >=
-        recommendationPolicy.premiumEligibility.minCoverageScore ||
+      planFit.coverageScore >= pathScores.premiumEligibility.minCoverageScore ||
       nonSpeedMuiSignal)
   ) {
     option = "Premium";
@@ -3741,7 +3752,8 @@ function buildRecommendation(input, scorecard, simulation) {
     scorecard.buildCompetitiveIndex >=
       recommendationPolicy.buildCredibility.minStrongCompetitiveIndex &&
     !scorecard.enterpriseFitStrong &&
-    scorecard.functionalRisk < 0.55 &&
+    scorecard.functionalRisk <
+      recommendationPolicy.buildCredibility.maxFunctionalRisk &&
     buildStillCompetitive
   ) {
     option = "Build in-house";
