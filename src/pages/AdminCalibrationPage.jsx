@@ -13,6 +13,7 @@ import {
   Typography
 } from "@mui/material";
 import PageHero from "../components/PageHero.jsx";
+import CalibrationPreview from "../components/admin/CalibrationPreview.jsx";
 import CalibrationSectionCard from "../components/admin/CalibrationSectionCard.jsx";
 import CalibrationNumberField from "../components/admin/CalibrationNumberField.jsx";
 import PathFitSignalTable from "../components/admin/PathFitSignalTable.jsx";
@@ -209,6 +210,10 @@ function setValueAtPath(value, path, nextValue) {
 
   cursor[path[path.length - 1]] = nextValue;
   return next;
+}
+
+function normalizeCalibrationDraftForPreview(draft) {
+  return sanitizeCalibrationDraft(normalizePathFitShares(draft));
 }
 
 function buildOverrideDiff(baseValue, currentValue) {
@@ -463,6 +468,8 @@ function AdminCalibrationPage() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   const currentOverrideDiff = buildOverrideDiff(DEFAULT_CALIBRATION, draft) ?? {};
+  const previewOverrideDiff =
+    buildOverrideDiff(DEFAULT_CALIBRATION, normalizeCalibrationDraftForPreview(draft)) ?? {};
   const activeOverridePaths = getCalibrationOverridePaths(persistedOverrides);
   const activeOverrideCount = activeOverridePaths.length;
 
@@ -602,6 +609,17 @@ function AdminCalibrationPage() {
           {statusDetails}
         </Alert>
       ) : null}
+
+      <CalibrationSectionCard
+        title="Calibration preview"
+        description="Compare the built-in defaults with the current draft overrides against deterministic golden scenarios."
+      >
+        <CalibrationPreview
+          calibrationOverrides={
+            Object.keys(previewOverrideDiff).length > 0 ? previewOverrideDiff : null
+          }
+        />
+      </CalibrationSectionCard>
 
       <CalibrationSectionCard
         title="Overview"
