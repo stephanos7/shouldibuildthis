@@ -26,7 +26,7 @@ import {
 } from "../data/publicSources.js";
 
 const ASSESSMENT_INPUT_SCHEMA_VERSION = 2;
-const CURRENT_MODEL_VERSION = "deterministic-fit-v1";
+const CURRENT_MODEL_VERSION = "deterministic-fit-v2";
 const CURRENT_CALIBRATION_VERSION = "heuristic-v1";
 
 const optionLabelMaps = {
@@ -164,17 +164,29 @@ const pathLabels = {
   enterprise: "MUI X Enterprise fit"
 };
 
-const driverLabels = {
-  internalAbsorption: "Internal absorption",
-  buildReuseLeverage: "Build reuse leverage",
-  muiLeverage: "MUI leverage",
-  muiAdoptionBurden: "MUI adoption burden",
-  downsideTailRisk: "Downside tail risk",
-  performancePressure: "Performance pressure",
-  muiPerformanceReadiness: "MUI performance readiness",
-  muiPerformanceBurden: "MUI performance burden",
-  buildPerformanceReadiness: "Build performance readiness",
-  buildPerformanceBurden: "Build performance burden"
+const sensitivityInputLabels = {
+  frontendDevelopers: "Frontend developers",
+  reactApps: "React apps",
+  dependentTeams: "Dependent teams",
+  ownershipModel: "Ownership model",
+  existingMuiUsage: "Existing MUI usage",
+  designSystemMaturity: "Design system maturity",
+  primaryUseCase: "Primary use case",
+  dataHeavyScreens: "Data-heavy screens",
+  expectedRows: "Expected rows",
+  expectedColumns: "Expected columns",
+  advancedFeatures: "Advanced features",
+  accessibilityTarget: "Accessibility target",
+  changeLeadTime: "Change lead time",
+  performanceSensitivity: "Performance sensitivity",
+  reworkFrequency: "Rework frequency",
+  knowledgeConcentration: "Knowledge concentration",
+  designDevHandoffFriction: "Design-dev handoff friction",
+  componentStandardizationGoal: "Component standardization goal",
+  deadlinePressure: "Deadline pressure",
+  ownershipHorizon: "Ownership horizon",
+  supportRequirement: "Support requirement",
+  productionCriticality: "Production criticality"
 };
 
 function readStoredObject(key) {
@@ -259,28 +271,49 @@ function formatLevel(value) {
   return `${value[0].toUpperCase()}${value.slice(1)} fit`;
 }
 
-function formatConfidenceLevel(value) {
-  if (!value) {
-    return "Unclear confidence";
-  }
-
-  return `${value[0].toUpperCase()}${value.slice(1)} confidence`;
-}
-
 function getFactorTitle(factorKey) {
   return factorLabels[factorKey] ?? factorKey;
 }
 
 function getDriverTitle(driverKey) {
-  return driverLabels[driverKey] ?? driverKey;
+  return sensitivityInputLabels[driverKey] ?? driverKey;
 }
 
-function getToneColor(level) {
-  return {
-    high: "success.main",
-    medium: "warning.main",
-    low: "text.disabled"
-  }[level] ?? "text.secondary";
+function formatSensitivityDirection(direction) {
+  const labels = {
+    "increases-build-fit": "Increases build fit",
+    "reduces-build-fit": "Reduces build fit",
+    "increases-core-fit": "Increases Core fit",
+    "increases-premium-fit": "Increases Premium fit",
+    "increases-enterprise-fit": "Increases Enterprise fit",
+    "reduces-selected-path-fit": "Reduces selected path fit",
+    "increases-winner-margin": "Increases winner margin",
+    "reduces-winner-margin": "Reduces winner margin",
+    mixed: "Mixed effect"
+  };
+
+  return labels[direction] ?? direction;
+}
+
+function formatSignedDelta(value) {
+  if (!Number.isFinite(value)) {
+    return "N/A";
+  }
+
+  const rounded = formatNumber(value, 1);
+  return `${value > 0 ? "+" : ""}${rounded}`;
+}
+
+function getDeltaChipColor(value) {
+  if (value > 0) {
+    return "success";
+  }
+
+  if (value < 0) {
+    return "warning";
+  }
+
+  return "default";
 }
 
 function getToneChipColor(level) {
@@ -289,18 +322,6 @@ function getToneChipColor(level) {
     medium: "warning",
     low: "default"
   }[level] ?? "default";
-}
-
-function getConfidenceChipColor(level) {
-  return {
-    high: "success",
-    moderate: "warning",
-    qualified: "default"
-  }[level] ?? "default";
-}
-
-function getPathTone(pathKey, winnerKey) {
-  return pathKey === winnerKey ? "secondary.main" : "divider";
 }
 
 function buildInputChips(assessmentInput) {
@@ -397,7 +418,7 @@ function isCurrentResult(result) {
       result.calibrationVersion === CURRENT_CALIBRATION_VERSION &&
       result.recommendation &&
       result.pathFits &&
-      result.confidence
+      result.sensitivity
   );
 }
 
@@ -433,7 +454,15 @@ function SectionCard({ title, description, children, action }) {
   );
 }
 
-function ScoreCard({ title, score, level, highlighted = false, levelLabel, children }) {
+function ScoreCard({
+  title,
+  score,
+  level,
+  highlighted = false,
+  levelLabel,
+  showLevelChip = true,
+  children
+}) {
   return (
     <Card
       elevation={0}
@@ -457,14 +486,16 @@ function ScoreCard({ title, score, level, highlighted = false, levelLabel, child
             value={clamp(Number(score) || 0, 0, 100)}
             sx={{ height: 10, borderRadius: 999, bgcolor: "action.hover" }}
           />
-          <Stack direction="row" spacing={1} alignItems="center">
-            <Chip
-              size="small"
-              label={levelLabel ?? formatLevel(level)}
-              color={getToneChipColor(level)}
-              variant="outlined"
-            />
-          </Stack>
+          {showLevelChip ? (
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Chip
+                size="small"
+                label={levelLabel ?? formatLevel(level)}
+                color={getToneChipColor(level)}
+                variant="outlined"
+              />
+            </Stack>
+          ) : null}
           {children}
         </Stack>
       </CardContent>
@@ -528,26 +559,97 @@ function PathCard({ path, winnerKey }) {
   );
 }
 
-function DriverCard({ title, score, level, drivers }) {
+function SensitivityDriverCard({ driver, compact = false }) {
+  const deltas = driver?.deltas ?? {};
+  const visibleDeltas = compact
+    ? [
+        ["Build", deltas.buildFit],
+        ["Core", deltas.coreFit],
+        ["Margin", deltas.winnerMargin]
+      ]
+    : [
+        ["Build", deltas.buildFit],
+        ["Core", deltas.coreFit],
+        ["Premium", deltas.premiumFit],
+        ["Enterprise", deltas.enterpriseFit],
+        ["Margin", deltas.winnerMargin]
+      ];
+
   return (
     <Card elevation={0} sx={{ height: "100%", border: 1, borderColor: "divider" }}>
-      <CardContent sx={{ p: 2.5 }}>
-        <Stack spacing={2}>
+      <CardContent sx={{ p: compact ? 1.75 : 2.5 }}>
+        <Stack spacing={compact ? 1.5 : 2}>
           <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
+            <Typography variant={compact ? "subtitle2" : "subtitle1"} component="h3">
+              {driver?.label ?? "Driver"}
+            </Typography>
+            <Chip size="small" label={getDriverTitle(driver?.inputKey ?? "input")} variant="outlined" />
+          </Stack>
+          <Stack spacing={0.75}>
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+              <Chip
+                size="small"
+                label={driver?.testedChange ?? "Unknown change"}
+                variant="outlined"
+              />
+              <Chip
+                size="small"
+                label={formatSensitivityDirection(driver?.direction)}
+                color={driver?.direction === "mixed" ? "default" : "secondary"}
+                variant="outlined"
+              />
+              {driver?.recommendationChanged ? (
+                <Chip size="small" label="Recommendation changed" color="secondary" />
+              ) : null}
+            </Stack>
+            <Typography variant="body2" color="text.secondary">
+              {driver?.impactSummary ?? "No impact summary available."}
+            </Typography>
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+              {visibleDeltas.map(([label, value]) => (
+                <Chip
+                  key={label}
+                  size="small"
+                  label={`${label} ${formatSignedDelta(value)}`}
+                  color={getDeltaChipColor(value)}
+                  variant="outlined"
+                />
+              ))}
+            </Stack>
+          </Stack>
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+}
+
+function SensitivityGroupCard({ title, drivers }) {
+  const visibleDrivers = Array.isArray(drivers) ? drivers.slice(0, 2) : [];
+
+  return (
+    <Card elevation={0} sx={{ height: "100%", border: 1, borderColor: "divider" }}>
+      <CardContent sx={{ p: 2.25 }}>
+        <Stack spacing={2}>
+          <Box>
             <Typography variant="subtitle1" component="h3">
               {title}
             </Typography>
-            <Chip size="small" label={formatScore(score * 100)} color={getToneChipColor(level)} />
-          </Stack>
-          <Typography variant="body2" sx={{ color: getToneColor(level) }}>
-            {formatLevel(level)}
-          </Typography>
-          <Stack spacing={0.75}>
-            {(Array.isArray(drivers) ? drivers : []).slice(0, 2).map((driver) => (
-              <Typography key={driver} variant="body2" color="text.secondary">
-                {driver}
+            <Typography variant="body2" color="text.secondary">
+              {visibleDrivers.length > 0
+                ? `${visibleDrivers.length} adjacent perturbations`
+                : "No material nearby changes"}
+            </Typography>
+          </Box>
+          <Stack spacing={1.25}>
+            {visibleDrivers.length > 0 ? (
+              visibleDrivers.map((driver) => (
+                <SensitivityDriverCard key={`${driver.inputKey}-${driver.testedChange}`} driver={driver} compact />
+              ))
+            ) : (
+              <Typography variant="body2" color="text.secondary">
+                No adjacent perturbations produced a meaningful shift here.
               </Typography>
-            ))}
+            )}
           </Stack>
         </Stack>
       </CardContent>
@@ -659,9 +761,9 @@ function ReportPage() {
   }
 
   const recommendation = simulationResult.recommendation ?? {};
-  const confidence = simulationResult.confidence ?? {};
   const derivedFactors = simulationResult.derivedFactors ?? {};
   const pathFits = simulationResult.pathFits ?? {};
+  const sensitivity = simulationResult.sensitivity ?? simulationResult.diagnostics?.sensitivity ?? {};
   const diagnostics = simulationResult.diagnostics ?? {};
   const rankedPaths = Object.values(pathFits)
     .filter(Boolean)
@@ -671,7 +773,6 @@ function ReportPage() {
     pathFits[recommendation.runnerUp?.key] ?? rankedPaths.find((path) => path?.key !== winner?.key) ?? null;
   const winnerSignals = buildWinnerSignals(recommendation, winner ?? {}, runnerUp ?? {});
   const changeItems = buildChangeItems(recommendation.key, assessmentInput);
-  const scenarioLevers = diagnostics.scenarioLevers ?? {};
   const evidenceBasis = Array.isArray(diagnostics.evidenceBasis) ? diagnostics.evidenceBasis : [];
   const sourceChips = (simulationResult.publicSources ?? PUBLIC_BENCHMARK_SOURCES).map(
     (source) => source.shortLabel ?? source.title
@@ -689,10 +790,14 @@ function ReportPage() {
     ["premium", pathFits.premium],
     ["enterprise", pathFits.enterprise]
   ].filter(([, path]) => path);
-  const leverEntries = Object.entries(scenarioLevers)
-    .filter(([, lever]) => lever && Number.isFinite(Number(lever.score)))
-    .sort((left, right) => Number(right[1].score) - Number(left[1].score))
-    .slice(0, 6);
+  const topModelDrivers = Array.isArray(sensitivity.topDrivers) ? sensitivity.topDrivers : [];
+  const buildFitDrivers = Array.isArray(sensitivity.buildFitDrivers) ? sensitivity.buildFitDrivers : [];
+  const coreFitDrivers = Array.isArray(sensitivity.coreFitDrivers) ? sensitivity.coreFitDrivers : [];
+  const premiumFitDrivers = Array.isArray(sensitivity.premiumFitDrivers) ? sensitivity.premiumFitDrivers : [];
+  const enterpriseFitDrivers = Array.isArray(sensitivity.enterpriseFitDrivers) ? sensitivity.enterpriseFitDrivers : [];
+  const recommendationDrivers = Array.isArray(sensitivity.recommendationDrivers)
+    ? sensitivity.recommendationDrivers
+    : [];
 
   return (
     <Stack spacing={4}>
@@ -737,21 +842,17 @@ function ReportPage() {
                     Decision signal
                   </Typography>
                   <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                    <Chip label={`Confidence: ${formatNumber(confidence.score ?? NaN, 0)}/100`} color="secondary" />
                     <Chip
-                      label={formatConfidenceLevel(confidence.level)}
-                      color={getConfidenceChipColor(confidence.level)}
-                      variant="outlined"
+                      label={`Margin: ${formatNumber(recommendation.runnerUp?.scoreGap ?? 0, 0)} points`}
+                      color="secondary"
                     />
                     <Chip label={`Runner-up: ${runnerUp?.label ?? "Not set"}`} variant="outlined" />
+                    <Chip label={recommendation.option ?? "Recommendation unavailable"} variant="outlined" />
                   </Stack>
                   <Divider />
                   <Box>
-                    <Typography variant="body2" color="text.secondary">
-                      Score gap
-                    </Typography>
                     <Typography variant="h4" component="div">
-                      {formatNumber(recommendation.runnerUp?.scoreGap ?? confidence.components?.scoreGap ?? 0, 0)}
+                      {formatNumber(recommendation.runnerUp?.scoreGap ?? 0, 0)}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
                       points between the winner and the runner-up
@@ -792,7 +893,7 @@ function ReportPage() {
                 {runnerUp?.label ?? "Not available"}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Margin: {formatNumber(recommendation.runnerUp?.scoreGap ?? confidence.components?.scoreGap ?? 0, 0)} points.
+                Margin: {formatNumber(recommendation.runnerUp?.scoreGap ?? 0, 0)} points.
               </Typography>
             </Stack>
           </Grid>
@@ -886,16 +987,16 @@ function ReportPage() {
           <Grid size={{ xs: 12, md: 4 }}>
             <ScoreCard
               title="Margin"
-              score={recommendation.runnerUp?.scoreGap ?? confidence.components?.scoreGap}
-              level={confidence.level}
-              levelLabel={formatConfidenceLevel(confidence.level)}
+              score={recommendation.runnerUp?.scoreGap ?? 0}
+              level={winner?.level}
+              showLevelChip={false}
             >
               <Stack spacing={0.75}>
                 <Typography variant="body2" color="text.secondary">
                   Score gap
                 </Typography>
                 <Typography variant="h6">
-                  {formatNumber(recommendation.runnerUp?.scoreGap ?? confidence.components?.scoreGap ?? 0, 0)}
+                  {formatNumber(recommendation.runnerUp?.scoreGap ?? 0, 0)}
                 </Typography>
               </Stack>
             </ScoreCard>
@@ -917,23 +1018,58 @@ function ReportPage() {
         </Grid>
       </SectionCard>
 
-      {leverEntries.length > 0 ? (
+      {topModelDrivers.length > 0 || buildFitDrivers.length > 0 || coreFitDrivers.length > 0 || premiumFitDrivers.length > 0 || enterpriseFitDrivers.length > 0 || recommendationDrivers.length > 0 ? (
         <SectionCard
-          title="Key decision drivers"
-          description="These are the deterministic driver diagnostics the model exposes for the winning result."
+          title="Sensitivity diagnostics"
+          description="Nearby input changes show how the deterministic path-fit scores and recommendation margin move."
         >
-          <Grid container spacing={2.5}>
-            {leverEntries.map(([key, lever]) => (
-              <Grid key={key} size={{ xs: 12, md: 6 }}>
-                <DriverCard
-                  title={getDriverTitle(key)}
-                  score={Number(lever.score) || 0}
-                  level={lever.level}
-                  drivers={lever.drivers}
-                />
+          <Stack spacing={3}>
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                Top model drivers
+              </Typography>
+              <Grid container spacing={2.5}>
+                {topModelDrivers.slice(0, 4).map((driver) => (
+                  <Grid key={`${driver.inputKey}-${driver.testedChange}`} size={{ xs: 12, md: 6 }}>
+                    <SensitivityDriverCard driver={driver} />
+                  </Grid>
+                ))}
               </Grid>
-            ))}
-          </Grid>
+            </Box>
+
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                Path-fit drivers
+              </Typography>
+              <Grid container spacing={2.5}>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <SensitivityGroupCard title="Build in-house fit" drivers={buildFitDrivers} />
+                </Grid>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <SensitivityGroupCard title="MUI Core fit" drivers={coreFitDrivers} />
+                </Grid>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <SensitivityGroupCard title="MUI X Premium fit" drivers={premiumFitDrivers} />
+                </Grid>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <SensitivityGroupCard title="MUI X Enterprise fit" drivers={enterpriseFitDrivers} />
+                </Grid>
+              </Grid>
+            </Box>
+
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                Recommendation-margin drivers
+              </Typography>
+              <Grid container spacing={2.5}>
+                {recommendationDrivers.slice(0, 4).map((driver) => (
+                  <Grid key={`${driver.inputKey}-${driver.testedChange}`} size={{ xs: 12, md: 6 }}>
+                    <SensitivityDriverCard driver={driver} />
+                  </Grid>
+                ))}
+              </Grid>
+            </Box>
+          </Stack>
         </SectionCard>
       ) : null}
 

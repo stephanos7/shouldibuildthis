@@ -7,7 +7,7 @@ import {
   SCENARIO_LEVER_WEIGHTS
 } from "../../src/model/calibration.js";
 
-const MODEL_VERSION = "deterministic-fit-v1";
+const MODEL_VERSION = "deterministic-fit-v2";
 
 const EXISTING_MUI_USAGE = new Set(["none", "some", "standardized"]);
 const DESIGN_SYSTEM_MATURITY = new Set(["low", "medium", "high"]);
@@ -231,6 +231,186 @@ const PATH_LABELS = {
   core: "MUI Core",
   premium: "MUI X Premium",
   enterprise: "MUI X Enterprise"
+};
+
+const SENSITIVITY_INPUT_LABELS = {
+  frontendDevelopers: "Frontend developers",
+  reactApps: "React apps",
+  dependentTeams: "Dependent teams",
+  ownershipModel: "Ownership model",
+  existingMuiUsage: "Existing MUI usage",
+  designSystemMaturity: "Design system maturity",
+  primaryUseCase: "Primary use case",
+  dataHeavyScreens: "Data-heavy screens",
+  expectedRows: "Expected rows",
+  expectedColumns: "Expected columns",
+  advancedFeatures: "Advanced features",
+  accessibilityTarget: "Accessibility target",
+  changeLeadTime: "Change lead time",
+  performanceSensitivity: "Performance sensitivity",
+  reworkFrequency: "Rework frequency",
+  knowledgeConcentration: "Knowledge concentration",
+  designDevHandoffFriction: "Design-dev handoff friction",
+  componentStandardizationGoal: "Component standardization goal",
+  deadlinePressure: "Deadline pressure",
+  ownershipHorizon: "Ownership horizon",
+  supportRequirement: "Support requirement",
+  productionCriticality: "Production criticality"
+};
+
+const SENSITIVITY_VALUE_LABELS = {
+  existingMuiUsage: {
+    none: "None",
+    some: "Some usage",
+    standardized: "Standardized"
+  },
+  designSystemMaturity: {
+    low: "Low",
+    medium: "Medium",
+    high: "High"
+  },
+  dependentTeams: {
+    one: "One",
+    "two-three": "Two to three",
+    "four-seven": "Four to seven",
+    "eight-plus": "Eight or more"
+  },
+  ownershipModel: {
+    "same-product-team": "Same product team",
+    "frontend-platform-team": "Frontend platform team",
+    "several-teams-informal": "Several teams informally",
+    unclear: "Unclear"
+  },
+  primaryUseCase: {
+    "data-grid": "Data grid",
+    charts: "Charts",
+    "date-pickers": "Date pickers",
+    "tree-view": "Tree view",
+    scheduler: "Scheduler",
+    "multi-component": "Multi-component evaluation"
+  },
+  accessibilityTarget: {
+    none: "None",
+    "wcag-a": "WCAG A",
+    "wcag-aa": "WCAG AA",
+    "wcag-aaa-regulated": "WCAG AAA / regulated"
+  },
+  changeLeadTime: {
+    "less-than-day": "Less than a day",
+    "one-day-to-one-week": "One day to one week",
+    "one-week-to-one-month": "One week to one month",
+    "more-than-month": "More than a month",
+    unknown: "Unknown"
+  },
+  performanceSensitivity: {
+    "not-critical": "Not critical",
+    important: "Important",
+    "strict-budget": "Strict performance budget",
+    "measured-core-web-vitals-target": "Measured Core Web Vitals target"
+  },
+  reworkFrequency: {
+    rare: "Rare",
+    occasional: "Occasional",
+    frequent: "Frequent",
+    unknown: "Unknown"
+  },
+  deadlinePressure: {
+    low: "Low",
+    medium: "Medium",
+    high: "High"
+  },
+  expectedRows: {
+    "under-1k": "Under 1k",
+    "1k-10k": "1k to 10k",
+    "10k-100k": "10k to 100k",
+    "over-100k": "Over 100k"
+  },
+  expectedColumns: {
+    "under-10": "Under 10",
+    "10-30": "10 to 30",
+    "over-30": "Over 30"
+  },
+  ownershipHorizon: {
+    12: "12 months",
+    24: "24 months",
+    36: "36 months"
+  },
+  supportRequirement: {
+    community: "Community",
+    standard: "Standard",
+    priority: "Priority",
+    "procurement-sla": "Procurement-backed SLA"
+  },
+  productionCriticality: {
+    "internal-tool": "Internal tool",
+    "customer-facing": "Customer-facing",
+    "revenue-critical": "Revenue-critical",
+    "regulated-or-sla-backed": "Regulated or SLA-backed"
+  },
+  advancedFeatures: {
+    virtualization: "Virtualization at scale",
+    "inline-editing": "Inline editing workflows",
+    "server-side-data": "Server-side data operations",
+    "keyboard-navigation": "Deep keyboard navigation",
+    exporting: "Export or print requirements",
+    "drag-and-drop": "Drag-and-drop interactions",
+    "custom-rendering": "Complex custom cell or item rendering",
+    "timezone-logic": "Timezone logic",
+    "i18n-localization": "i18n and localization requirements"
+  }
+};
+
+const SENSITIVITY_ORDERED_VALUES = {
+  existingMuiUsage: ["none", "some", "standardized"],
+  designSystemMaturity: ["low", "medium", "high"],
+  dependentTeams: ["one", "two-three", "four-seven", "eight-plus"],
+  ownershipModel: [
+    "same-product-team",
+    "frontend-platform-team",
+    "several-teams-informal",
+    "unclear"
+  ],
+  primaryUseCase: [
+    "date-pickers",
+    "tree-view",
+    "charts",
+    "multi-component",
+    "data-grid",
+    "scheduler"
+  ],
+  accessibilityTarget: ["none", "wcag-a", "wcag-aa", "wcag-aaa-regulated"],
+  changeLeadTime: [
+    "more-than-month",
+    "one-week-to-one-month",
+    "one-day-to-one-week",
+    "less-than-day"
+  ],
+  performanceSensitivity: [
+    "not-critical",
+    "important",
+    "strict-budget",
+    "measured-core-web-vitals-target"
+  ],
+  reworkFrequency: ["rare", "occasional", "unknown", "frequent"],
+  knowledgeConcentration: ["shared", "few-owners", "unknown", "single-owner"],
+  designDevHandoffFriction: ["low", "medium", "unknown", "high"],
+  componentStandardizationGoal: [
+    "none",
+    "reduce-one-offs",
+    "shared-pattern",
+    "platform-standard"
+  ],
+  deadlinePressure: ["low", "medium", "high"],
+  ownershipHorizon: [12, 24, 36],
+  supportRequirement: ["community", "standard", "priority", "procurement-sla"],
+  productionCriticality: [
+    "internal-tool",
+    "customer-facing",
+    "revenue-critical",
+    "regulated-or-sla-backed"
+  ],
+  expectedRows: ["under-1k", "1k-10k", "10k-100k", "over-100k"],
+  expectedColumns: ["under-10", "10-30", "over-30"]
 };
 
 const PLAN_CONFIG = {
@@ -2093,6 +2273,482 @@ function buildDeterministicRecommendation(input, derivedFactors, scorecard, path
   };
 }
 
+function buildFitSnapshot(input) {
+  const derivedFactors = buildDerivedFactors(input);
+  const scorecard = buildScorecard(input, derivedFactors);
+  const pathFits = buildPathFits(input, derivedFactors, scorecard, scorecard.planFits);
+  const { recommendation, confidence } = buildDeterministicRecommendation(
+    input,
+    derivedFactors,
+    scorecard,
+    pathFits
+  );
+
+  return {
+    derivedFactors,
+    scorecard,
+    pathFits,
+    recommendation,
+    confidence
+  };
+}
+
+function cloneInput(input) {
+  return {
+    ...input,
+    advancedFeatures: [...input.advancedFeatures]
+  };
+}
+
+function formatSensitivityValueLabel(inputKey, value) {
+  if (value === undefined || value === null || value === "") {
+    return "Not set";
+  }
+
+  const label = SENSITIVITY_VALUE_LABELS[inputKey]?.[value];
+
+  if (label) {
+    return label;
+  }
+
+  return typeof value === "number" ? String(value) : String(value);
+}
+
+function formatSensitivityFieldLabel(inputKey) {
+  return SENSITIVITY_INPUT_LABELS[inputKey] ?? inputKey;
+}
+
+function formatSensitivityDelta(value) {
+  const rounded = roundTo(value, 1);
+  return `${rounded > 0 ? "+" : ""}${rounded}`;
+}
+
+function buildSensitivityChangeLabel(inputKey, before, after) {
+  return `${formatSensitivityValueLabel(inputKey, before)} -> ${formatSensitivityValueLabel(inputKey, after)}`;
+}
+
+function createSensitivityCandidate(inputKey, label, testedChange, apply) {
+  return {
+    inputKey,
+    label,
+    testedChange,
+    apply
+  };
+}
+
+function buildAdjacentEnumCandidates(inputKey, currentValue, values, label) {
+  const candidates = [];
+  const currentIndex = values.indexOf(currentValue);
+
+  if (currentIndex === -1) {
+    return candidates;
+  }
+
+  const previousValue = values[currentIndex - 1];
+  const nextValue = values[currentIndex + 1];
+
+  if (previousValue !== undefined) {
+    candidates.push(
+      createSensitivityCandidate(
+        inputKey,
+        label,
+        buildSensitivityChangeLabel(inputKey, currentValue, previousValue),
+        (input) => ({ ...cloneInput(input), [inputKey]: previousValue })
+      )
+    );
+  }
+
+  if (nextValue !== undefined) {
+    candidates.push(
+      createSensitivityCandidate(
+        inputKey,
+        label,
+        buildSensitivityChangeLabel(inputKey, currentValue, nextValue),
+        (input) => ({ ...cloneInput(input), [inputKey]: nextValue })
+      )
+    );
+  }
+
+  return candidates;
+}
+
+function buildNumericCandidates(inputKey, currentValue, label, step = 1, minimum = 0) {
+  const candidates = [];
+  const lowerValue = Math.max(minimum, currentValue - step);
+  const upperValue = currentValue + step;
+
+  if (lowerValue !== currentValue) {
+    candidates.push(
+      createSensitivityCandidate(
+        inputKey,
+        label,
+        `${currentValue} -> ${lowerValue}`,
+        (input) => ({ ...cloneInput(input), [inputKey]: lowerValue })
+      )
+    );
+  }
+
+  if (upperValue !== currentValue) {
+    candidates.push(
+      createSensitivityCandidate(
+        inputKey,
+        label,
+        `${currentValue} -> ${upperValue}`,
+        (input) => ({ ...cloneInput(input), [inputKey]: upperValue })
+      )
+    );
+  }
+
+  return candidates;
+}
+
+function buildFeatureToggleCandidates(input, label) {
+  return Array.from(ADVANCED_FEATURES).map((feature) => {
+    const selected = input.advancedFeatures.includes(feature);
+    const nextFeatures = selected
+      ? input.advancedFeatures.filter((item) => item !== feature)
+      : [...input.advancedFeatures, feature];
+    const action = selected ? "Remove" : "Add";
+
+    return createSensitivityCandidate(
+      "advancedFeatures",
+      label,
+      `${action} ${formatSensitivityValueLabel("advancedFeatures", feature)}`,
+      (candidateInput) => ({
+        ...cloneInput(candidateInput),
+        advancedFeatures: [...nextFeatures]
+      })
+    );
+  });
+}
+
+function buildSensitivityCandidates(input) {
+  const candidates = [
+    ...buildNumericCandidates(
+      "frontendDevelopers",
+      input.frontendDevelopers,
+      formatSensitivityFieldLabel("frontendDevelopers")
+    ),
+    ...buildNumericCandidates(
+      "reactApps",
+      input.reactApps,
+      formatSensitivityFieldLabel("reactApps")
+    ),
+    ...buildNumericCandidates(
+      "dataHeavyScreens",
+      input.dataHeavyScreens,
+      formatSensitivityFieldLabel("dataHeavyScreens")
+    ),
+    ...buildAdjacentEnumCandidates(
+      "dependentTeams",
+      input.dependentTeams,
+      SENSITIVITY_ORDERED_VALUES.dependentTeams,
+      formatSensitivityFieldLabel("dependentTeams")
+    ),
+    ...buildAdjacentEnumCandidates(
+      "ownershipModel",
+      input.ownershipModel,
+      SENSITIVITY_ORDERED_VALUES.ownershipModel,
+      formatSensitivityFieldLabel("ownershipModel")
+    ),
+    ...buildAdjacentEnumCandidates(
+      "existingMuiUsage",
+      input.existingMuiUsage,
+      SENSITIVITY_ORDERED_VALUES.existingMuiUsage,
+      formatSensitivityFieldLabel("existingMuiUsage")
+    ),
+    ...buildAdjacentEnumCandidates(
+      "designSystemMaturity",
+      input.designSystemMaturity,
+      SENSITIVITY_ORDERED_VALUES.designSystemMaturity,
+      formatSensitivityFieldLabel("designSystemMaturity")
+    ),
+    ...buildAdjacentEnumCandidates(
+      "primaryUseCase",
+      input.primaryUseCase,
+      SENSITIVITY_ORDERED_VALUES.primaryUseCase,
+      formatSensitivityFieldLabel("primaryUseCase")
+    ),
+    ...buildAdjacentEnumCandidates(
+      "expectedRows",
+      input.expectedRows,
+      SENSITIVITY_ORDERED_VALUES.expectedRows,
+      formatSensitivityFieldLabel("expectedRows")
+    ),
+    ...buildAdjacentEnumCandidates(
+      "expectedColumns",
+      input.expectedColumns,
+      SENSITIVITY_ORDERED_VALUES.expectedColumns,
+      formatSensitivityFieldLabel("expectedColumns")
+    ),
+    ...buildAdjacentEnumCandidates(
+      "accessibilityTarget",
+      input.accessibilityTarget,
+      SENSITIVITY_ORDERED_VALUES.accessibilityTarget,
+      formatSensitivityFieldLabel("accessibilityTarget")
+    ),
+    ...buildAdjacentEnumCandidates(
+      "changeLeadTime",
+      input.changeLeadTime,
+      SENSITIVITY_ORDERED_VALUES.changeLeadTime,
+      formatSensitivityFieldLabel("changeLeadTime")
+    ),
+    ...buildAdjacentEnumCandidates(
+      "performanceSensitivity",
+      input.performanceSensitivity,
+      SENSITIVITY_ORDERED_VALUES.performanceSensitivity,
+      formatSensitivityFieldLabel("performanceSensitivity")
+    ),
+    ...buildAdjacentEnumCandidates(
+      "reworkFrequency",
+      input.reworkFrequency,
+      SENSITIVITY_ORDERED_VALUES.reworkFrequency,
+      formatSensitivityFieldLabel("reworkFrequency")
+    ),
+    ...buildAdjacentEnumCandidates(
+      "knowledgeConcentration",
+      input.knowledgeConcentration,
+      SENSITIVITY_ORDERED_VALUES.knowledgeConcentration,
+      formatSensitivityFieldLabel("knowledgeConcentration")
+    ),
+    ...buildAdjacentEnumCandidates(
+      "designDevHandoffFriction",
+      input.designDevHandoffFriction,
+      SENSITIVITY_ORDERED_VALUES.designDevHandoffFriction,
+      formatSensitivityFieldLabel("designDevHandoffFriction")
+    ),
+    ...buildAdjacentEnumCandidates(
+      "componentStandardizationGoal",
+      input.componentStandardizationGoal,
+      SENSITIVITY_ORDERED_VALUES.componentStandardizationGoal,
+      formatSensitivityFieldLabel("componentStandardizationGoal")
+    ),
+    ...buildAdjacentEnumCandidates(
+      "deadlinePressure",
+      input.deadlinePressure,
+      SENSITIVITY_ORDERED_VALUES.deadlinePressure,
+      formatSensitivityFieldLabel("deadlinePressure")
+    ),
+    ...buildAdjacentEnumCandidates(
+      "ownershipHorizon",
+      input.ownershipHorizon,
+      SENSITIVITY_ORDERED_VALUES.ownershipHorizon,
+      formatSensitivityFieldLabel("ownershipHorizon")
+    ),
+    ...buildAdjacentEnumCandidates(
+      "supportRequirement",
+      input.supportRequirement,
+      SENSITIVITY_ORDERED_VALUES.supportRequirement,
+      formatSensitivityFieldLabel("supportRequirement")
+    ),
+    ...buildAdjacentEnumCandidates(
+      "productionCriticality",
+      input.productionCriticality,
+      SENSITIVITY_ORDERED_VALUES.productionCriticality,
+      formatSensitivityFieldLabel("productionCriticality")
+    ),
+    ...buildFeatureToggleCandidates(input, formatSensitivityFieldLabel("advancedFeatures"))
+  ];
+
+  return candidates;
+}
+
+function buildSensitivityDirection(candidate, baseline, evaluated) {
+  const deltas = evaluated.deltas;
+  const pathDeltas = [
+    ["buildFit", deltas.buildFit],
+    ["coreFit", deltas.coreFit],
+    ["premiumFit", deltas.premiumFit],
+    ["enterpriseFit", deltas.enterpriseFit]
+  ].sort((left, right) => Math.abs(right[1]) - Math.abs(left[1]));
+  const [topPathKey, topDelta] = pathDeltas[0] ?? [];
+  const winnerPathKey = `${baseline.recommendation.key}Fit`;
+  const meaningfulPathChange = Math.abs(topDelta ?? 0) >= 0.5;
+
+  if (topPathKey === "buildFit") {
+    return topDelta > 0 ? "increases-build-fit" : "reduces-build-fit";
+  }
+
+  if (topPathKey === "coreFit" && topDelta > 0) {
+    return "increases-core-fit";
+  }
+
+  if (topPathKey === "premiumFit" && topDelta > 0) {
+    return "increases-premium-fit";
+  }
+
+  if (topPathKey === "enterpriseFit" && topDelta > 0) {
+    return "increases-enterprise-fit";
+  }
+
+  if (topPathKey === winnerPathKey && topDelta < 0) {
+    return "reduces-selected-path-fit";
+  }
+
+  if (Math.abs(deltas.winnerMargin) >= 0.5) {
+    return deltas.winnerMargin > 0 ? "increases-winner-margin" : "reduces-winner-margin";
+  }
+
+  return meaningfulPathChange ? "mixed" : "mixed";
+}
+
+function buildSensitivityImpactSummary(evaluated, baseline) {
+  const deltas = evaluated.deltas;
+  const pathEntries = [
+    ["Build in-house fit", deltas.buildFit],
+    ["MUI Core fit", deltas.coreFit],
+    ["MUI X Premium fit", deltas.premiumFit],
+    ["MUI X Enterprise fit", deltas.enterpriseFit]
+  ]
+    .filter(([, delta]) => Math.abs(delta) >= 0.5)
+    .sort((left, right) => Math.abs(right[1]) - Math.abs(left[1]));
+  const parts = [];
+
+  for (const [label, delta] of pathEntries.slice(0, 2)) {
+    parts.push(
+      `${delta > 0 ? "Raises" : "Lowers"} ${label} by ${roundTo(Math.abs(delta), 1)}`
+    );
+  }
+
+  if (Math.abs(deltas.winnerMargin) >= 0.5) {
+    parts.push(
+      `${deltas.winnerMargin > 0 ? "Widens" : "Narrows"} the recommendation margin by ${roundTo(Math.abs(deltas.winnerMargin), 1)} points`
+    );
+  }
+
+  if (evaluated.recommendationChanged) {
+    parts.push(
+      `Flips the recommendation from ${baseline.recommendation.option} to ${evaluated.recommendation.option}`
+    );
+  }
+
+  return parts.length > 0
+    ? `${parts[0]}${parts[1] ? `; ${parts[1]}` : ""}${parts[2] ? `; ${parts[2]}` : ""}${parts[3] ? `; ${parts[3]}` : ""}.`
+    : "Leaves the path mix nearly unchanged.";
+}
+
+function buildSensitivityDriver(input, baseline, candidate, evaluated) {
+  return {
+    inputKey: candidate.inputKey,
+    label: candidate.label,
+    testedChange: candidate.testedChange,
+    direction: buildSensitivityDirection(candidate, baseline, evaluated),
+    impactSummary: buildSensitivityImpactSummary(evaluated, baseline),
+    deltas: {
+      buildFit: roundTo(evaluated.deltas.buildFit),
+      coreFit: roundTo(evaluated.deltas.coreFit),
+      premiumFit: roundTo(evaluated.deltas.premiumFit),
+      enterpriseFit: roundTo(evaluated.deltas.enterpriseFit),
+      winnerMargin: roundTo(evaluated.deltas.winnerMargin),
+      confidence: roundTo(evaluated.deltas.confidence)
+    },
+    recommendationChanged: evaluated.recommendationChanged
+  };
+}
+
+function buildSensitivityDiagnostics(input, baseline) {
+  const candidates = buildSensitivityCandidates(input);
+  const evaluated = candidates
+    .map((candidate) => {
+      const perturbedInput = candidate.apply(input);
+      const snapshot = buildFitSnapshot(perturbedInput);
+      const deltas = {
+        buildFit: snapshot.pathFits.build.score - baseline.pathFits.build.score,
+        coreFit: snapshot.pathFits.core.score - baseline.pathFits.core.score,
+        premiumFit: snapshot.pathFits.premium.score - baseline.pathFits.premium.score,
+        enterpriseFit:
+          snapshot.pathFits.enterprise.score - baseline.pathFits.enterprise.score,
+        winnerMargin:
+          (snapshot.recommendation.runnerUp?.scoreGap ?? 0) -
+          (baseline.recommendation.runnerUp?.scoreGap ?? 0),
+        confidence: snapshot.confidence.score - baseline.confidence.score
+      };
+
+      return {
+        candidate,
+        recommendation: snapshot.recommendation,
+        deltas,
+        recommendationChanged: snapshot.recommendation.key !== baseline.recommendation.key
+      };
+    })
+    .map((entry) => ({
+      ...entry,
+      driver: buildSensitivityDriver(input, baseline, entry.candidate, entry)
+    }));
+
+  const rankedTopDrivers = [...evaluated]
+    .sort((left, right) => {
+      const leftScore =
+        Math.abs(left.deltas.winnerMargin) * 2 +
+        Math.max(
+          Math.abs(left.deltas.buildFit),
+          Math.abs(left.deltas.coreFit),
+          Math.abs(left.deltas.premiumFit),
+          Math.abs(left.deltas.enterpriseFit)
+        ) +
+        (left.recommendationChanged ? 4 : 0);
+      const rightScore =
+        Math.abs(right.deltas.winnerMargin) * 2 +
+        Math.max(
+          Math.abs(right.deltas.buildFit),
+          Math.abs(right.deltas.coreFit),
+          Math.abs(right.deltas.premiumFit),
+          Math.abs(right.deltas.enterpriseFit)
+        ) +
+        (right.recommendationChanged ? 4 : 0);
+
+      return rightScore - leftScore;
+    })
+    .slice(0, 6)
+    .map((entry) => entry.driver);
+
+  const buildFitDrivers = [...evaluated]
+    .filter((entry) => Math.abs(entry.deltas.buildFit) >= 0.5)
+    .sort((left, right) => Math.abs(right.deltas.buildFit) - Math.abs(left.deltas.buildFit))
+    .slice(0, 4)
+    .map((entry) => entry.driver);
+
+  const coreFitDrivers = [...evaluated]
+    .filter((entry) => Math.abs(entry.deltas.coreFit) >= 0.5)
+    .sort((left, right) => Math.abs(right.deltas.coreFit) - Math.abs(left.deltas.coreFit))
+    .slice(0, 4)
+    .map((entry) => entry.driver);
+
+  const premiumFitDrivers = [...evaluated]
+    .filter((entry) => Math.abs(entry.deltas.premiumFit) >= 0.5)
+    .sort(
+      (left, right) => Math.abs(right.deltas.premiumFit) - Math.abs(left.deltas.premiumFit)
+    )
+    .slice(0, 4)
+    .map((entry) => entry.driver);
+
+  const enterpriseFitDrivers = [...evaluated]
+    .filter((entry) => Math.abs(entry.deltas.enterpriseFit) >= 0.5)
+    .sort(
+      (left, right) =>
+        Math.abs(right.deltas.enterpriseFit) - Math.abs(left.deltas.enterpriseFit)
+    )
+    .slice(0, 4)
+    .map((entry) => entry.driver);
+
+  const recommendationDrivers = [...evaluated]
+    .filter((entry) => entry.recommendationChanged || Math.abs(entry.deltas.winnerMargin) >= 0.5)
+    .sort((left, right) => Math.abs(right.deltas.winnerMargin) - Math.abs(left.deltas.winnerMargin))
+    .slice(0, 4)
+    .map((entry) => entry.driver);
+
+  return {
+    method: "deterministic-path-fit-adjacent-input-perturbation",
+    candidateCount: candidates.length,
+    topDrivers: rankedTopDrivers,
+    buildFitDrivers,
+    coreFitDrivers,
+    premiumFitDrivers,
+    enterpriseFitDrivers,
+    recommendationDrivers
+  };
+}
+
 function buildEvidenceBasis(input, scorecard) {
   return [
     {
@@ -2145,7 +2801,7 @@ function buildEvidenceBasis(input, scorecard) {
   ];
 }
 
-function buildDiagnostics(input, scorecard, pathFits, evidenceBasis) {
+function buildDiagnostics(input, scorecard, pathFits, evidenceBasis, sensitivity) {
   return {
     effectiveMuiPlan: scorecard.effectiveMuiPlan,
     containedScope: scorecard.containedScope,
@@ -2174,41 +2830,31 @@ function buildDiagnostics(input, scorecard, pathFits, evidenceBasis) {
         label: path.label,
         score: path.score,
         eligible: path.eligible
-      }))
+      })),
+    sensitivity
   };
 }
 
 function buildResult(input) {
-  const derivedFactors = buildDerivedFactors(input);
-  const scorecard = buildScorecard(input, derivedFactors);
-  const planFits = scorecard.planFits;
-  const pathFits = buildPathFits(input, derivedFactors, scorecard, planFits);
+  const fitSnapshot = buildFitSnapshot(input);
+  const { derivedFactors, scorecard, pathFits } = fitSnapshot;
   const evidenceBasis = buildEvidenceBasis(input, scorecard);
-  const { recommendation, confidence } = buildDeterministicRecommendation(
-    input,
-    derivedFactors,
-    scorecard,
-    pathFits
-  );
-  const diagnostics = buildDiagnostics(
-    input,
-    scorecard,
-    pathFits,
-    evidenceBasis
-  );
+  const sensitivity = buildSensitivityDiagnostics(input, fitSnapshot);
+  const diagnostics = buildDiagnostics(input, scorecard, pathFits, evidenceBasis, sensitivity);
 
   return {
     modelVersion: MODEL_VERSION,
     calibrationVersion: CALIBRATION_VERSION,
     derivedFactors,
-    planFits,
+    planFits: scorecard.planFits,
     pathFits,
-    recommendation,
-    confidence,
+    recommendation: fitSnapshot.recommendation,
+    confidence: fitSnapshot.confidence,
+    sensitivity,
     diagnostics,
     assumptions: [
       "This is a deterministic fit model.",
-      "It does not estimate delivery dates or TCO.",
+      "It does not estimate delivery dates or cost.",
       "Scores are heuristic decision-support signals, not guarantees.",
       "Public sources inform variable selection and risk direction, not exact coefficients."
     ],
