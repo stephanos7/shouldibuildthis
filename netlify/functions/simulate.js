@@ -1466,18 +1466,20 @@ function buildScorecard(input, derivedFactors) {
     100
   );
 
-  const simpleScope =
+  const containedScope =
     functionalRisk <= pathScores.simpleScope.maxFunctionalRisk &&
     qualityRisk <= pathScores.simpleScope.maxQualityRisk &&
     input.advancedFeatures.length <= pathScores.simpleScope.maxAdvancedFeatures &&
     input.dataHeavyScreens <= pathScores.simpleScope.maxDataHeavyScreens &&
     rowScale <= pathScores.simpleScope.maxRowScale &&
     columnScale <= pathScores.simpleScope.maxColumnScale;
+  // `simpleScope` remains as a compatibility alias for existing consumers.
+  const simpleScope = containedScope;
   const coreTierScore = clamp(
     pathScoreWeights.coreTierScore.base +
       planFits.core.coverageScore *
         pathScoreWeights.coreTierScore.coverageScore +
-      (simpleScope ? pathScoreWeights.coreTierScore.simpleScopeBonus : 0) +
+      (containedScope ? pathScoreWeights.coreTierScore.simpleScopeBonus : 0) +
       muiUsage * pathScoreWeights.coreTierScore.muiUsageBonus -
       functionalRisk * pathScoreWeights.coreTierScore.functionalRisk -
       qualityRisk * pathScoreWeights.coreTierScore.qualityRisk -
@@ -1494,7 +1496,7 @@ function buildScorecard(input, derivedFactors) {
       functionalRisk * pathScoreWeights.premiumTierScore.functionalRisk +
       qualityRisk * pathScoreWeights.premiumTierScore.qualityRisk +
       muiUsage * pathScoreWeights.premiumTierScore.muiUsageBonus -
-      (simpleScope ? pathScoreWeights.premiumTierScore.simpleScopePenalty : 0) -
+      (containedScope ? pathScoreWeights.premiumTierScore.simpleScopePenalty : 0) -
       Math.max(0, enterpriseNeed - 0.72) *
         pathScoreWeights.premiumTierScore.enterpriseNeedPenalty,
     0,
@@ -1513,7 +1515,9 @@ function buildScorecard(input, derivedFactors) {
       productionCriticalityNormalized *
         supportNeed *
         pathScoreWeights.enterpriseTierScore.productionCriticality +
-      (simpleScope ? pathScoreWeights.enterpriseTierScore.simpleScopeBonus : 0),
+      (containedScope
+        ? pathScoreWeights.enterpriseTierScore.simpleScopeAdjustment
+        : 0),
     0,
     100
   );
@@ -1529,7 +1533,7 @@ function buildScorecard(input, derivedFactors) {
       teamScale * pathScoreWeights.icpScore.teamScale +
       standardizationIntent * pathScoreWeights.icpScore.standardizationIntent +
       dependentTeams * pathScoreWeights.icpScore.dependentTeams -
-      (simpleScope ? pathScoreWeights.icpScore.simpleScopePenalty : 0),
+      (containedScope ? pathScoreWeights.icpScore.simpleScopePenalty : 0),
     0,
     100
   );
@@ -1567,11 +1571,11 @@ function buildScorecard(input, derivedFactors) {
   ) {
     autoSelectedMuiPlan = "enterprise";
   } else if (
-    planFits.premium.coverageScore >=
+      planFits.premium.coverageScore >=
       pathScores.premiumEligibility.minCoverageScore &&
     !(
       pathScores.premiumEligibility.disallowForSimpleLowSupportScope &&
-      simpleScope &&
+      containedScope &&
       supportNeed <= pathScores.buildFriendlyContext.maxSupportNeed
     ) &&
     (functionalRisk >= pathScores.premiumEligibility.minFunctionalRisk ||
@@ -1692,6 +1696,7 @@ function buildScorecard(input, derivedFactors) {
     premiumTierScore,
     enterpriseTierScore,
     icpScore,
+    containedScope,
     simpleScope,
     buildFriendlyContext,
     enterpriseFitStrong,
@@ -3825,7 +3830,7 @@ function buildRecommendation(input, scorecard, simulation) {
     summary =
       "The custom path is at least as fast and as cheap in the modeled distribution, so the recommendation should stay with building in-house.";
   } else if (
-    scorecard.simpleScope &&
+    (scorecard.containedScope ?? scorecard.simpleScope) &&
     scorecard.lowSupportNeed &&
     input.designSystemMaturity === "high" &&
     input.dependentTeams === "one" &&

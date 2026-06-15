@@ -692,12 +692,12 @@ export const MODEL_ARTIFACT_GLOSSARY = {
   simpleScope: {
     artifact: "simpleScope",
     stage: "pathScore",
-    label: "Simple scope",
+    label: "Contained-scope guardrail",
     direction: "contextual",
     path: "Both",
     calculatedIn: "buildScorecard",
     description:
-      "Flags a narrow, low-complexity scope that changes the relative attractiveness of packaged paths."
+      "Boolean guardrail indicating that the UI scope is contained enough that Build or MUI Core should remain credible and paid MUI tiers should require stronger justification. It is not an effort estimate."
   },
   buildFriendlyContext: {
     artifact: "buildFriendlyContext",

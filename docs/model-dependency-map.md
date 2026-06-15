@@ -30,6 +30,23 @@ This document shows how the recommendation model moves from raw assessment input
 - `mixed`: has both favorable and unfavorable downstream effects.
 - `neutral`: a structural or indexing artifact rather than a directional signal.
 
+## Contained-Scope Guardrail
+
+The model uses a boolean contained-scope guardrail, historically named `simpleScope`, to prevent small or low-risk cases from being over-escalated to paid MUI tiers.
+
+It is not an effort estimate. It affects tier selection and path scoring.
+
+When active, it:
+
+- increases Core credibility,
+- makes Premium harder to select,
+- lowers packaged-path ICP strength,
+- and keeps Build/Core plausible for contained cases.
+
+When inactive, paid tiers can be considered more freely if coverage, support, scale, or complexity justify them.
+
+Enterprise handling for this guardrail should be treated as a negative or neutral adjustment unless there is an explicit, documented reason for a positive value.
+
 ## Full Dependency Graph
 
 ```mermaid
@@ -119,7 +136,7 @@ flowchart LR
     premiumTierScore["premiumTierScore"]
     enterpriseTierScore["enterpriseTierScore"]
     icpScore["icpScore"]
-    simpleScope["simpleScope"]
+    simpleScope["simpleScope (contained-scope guardrail)"]
     buildFriendlyContext["buildFriendlyContext"]
     enterpriseFitStrong["enterpriseFitStrong"]
   end

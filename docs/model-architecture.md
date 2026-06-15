@@ -16,6 +16,23 @@ Calculation code should read numeric values from `CALIBRATION`. The impact map s
 
 All new model-behavior numbers should be named, documented, and placed in calibration first. The impact map should point at the same calibration key so reviewers can trace causal claims back to the exact numeric source.
 
+## Contained-scope guardrail
+
+The model uses a boolean contained-scope guardrail, historically named `simpleScope`, to prevent small or low-risk cases from being over-escalated to paid MUI tiers.
+
+It is not an estimate of effort. It affects tier selection and path scoring.
+
+When active, it:
+
+- increases Core credibility,
+- makes Premium harder to select,
+- lowers packaged-path ICP strength,
+- and keeps Build/Core plausible for contained cases.
+
+When inactive, paid tiers can be considered more freely if coverage, support, scale, or complexity justify them.
+
+Enterprise handling for this guardrail should be treated as a negative or neutral adjustment unless there is an explicit, documented reason for a positive value.
+
 ## Change Rules
 
 When changing a threshold or coefficient:

@@ -863,6 +863,18 @@ export const MODEL_IMPACT_MAP = {
         effectScale: "moderate",
         calculatedIn: "buildScorecard",
         reason: "Higher functional complexity raises the normalized functional-risk score."
+      },
+      {
+        artifact: "simpleScope",
+        stage: "pathScore",
+        path: "Both",
+        direction: "bad",
+        effectType: "guardrail",
+        effectScale: "small",
+        calculatedIn: "buildScorecard",
+        calibrationRef: "pathScores.simpleScope",
+        reason:
+          "Higher screen density can push the scorecard outside the contained-scope guardrail and make paid tiers easier to justify."
       }
     ]
   },
@@ -942,6 +954,18 @@ export const MODEL_IMPACT_MAP = {
         effectScale: "moderate",
         calculatedIn: "buildScenarioLevers",
         reason: "High scale widens the long-tail downside distribution."
+      },
+      {
+        artifact: "simpleScope",
+        stage: "pathScore",
+        path: "Both",
+        direction: "bad",
+        effectType: "guardrail",
+        effectScale: "small",
+        calculatedIn: "buildScorecard",
+        calibrationRef: "pathScores.simpleScope",
+        reason:
+          "Larger row bands can disable the contained-scope guardrail, which removes Core's simple-scope boost and makes paid tiers easier to justify."
       }
     ]
   },
@@ -1021,6 +1045,18 @@ export const MODEL_IMPACT_MAP = {
         effectScale: "moderate",
         calculatedIn: "buildScenarioLevers",
         reason: "High scale widens the long-tail downside distribution."
+      },
+      {
+        artifact: "simpleScope",
+        stage: "pathScore",
+        path: "Both",
+        direction: "bad",
+        effectType: "guardrail",
+        effectScale: "small",
+        calculatedIn: "buildScorecard",
+        calibrationRef: "pathScores.simpleScope",
+        reason:
+          "Wider column bands can disable the contained-scope guardrail, which removes Core's simple-scope boost and makes paid tiers easier to justify."
       }
     ]
   },
@@ -1080,6 +1116,18 @@ export const MODEL_IMPACT_MAP = {
         effectScale: "moderate",
         calculatedIn: "buildPlanFit",
         reason: "Advanced features can be covered well by some plans and poorly by others."
+      },
+      {
+        artifact: "simpleScope",
+        stage: "pathScore",
+        path: "Both",
+        direction: "bad",
+        effectType: "guardrail",
+        effectScale: "small",
+        calculatedIn: "buildScorecard",
+        calibrationRef: "pathScores.simpleScope",
+        reason:
+          "More advanced features can disable the contained-scope guardrail, which removes Core's simple-scope boost and makes paid tiers easier to justify."
       }
     ]
   },
@@ -1119,6 +1167,18 @@ export const MODEL_IMPACT_MAP = {
         effectScale: "moderate",
         calculatedIn: "buildScorecard",
         reason: "More accessibility burden raises the normalized quality-risk score."
+      },
+      {
+        artifact: "simpleScope",
+        stage: "pathScore",
+        path: "Both",
+        direction: "bad",
+        effectType: "guardrail",
+        effectScale: "small",
+        calculatedIn: "buildScorecard",
+        calibrationRef: "pathScores.simpleScope",
+        reason:
+          "Stricter accessibility targets can raise quality risk enough to disable the contained-scope guardrail."
       }
     ]
   },
@@ -1339,11 +1399,11 @@ export const MODEL_IMPACT_MAP = {
     ]
   },
   simpleScope: {
-    label: "Simple scope",
+    label: "Contained-scope guardrail",
     group: "Scope and policy",
     direction: "contextual",
     summary:
-      "A narrow, low-complexity scope can change which packaged paths remain attractive.",
+      "A contained-scope guardrail can change which packaged paths remain attractive.",
     impacts: [
       {
         artifact: "simpleScope",
@@ -1354,7 +1414,8 @@ export const MODEL_IMPACT_MAP = {
         effectScale: "small",
         calculatedIn: "buildScorecard",
         calibrationRef: "pathScores.simpleScope",
-        reason: "The simple-scope rule is controlled by calibrated risk, feature, and scale caps."
+        reason:
+          "The contained-scope guardrail is controlled by calibrated functional-risk, quality-risk, feature-count, data-density, and row/column-scale caps."
       }
     ]
   },

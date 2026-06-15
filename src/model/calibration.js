@@ -457,7 +457,8 @@ export const PATH_SCORE_WEIGHTS = {
     base: 26,
     // Higher coverage score makes Core more competitive.
     coverageScore: 0.46,
-    // Simpler scope makes Core more competitive.
+    // Contained-scope guardrail makes Core more credible when the request is
+    // small enough that paid tiers would otherwise be over-selected.
     simpleScopeBonus: 18,
     // Existing MUI usage makes Core more competitive.
     muiUsageBonus: 8,
@@ -479,7 +480,7 @@ export const PATH_SCORE_WEIGHTS = {
     qualityRisk: 10,
     // Existing MUI usage makes Premium more competitive.
     muiUsageBonus: 5,
-    // Simple scope makes Premium less necessary.
+    // Contained-scope guardrail makes Premium less necessary.
     simpleScopePenalty: 18,
     // Higher enterprise need makes Premium less competitive versus Enterprise.
     enterpriseNeedPenalty: 14
@@ -501,8 +502,11 @@ export const PATH_SCORE_WEIGHTS = {
     dependentTeams: 1.5,
     // More production-critical work increases Enterprise relevance.
     productionCriticality: 4,
-    // Simple scopes reduce Enterprise necessity.
-    simpleScopeBonus: 10
+    // Adjustment applied when the scope is contained.
+    // This should usually be zero or negative. A positive value would mean
+    // contained scope increases Enterprise attractiveness, which needs
+    // explicit justification.
+    simpleScopeAdjustment: -10
   },
   icpScore: {
     // Baseline ICP strength.
@@ -525,7 +529,7 @@ export const PATH_SCORE_WEIGHTS = {
     standardizationIntent: 8,
     // More dependent teams increase ICP strength.
     dependentTeams: 2,
-    // Simple scopes reduce ICP pressure.
+    // Contained-scope guardrail reduces ICP pressure.
     simpleScopePenalty: 6
   },
   buildCompetitiveIndex: {
@@ -1296,9 +1300,24 @@ export const CALIBRATION = {
     // Composite ideal-customer-profile score used to summarize how well the
     // input matches the packaged-path pattern overall.
     icpScore: {},
-    // Hard caps that define when a scope is considered "simple". buildScorecard()
-    // uses this to boost or penalize tier scores and to keep simple scopes from
-    // being treated as more complex than they are.
+    // Contained-scope guardrail
+    // -------------------------
+    //
+    // These caps define when the requested UI is small/contained enough that
+    // the model should avoid over-escalating the recommendation to paid MUI tiers.
+    //
+    // This is not an effort estimate and it is not a general complexity score.
+    // It is a path-selection guardrail used by buildScorecard().
+    //
+    // When true, this guardrail:
+    // - gives MUI Core more credibility,
+    // - makes Premium harder to select,
+    // - lowers packaged-path ICP strength,
+    // - and helps preserve Build/Core as plausible options for low-risk cases.
+    //
+    // Keep these thresholds conservative. If they are too loose, the model may
+    // under-recommend Premium/Enterprise for genuinely complex work. If they are
+    // too strict, the model may over-recommend paid tiers for contained cases.
     simpleScope: {
       maxFunctionalRisk: 0.38,
       maxQualityRisk: 0.38,
