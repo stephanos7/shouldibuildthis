@@ -163,6 +163,52 @@ export const PLAN_CONFIG = {
   }
 };
 
+export const DETERMINISTIC_POLICY = {
+  containedScope: {
+    maxFunctionalRisk: 0.45,
+    maxQualityRisk: 0.45,
+    maxAdvancedFeatures: 2,
+    maxDataHeavyScreens: 2,
+    maxRowScale: 2,
+    maxColumnScale: 2
+  },
+  enterpriseNeedThresholds: {
+    corePenaltyStartsAt: 0.45,
+    premiumPenaltyStartsAt: 0.72,
+    strongEnterpriseNeed: 0.6
+  },
+  supportNeedThresholds: {
+    lowMax: 1,
+    supportOrProcurementMin: 2
+  },
+  buildFriendlyContext: {
+    maxSupportNeed: 1,
+    requiredDesignSystemMaturity: "high",
+    requiredDependentTeams: "one",
+    requiredOwnershipModel: "same-product-team",
+    requiredChangeLeadTime: "less-than-day",
+    requiredReworkFrequency: "rare",
+    requiredDeadlinePressure: "low",
+    maxRowScale: 2,
+    maxColumnScale: 2,
+    maxAdvancedFeatures: 2,
+    allowedAccessibilityTargets: ["none", "wcag-a"]
+  },
+  muiPlanSelection: {
+    enterprise: {
+      minCoverageScore: 70
+    },
+    premium: {
+      minCoverageScore: 66,
+      minFunctionalRisk: 0.46,
+      minQualityRisk: 0.46,
+      minRowScale: 3,
+      minColumnScale: 3,
+      minAdvancedFeatures: 2
+    }
+  }
+};
+
 export const SCORE_BANDS = {
   low: { min: 0, maxExclusive: 34 },
   medium: { min: 34, maxExclusive: 67 },
@@ -1216,6 +1262,8 @@ export const CALIBRATION = {
     planScaleCapacity: {}
   },
 
+  deterministicPolicy: DETERMINISTIC_POLICY,
+
   pathScores: {
     // Scorecard baselines used in buildScorecard() to rank Build and MUI tiers
     // before recommendation. These are fit thresholds and score bonuses/
@@ -1253,21 +1301,12 @@ export const CALIBRATION = {
     // under-recommend Premium/Enterprise for genuinely complex work. If they are
     // too strict, the model may over-recommend paid tiers for contained cases.
     simpleScope: {
-      maxFunctionalRisk: 0.38,
-      maxQualityRisk: 0.38,
-      maxAdvancedFeatures: 2,
-      maxDataHeavyScreens: 3,
-      maxRowScale: 2,
-      maxColumnScale: 2
+      ...DETERMINISTIC_POLICY.containedScope
     },
     // Additional guardrails for the Build-friendly exception. These values keep
     // the explicit "Build still credible" branch narrow and auditable.
     buildFriendlyContext: {
-      maxSupportNeed: 1,
-      maxRowScale: 2,
-      maxColumnScale: 2,
-      maxAdvancedFeatures: 0,
-      allowedAccessibilityTargets: ["none", "wcag-a"]
+      ...DETERMINISTIC_POLICY.buildFriendlyContext
     },
     // Eligibility thresholds for selecting Enterprise during scorecard
     // evaluation. All conditions must pass before the Enterprise tier is auto-

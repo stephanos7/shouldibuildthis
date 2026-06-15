@@ -1602,6 +1602,7 @@ function buildScenarioLevers(input, scorecard) {
 
 function buildScorecard(input, derivedFactors) {
   const pathScoreWeights = PATH_SCORE_WEIGHTS;
+  const policy = CALIBRATION.deterministicPolicy;
   const buildFitWeights = pathScoreWeights.buildFit;
   const coreFitWeights = pathScoreWeights.coreFit;
   const premiumFitWeights = pathScoreWeights.premiumFit;
@@ -1715,12 +1716,12 @@ function buildScorecard(input, derivedFactors) {
   );
 
   const containedScope =
-    functionalRisk <= 0.45 &&
-    qualityRisk <= 0.45 &&
-    input.advancedFeatures.length <= 2 &&
-    input.dataHeavyScreens <= 2 &&
-    rowScale <= 2 &&
-    columnScale <= 2;
+    functionalRisk <= policy.containedScope.maxFunctionalRisk &&
+    qualityRisk <= policy.containedScope.maxQualityRisk &&
+    input.advancedFeatures.length <= policy.containedScope.maxAdvancedFeatures &&
+    input.dataHeavyScreens <= policy.containedScope.maxDataHeavyScreens &&
+    rowScale <= policy.containedScope.maxRowScale &&
+    columnScale <= policy.containedScope.maxColumnScale;
 
   const coreFit = clamp(
     coreFitWeights.base +
@@ -1729,7 +1730,10 @@ function buildScorecard(input, derivedFactors) {
       muiUsage * coreFitWeights.muiUsageBonus -
       functionalRisk * coreFitWeights.functionalRisk -
       qualityRisk * coreFitWeights.qualityRisk -
-      Math.max(0, enterpriseNeed - 0.45) *
+      Math.max(
+        0,
+        enterpriseNeed - policy.enterpriseNeedThresholds.corePenaltyStartsAt
+      ) *
         coreFitWeights.enterpriseNeedPenalty,
     0,
     100
@@ -1742,7 +1746,10 @@ function buildScorecard(input, derivedFactors) {
       qualityRisk * premiumFitWeights.qualityRisk +
       muiUsage * premiumFitWeights.muiUsageBonus -
       (containedScope ? premiumFitWeights.simpleScopePenalty : 0) -
-      Math.max(0, enterpriseNeed - 0.72) *
+      Math.max(
+        0,
+        enterpriseNeed - policy.enterpriseNeedThresholds.premiumPenaltyStartsAt
+      ) *
         premiumFitWeights.enterpriseNeedPenalty,
     0,
     100
@@ -1783,44 +1790,52 @@ function buildScorecard(input, derivedFactors) {
     100
   );
 
-  const enterpriseFitStrong = enterpriseNeed >= 0.6 && supportNeed >= 2;
-  const lowSupportNeed = supportNeed <= 1;
-  const supportOrProcurementNeed = supportNeed >= 2;
+  const enterpriseFitStrong =
+    enterpriseNeed >= policy.enterpriseNeedThresholds.strongEnterpriseNeed &&
+    supportNeed >= policy.supportNeedThresholds.supportOrProcurementMin;
+  const lowSupportNeed = supportNeed <= policy.supportNeedThresholds.lowMax;
+  const supportOrProcurementNeed =
+    supportNeed >= policy.supportNeedThresholds.supportOrProcurementMin;
   const buildFriendlyContext =
     lowSupportNeed &&
-    input.designSystemMaturity === "high" &&
-    input.dependentTeams === "one" &&
-    input.ownershipModel === "same-product-team" &&
-    input.changeLeadTime === "less-than-day" &&
-    input.reworkFrequency === "rare" &&
-    input.deadlinePressure === "low" &&
-    rowScale <= 2 &&
-    columnScale <= 2 &&
-    input.advancedFeatures.length <= 2 &&
-    ["none", "wcag-a"].includes(input.accessibilityTarget);
+    input.designSystemMaturity === policy.buildFriendlyContext.requiredDesignSystemMaturity &&
+    input.dependentTeams === policy.buildFriendlyContext.requiredDependentTeams &&
+    input.ownershipModel === policy.buildFriendlyContext.requiredOwnershipModel &&
+    input.changeLeadTime === policy.buildFriendlyContext.requiredChangeLeadTime &&
+    input.reworkFrequency === policy.buildFriendlyContext.requiredReworkFrequency &&
+    input.deadlinePressure === policy.buildFriendlyContext.requiredDeadlinePressure &&
+    rowScale <= policy.buildFriendlyContext.maxRowScale &&
+    columnScale <= policy.buildFriendlyContext.maxColumnScale &&
+    input.advancedFeatures.length <= policy.buildFriendlyContext.maxAdvancedFeatures &&
+    policy.buildFriendlyContext.allowedAccessibilityTargets.includes(
+      input.accessibilityTarget
+    );
 
   let autoSelectedMuiPlan = "core";
 
   if (
-    planFits.enterprise.coverageScore >= 70 &&
+    planFits.enterprise.coverageScore >=
+      policy.muiPlanSelection.enterprise.minCoverageScore &&
     (enterpriseFitStrong ||
       input.componentStandardizationGoal === "platform-standard" ||
       input.supportRequirement === "procurement-sla")
   ) {
     autoSelectedMuiPlan = "enterprise";
   } else if (
-    planFits.premium.coverageScore >= 66 &&
+    planFits.premium.coverageScore >=
+      policy.muiPlanSelection.premium.minCoverageScore &&
     !(
       containedScope &&
       lowSupportNeed &&
       input.advancedFeatures.length === 0 &&
       input.primaryUseCase !== "data-grid"
     ) &&
-    (functionalRisk >= 0.46 ||
-      qualityRisk >= 0.46 ||
-      rowScale >= 3 ||
-      columnScale >= 3 ||
-      input.advancedFeatures.length >= 2)
+    (functionalRisk >= policy.muiPlanSelection.premium.minFunctionalRisk ||
+      qualityRisk >= policy.muiPlanSelection.premium.minQualityRisk ||
+      rowScale >= policy.muiPlanSelection.premium.minRowScale ||
+      columnScale >= policy.muiPlanSelection.premium.minColumnScale ||
+      input.advancedFeatures.length >=
+        policy.muiPlanSelection.premium.minAdvancedFeatures)
   ) {
     autoSelectedMuiPlan = "premium";
   }
