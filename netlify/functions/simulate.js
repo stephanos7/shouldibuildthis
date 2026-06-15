@@ -2127,6 +2127,461 @@ function estimateLicensedDevelopers(input, effectiveMuiPlan) {
   return estimatedSeats;
 }
 
+function buildDeterministicEstimate(input, scorecard) {
+  const buildCalibration = SIMULATION_CALIBRATION.build;
+  const muiCalibration = SIMULATION_CALIBRATION.mui;
+  const simulationPrepCalibration = CALIBRATION.simulation.prep;
+  const buildVelocityCalibration = CALIBRATION.simulation.velocity.build;
+  const muiVelocityCalibration = CALIBRATION.simulation.velocity.mui;
+  const frontendDeveloperVelocityCalibration =
+    CALIBRATION.simulation.velocity.frontendDevelopers;
+  const muiPlan = PLAN_CONFIG[scorecard.effectiveMuiPlan];
+  const planFit = scorecard.effectivePlanFit;
+  const estimatedLicensedDevelopers = estimateLicensedDevelopers(
+    input,
+    scorecard.effectiveMuiPlan
+  );
+  const horizonYears = input.maintenanceHorizonMonths / 12;
+  const laborCostPerWeek = input.engineerCostPerDay * 5;
+  const rowScale = EXPECTED_ROWS_INDEX[input.expectedRows];
+  const columnScale = EXPECTED_COLUMNS_INDEX[input.expectedColumns];
+  const scaleDemand = rowScale + columnScale;
+  const coverageStrength = clamp(planFit.coverageScore / 100, 0, 1);
+  const coverageShield =
+    coverageStrength >= simulationPrepCalibration.coverageShield.strongThreshold
+      ? simulationPrepCalibration.coverageShield.strongValue
+      : coverageStrength >=
+          simulationPrepCalibration.coverageShield.mediumThreshold
+        ? simulationPrepCalibration.coverageShield.mediumValue
+        : simulationPrepCalibration.coverageShield.fallbackValue;
+  const internalAbsorption = scorecard.internalAbsorption;
+  const buildReuseLeverage = scorecard.buildReuseLeverage;
+  const muiLeverage = scorecard.muiLeverage;
+  const muiAdoptionBurden = scorecard.muiAdoptionBurden;
+  const downsideTailRisk = scorecard.downsideTailRisk;
+  const buildAbsorptionShield = clamp(
+    internalAbsorption *
+      simulationPrepCalibration.buildAbsorptionShield.internalAbsorption +
+      buildReuseLeverage *
+        simulationPrepCalibration.buildAbsorptionShield.buildReuseLeverage,
+    simulationPrepCalibration.buildAbsorptionShield.minimum,
+    simulationPrepCalibration.buildAbsorptionShield.maximum
+  );
+  const buildTailPenalty =
+    downsideTailRisk >= simulationPrepCalibration.buildTailPenalty.threshold
+      ? (downsideTailRisk -
+          simulationPrepCalibration.buildTailPenalty.threshold) *
+        simulationPrepCalibration.buildTailPenalty.multiplier
+      : 0;
+  const muiLeverageShield = clamp(
+    muiLeverage * simulationPrepCalibration.muiLeverageShield.muiLeverage,
+    simulationPrepCalibration.muiLeverageShield.minimum,
+    simulationPrepCalibration.muiLeverageShield.maximum
+  );
+  const muiAdoptionLoad = clamp(
+    muiAdoptionBurden *
+      simulationPrepCalibration.muiAdoptionLoad.muiAdoptionBurden,
+    simulationPrepCalibration.muiAdoptionLoad.minimum,
+    simulationPrepCalibration.muiAdoptionLoad.maximum
+  );
+  const buildDeveloperVelocityAdjustment = evaluateThresholdTable(
+    input.frontendDevelopers,
+    frontendDeveloperVelocityCalibration.build
+  );
+  const muiDeveloperVelocityAdjustment = evaluateThresholdTable(
+    input.frontendDevelopers,
+    frontendDeveloperVelocityCalibration.mui
+  );
+  const buildVelocity = clamp(
+    buildVelocityCalibration.base +
+      scorecard.deliveryStrength * buildVelocityCalibration.deliveryStrength -
+      scorecard.ownershipRisk * buildVelocityCalibration.ownershipRisk +
+      internalAbsorption * buildVelocityCalibration.internalAbsorption +
+      buildDeveloperVelocityAdjustment,
+    buildVelocityCalibration.minimum,
+    buildVelocityCalibration.maximum
+  );
+  const muiVelocity = clamp(
+    muiVelocityCalibration.base +
+      scorecard.deliveryStrength * muiVelocityCalibration.deliveryStrength -
+      scorecard.ownershipRisk * muiVelocityCalibration.ownershipRisk +
+      muiLeverage * muiVelocityCalibration.muiLeverage -
+      muiAdoptionBurden * muiVelocityCalibration.muiAdoptionBurden +
+      muiDeveloperVelocityAdjustment,
+    muiVelocityCalibration.minimum,
+    muiVelocityCalibration.maximum
+  );
+
+  const buildBaseEngineeringWeeks = buildCalibration.engineeringMeanWeeks.base;
+  const buildFunctionalRiskWeeks =
+    scorecard.functionalRisk * buildCalibration.engineeringMeanWeeks.functionalRisk;
+  const buildQualityRiskWeeks =
+    scorecard.qualityRisk * buildCalibration.engineeringMeanWeeks.qualityRisk;
+  const buildOwnershipRiskWeeks =
+    scorecard.ownershipRisk * buildCalibration.engineeringMeanWeeks.ownershipRisk;
+  const buildDeliveryRiskWeeks =
+    scorecard.deliveryRisk * buildCalibration.engineeringMeanWeeks.deliveryRisk;
+  const buildEnterpriseNeedWeeks =
+    scorecard.enterpriseNeed * buildCalibration.engineeringMeanWeeks.enterpriseNeed;
+  const buildScaleAdjustmentWeeks =
+    scaleDemand >= 5 ? buildCalibration.engineeringMeanWeeks.largeScaleAdjustment : 0;
+  const buildPreAdjustmentEngineeringWeeks =
+    buildBaseEngineeringWeeks +
+    buildFunctionalRiskWeeks +
+    buildQualityRiskWeeks +
+    buildOwnershipRiskWeeks +
+    buildDeliveryRiskWeeks +
+    buildEnterpriseNeedWeeks +
+    buildScaleAdjustmentWeeks;
+  const buildAbsorptionReductionWeeks = roundTo(
+    buildPreAdjustmentEngineeringWeeks *
+      buildAbsorptionShield *
+      buildCalibration.engineeringMeanWeeks.absorptionShieldReductionFactor
+  );
+  const buildDownsideTailAdditionWeeks = roundTo(
+    downsideTailRisk * buildCalibration.fatTail.build.downsideTailRiskMeanMultiplier
+  );
+  const buildAdjustedEngineeringWeeks = roundTo(
+    Math.max(
+      buildCalibration.engineeringMeanWeeks.minimum,
+      buildPreAdjustmentEngineeringWeeks -
+        buildAbsorptionReductionWeeks +
+        buildDownsideTailAdditionWeeks
+    )
+  );
+  const buildReworkBaseWeeks =
+    buildCalibration.reworkMeanWeeks.base +
+    scorecard.functionalRisk * buildCalibration.reworkMeanWeeks.functionalRisk +
+    scorecard.qualityRisk * buildCalibration.reworkMeanWeeks.qualityRisk +
+    scorecard.ownershipRisk * buildCalibration.reworkMeanWeeks.ownershipRisk +
+    scorecard.deliveryRisk * buildCalibration.reworkMeanWeeks.deliveryRisk +
+    (scaleDemand >= 5
+      ? buildCalibration.reworkMeanWeeks.largeScaleAdjustment
+      : 0);
+  const buildReworkAbsorptionReductionWeeks = roundTo(
+    buildReworkBaseWeeks *
+      buildAbsorptionShield *
+      buildCalibration.reworkMeanWeeks.absorptionShieldReductionFactor
+  );
+  const buildReworkTailAdditionWeeks = roundTo(
+    downsideTailRisk * buildCalibration.reworkMeanWeeks.downsideTailRiskAddition
+  );
+  const buildReworkAllowanceWeeks = roundTo(
+    Math.max(
+      buildCalibration.reworkMeanWeeks.minimum,
+      buildReworkBaseWeeks -
+        buildReworkAbsorptionReductionWeeks +
+        buildReworkTailAdditionWeeks
+    )
+  );
+  const buildTotalEngineeringWeeks = roundTo(
+    buildAdjustedEngineeringWeeks + buildReworkAllowanceWeeks
+  );
+  const buildEngineeringCalendarWeeks = roundTo(
+    buildTotalEngineeringWeeks / buildVelocity
+  );
+  const buildSlipBaseWeeks =
+    buildCalibration.slipMeanWeeks.base +
+    scorecard.deliveryRisk * buildCalibration.slipMeanWeeks.deliveryRisk +
+    scorecard.functionalRisk * buildCalibration.slipMeanWeeks.functionalRisk +
+    scorecard.qualityRisk * buildCalibration.slipMeanWeeks.qualityRisk +
+    scorecard.ownershipRisk * buildCalibration.slipMeanWeeks.ownershipRisk +
+    scorecard.enterpriseNeed * buildCalibration.slipMeanWeeks.enterpriseNeed +
+    (scaleDemand >= 5
+      ? buildCalibration.slipMeanWeeks.largeScaleAdjustment
+      : 0);
+  const buildSlipAbsorptionReductionWeeks = roundTo(
+    buildSlipBaseWeeks *
+      buildAbsorptionShield *
+      buildCalibration.slipMeanWeeks.absorptionShieldReductionFactor
+  );
+  const buildSlipTailAdditionWeeks = roundTo(
+    buildTailPenalty * buildCalibration.slipMeanWeeks.tailPenaltyMultiplier
+  );
+  const buildSlipWeeks = roundTo(
+    Math.max(
+      buildCalibration.slipFloorWeeks,
+      buildSlipBaseWeeks -
+        buildSlipAbsorptionReductionWeeks +
+        buildSlipTailAdditionWeeks
+    )
+  );
+  const buildAppRolloutOverheadWeeks = roundTo(
+    scorecard.appScale * buildCalibration.launch.appScaleOverheadWeeks
+  );
+  const buildLaunchWeeks = roundTo(
+    Math.max(
+      buildCalibration.launch.minimumWeeks,
+      buildEngineeringCalendarWeeks +
+        buildSlipWeeks +
+        buildAppRolloutOverheadWeeks
+    )
+  );
+  const buildMaintenanceBaseWeeks =
+    horizonYears *
+    (buildCalibration.maintenanceWeeks.base +
+      scorecard.functionalRisk * buildCalibration.maintenanceWeeks.functionalRisk +
+      scorecard.qualityRisk * buildCalibration.maintenanceWeeks.qualityRisk +
+      scorecard.ownershipRisk * buildCalibration.maintenanceWeeks.ownershipRisk +
+      scorecard.deliveryRisk * buildCalibration.maintenanceWeeks.deliveryRisk +
+      (scaleDemand >= 5
+        ? buildCalibration.maintenanceWeeks.largeScaleAdjustment
+        : 0));
+  const buildMaintenanceAbsorptionReductionWeeks = roundTo(
+    buildMaintenanceBaseWeeks *
+      buildAbsorptionShield *
+      buildCalibration.maintenanceWeeks.absorptionShieldReductionFactor
+  );
+  const buildMaintenanceDownsideTailAdditionWeeks = roundTo(
+    downsideTailRisk *
+      buildCalibration.maintenanceWeeks.downsideTailRiskHorizonMultiplier *
+      horizonYears
+  );
+  const buildMaintenanceWeeks = roundTo(
+    Math.max(
+      buildCalibration.maintenanceWeeks.minimum,
+      buildMaintenanceBaseWeeks -
+        buildMaintenanceAbsorptionReductionWeeks +
+        buildMaintenanceDownsideTailAdditionWeeks
+    )
+  );
+  const buildEngineeringAndMaintenanceWeeks = roundTo(
+    buildTotalEngineeringWeeks + buildMaintenanceWeeks
+  );
+  const buildLaborCost = Math.round(
+    buildEngineeringAndMaintenanceWeeks * laborCostPerWeek
+  );
+  const buildTotalCost = buildLaborCost;
+
+  const muiBaseEngineeringWeeks =
+    muiCalibration.engineeringMeanWeeks.base +
+    muiCalibration.engineeringMeanWeeks.baseAdoptionOffset;
+  const muiFunctionalRiskWeeks =
+    scorecard.functionalRisk * muiCalibration.engineeringMeanWeeks.functionalRisk;
+  const muiQualityRiskWeeks =
+    scorecard.qualityRisk * muiCalibration.engineeringMeanWeeks.qualityRisk;
+  const muiDeliveryRiskWeeks =
+    scorecard.deliveryRisk * muiCalibration.engineeringMeanWeeks.deliveryRisk;
+  const muiIntegrationRiskWeeks =
+    planFit.integrationRisk * muiCalibration.engineeringMeanWeeks.integrationRisk;
+  const muiCoverageGapWeeks =
+    planFit.coverageGap * muiCalibration.engineeringMeanWeeks.coverageGap;
+  const muiSupportGapWeeks =
+    planFit.supportGap * muiCalibration.engineeringMeanWeeks.supportGap;
+  const muiCoverageShieldReductionWeeks = roundTo(
+    coverageShield * muiCalibration.engineeringMeanWeeks.coverageShieldReduction
+  );
+  const muiPreAdjustmentEngineeringWeeks =
+    muiBaseEngineeringWeeks +
+    muiFunctionalRiskWeeks +
+    muiQualityRiskWeeks +
+    muiDeliveryRiskWeeks +
+    muiIntegrationRiskWeeks +
+    muiCoverageGapWeeks +
+    muiSupportGapWeeks -
+    muiCoverageShieldReductionWeeks;
+  const muiAdoptionBurdenWeeks = roundTo(
+    muiAdoptionBurden * muiCalibration.engineeringMeanWeeks.adoptionBurden
+  );
+  const muiLeverageReductionWeeks = roundTo(
+    muiLeverage * muiCalibration.engineeringMeanWeeks.leverageReduction
+  );
+  const muiAdjustedEngineeringWeeks = roundTo(
+    Math.max(
+      muiCalibration.engineeringMeanWeeks.minimum,
+      muiPreAdjustmentEngineeringWeeks +
+        muiAdoptionBurdenWeeks -
+        muiLeverageReductionWeeks -
+        roundTo(
+          coverageShield *
+            muiCalibration.engineeringMeanWeeks.coverageShieldAdditionalReduction
+        )
+    )
+  );
+  const muiReworkBaseWeeks =
+    muiCalibration.reworkMeanWeeks.base +
+    planFit.coverageGap * muiCalibration.reworkMeanWeeks.coverageGap +
+    planFit.integrationRisk * muiCalibration.reworkMeanWeeks.integrationRisk +
+    scorecard.qualityRisk * muiCalibration.reworkMeanWeeks.qualityRisk +
+    planFit.supportGap * muiCalibration.reworkMeanWeeks.supportGap -
+    muiCoverageShieldReductionWeeks;
+  const muiReworkAllowanceWeeks = roundTo(
+    Math.max(
+      muiCalibration.reworkMeanWeeks.minimum,
+      muiReworkBaseWeeks +
+        muiAdoptionBurdenWeeks -
+        muiLeverageReductionWeeks -
+        roundTo(
+          coverageShield *
+            muiCalibration.reworkMeanWeeks.coverageShieldAdditionalReduction
+        )
+    )
+  );
+  const muiTotalEngineeringWeeks = roundTo(
+    muiAdjustedEngineeringWeeks + muiReworkAllowanceWeeks
+  );
+  const muiEngineeringCalendarWeeks = roundTo(
+    muiTotalEngineeringWeeks / muiVelocity
+  );
+  const muiSlipBaseWeeks =
+    muiCalibration.slipMeanWeeks.base +
+    scorecard.deliveryRisk * muiCalibration.slipMeanWeeks.deliveryRisk +
+    planFit.coverageGap * muiCalibration.slipMeanWeeks.coverageGap +
+    planFit.integrationRisk * muiCalibration.slipMeanWeeks.integrationRisk +
+    planFit.supportGap * muiCalibration.slipMeanWeeks.supportGap -
+    muiCoverageShieldReductionWeeks;
+  const muiSlipWeeks = roundTo(
+    Math.max(
+      muiCalibration.slipFloorWeeks,
+      muiSlipBaseWeeks +
+        muiAdoptionBurdenWeeks -
+        muiLeverageReductionWeeks -
+        roundTo(
+          coverageShield *
+            muiCalibration.slipMeanWeeks.coverageShieldAdditionalReduction
+        )
+    )
+  );
+  const muiAppRolloutOverheadWeeks = roundTo(
+    scorecard.appScale * muiCalibration.launch.appScaleOverheadWeeks
+  );
+  const muiLaunchWeeks = roundTo(
+    Math.max(
+      muiCalibration.launch.minimumWeeks,
+      muiEngineeringCalendarWeeks + muiSlipWeeks + muiAppRolloutOverheadWeeks
+    )
+  );
+  const muiMaintenanceBaseWeeks =
+    horizonYears *
+    (muiCalibration.maintenanceWeeks.base +
+      scorecard.functionalRisk * muiCalibration.maintenanceWeeks.functionalRisk +
+      scorecard.qualityRisk * muiCalibration.maintenanceWeeks.qualityRisk +
+      planFit.integrationRisk *
+        muiCalibration.maintenanceWeeks.integrationRisk +
+      planFit.coverageGap * muiCalibration.maintenanceWeeks.coverageGap +
+      planFit.supportGap * muiCalibration.maintenanceWeeks.supportGap -
+      scorecard.muiUsage * muiCalibration.maintenanceWeeks.muiUsageReduction -
+      muiCoverageShieldReductionWeeks);
+  const muiMaintenanceWeeks = roundTo(
+    Math.max(
+      muiCalibration.maintenanceWeeks.minimum,
+      muiMaintenanceBaseWeeks +
+        muiAdoptionBurdenWeeks * horizonYears -
+        muiLeverageReductionWeeks * horizonYears -
+        roundTo(
+          coverageShield *
+            muiCalibration.maintenanceWeeks.coverageShieldAdditionalReduction
+        )
+    )
+  );
+  const muiEngineeringAndMaintenanceWeeks = roundTo(
+    muiTotalEngineeringWeeks + muiMaintenanceWeeks
+  );
+  const muiLaborCost = Math.round(
+    muiEngineeringAndMaintenanceWeeks * laborCostPerWeek
+  );
+  const muiLicenseCost = Math.round(
+    muiPlan.licensePerDeveloperYear * estimatedLicensedDevelopers * horizonYears
+  );
+  const muiTotalCost = muiLaborCost + muiLicenseCost;
+
+  return {
+    build: {
+      effort: {
+        baseEngineeringWeeks: roundTo(buildBaseEngineeringWeeks),
+        functionalRiskWeeks: roundTo(buildFunctionalRiskWeeks),
+        qualityRiskWeeks: roundTo(buildQualityRiskWeeks),
+        ownershipRiskWeeks: roundTo(buildOwnershipRiskWeeks),
+        deliveryRiskWeeks: roundTo(buildDeliveryRiskWeeks),
+        enterpriseNeedWeeks: roundTo(buildEnterpriseNeedWeeks),
+        scaleAdjustmentWeeks: roundTo(buildScaleAdjustmentWeeks),
+        preAdjustmentEngineeringWeeks: roundTo(
+          buildPreAdjustmentEngineeringWeeks
+        ),
+        absorptionReductionWeeks: buildAbsorptionReductionWeeks,
+        downsideTailAdditionWeeks: buildDownsideTailAdditionWeeks,
+        adjustedEngineeringWeeks: buildAdjustedEngineeringWeeks,
+        reworkAllowanceWeeks: buildReworkAllowanceWeeks,
+        totalEngineeringWeeks: buildTotalEngineeringWeeks
+      },
+      schedule: {
+        velocityFactor: roundTo(buildVelocity, 2),
+        engineeringCalendarWeeks: buildEngineeringCalendarWeeks,
+        slipWeeks: buildSlipWeeks,
+        appRolloutOverheadWeeks: buildAppRolloutOverheadWeeks,
+        launchWeeks: buildLaunchWeeks
+      },
+      maintenance: {
+        baseMaintenanceWeeks: roundTo(buildMaintenanceBaseWeeks),
+        absorptionReductionWeeks: buildMaintenanceAbsorptionReductionWeeks,
+        downsideTailAdditionWeeks: buildMaintenanceDownsideTailAdditionWeeks,
+        maintenanceWeeks: buildMaintenanceWeeks
+      },
+      cost: {
+        laborCostPerWeek: roundTo(laborCostPerWeek, 0),
+        engineeringAndMaintenanceWeeks: buildEngineeringAndMaintenanceWeeks,
+        laborCost: buildLaborCost,
+        licenseCost: 0,
+        totalCost: buildTotalCost
+      }
+    },
+    mui: {
+      effort: {
+        baseEngineeringWeeks: roundTo(muiBaseEngineeringWeeks),
+        functionalRiskWeeks: roundTo(muiFunctionalRiskWeeks),
+        qualityRiskWeeks: roundTo(muiQualityRiskWeeks),
+        deliveryRiskWeeks: roundTo(muiDeliveryRiskWeeks),
+        integrationRiskWeeks: roundTo(muiIntegrationRiskWeeks),
+        coverageGapWeeks: roundTo(muiCoverageGapWeeks),
+        supportGapWeeks: roundTo(muiSupportGapWeeks),
+        coverageShieldReductionWeeks: muiCoverageShieldReductionWeeks,
+        preAdjustmentEngineeringWeeks: roundTo(
+          muiPreAdjustmentEngineeringWeeks
+        ),
+        adoptionBurdenWeeks: muiAdoptionBurdenWeeks,
+        leverageReductionWeeks: muiLeverageReductionWeeks,
+        adjustedEngineeringWeeks: muiAdjustedEngineeringWeeks,
+        reworkAllowanceWeeks: muiReworkAllowanceWeeks,
+        totalEngineeringWeeks: muiTotalEngineeringWeeks
+      },
+      schedule: {
+        velocityFactor: roundTo(muiVelocity, 2),
+        engineeringCalendarWeeks: muiEngineeringCalendarWeeks,
+        slipWeeks: muiSlipWeeks,
+        appRolloutOverheadWeeks: muiAppRolloutOverheadWeeks,
+        launchWeeks: muiLaunchWeeks
+      },
+      maintenance: {
+        baseMaintenanceWeeks: roundTo(muiMaintenanceBaseWeeks),
+        integrationRiskWeeks: roundTo(
+          planFit.integrationRisk * muiCalibration.maintenanceWeeks.integrationRisk
+        ),
+        coverageGapWeeks: roundTo(
+          planFit.coverageGap * muiCalibration.maintenanceWeeks.coverageGap
+        ),
+        supportGapWeeks: roundTo(
+          planFit.supportGap * muiCalibration.maintenanceWeeks.supportGap
+        ),
+        adoptionBurdenWeeks: roundTo(
+          muiAdoptionBurdenWeeks * horizonYears
+        ),
+        leverageReductionWeeks: roundTo(
+          muiLeverageReductionWeeks * horizonYears
+        ),
+        maintenanceWeeks: muiMaintenanceWeeks
+      },
+      cost: {
+        laborCostPerWeek: roundTo(laborCostPerWeek, 0),
+        engineeringAndMaintenanceWeeks: muiEngineeringAndMaintenanceWeeks,
+        laborCost: muiLaborCost,
+        estimatedLicensedDevelopers,
+        licenseCost: muiLicenseCost,
+        totalCost: muiTotalCost
+      }
+    }
+  };
+}
+
 function buildDeterministicConfidence(scorecard, estimateBreakdown) {
   const buildLaunchWeeks = estimateBreakdown.build.schedule.launchWeeks;
   const muiLaunchWeeks = estimateBreakdown.mui.schedule.launchWeeks;

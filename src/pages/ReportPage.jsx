@@ -1211,7 +1211,7 @@ function EstimateBreakdownCard({ title, breakdown, pathKey }) {
               {title}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              Central estimate components. The Monte Carlo section samples around these inputs.
+              Central estimate components before uncertainty is sampled. Not a guarantee.
             </Typography>
           </Box>
 
@@ -1866,10 +1866,9 @@ function ReportPage() {
                     Estimate breakdown
                   </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, maxWidth: 760 }}>
-                    How the model assembles launch time and TCO before uncertainty is applied.
-                    The breakdown shows the model&apos;s central estimate components. The
-                    Monte Carlo section then samples uncertainty around these components to
-                    produce median and P90 ranges.
+                    How the model assembles launch time and TCO before uncertainty is sampled.
+                    These are central estimate components, not a guarantee. The Monte Carlo
+                    median and P90 can differ because random variance and tail risk are sampled.
                   </Typography>
                 </Box>
 

@@ -12,6 +12,8 @@ Core effort, rework, slip, maintenance, shield, load, and tail coefficients now 
 
 `MODEL_STAGES` defines the stage vocabulary used across the glossary, impact map, and dependency docs.
 
+`auditModelConfig()` is a lightweight developer audit helper. It checks that impact-map calibration references resolve, that impact artifacts exist in the glossary, that every raw input has a matching impact-map entry, and that the allowed direction and effect enums stay within the documented vocabulary.
+
 Calculation code should read numeric values from `CALIBRATION`. The impact map should reference those values through `calibrationRef` instead of duplicating numbers inline.
 
 All new model-behavior numbers should be named, documented, and placed in calibration first. The impact map should point at the same calibration key so reviewers can trace causal claims back to the exact numeric source.
@@ -52,7 +54,7 @@ When adding a new model threshold:
 To validate the metadata split locally, run the lightweight non-runtime checker:
 
 ```txt
-node --input-type=module -e "import { validateModelMetadata } from './src/model/validateModelMetadata.js'; import { CALIBRATION } from './src/model/calibration.js'; import { MODEL_IMPACT_MAP } from './src/model/modelImpactMap.js'; console.log(validateModelMetadata({ calibration: CALIBRATION, impactMap: MODEL_IMPACT_MAP }));"
+node --input-type=module -e "import { auditModelConfig } from './src/model/auditModelConfig.js'; import { CALIBRATION } from './src/model/calibration.js'; import { MODEL_IMPACT_MAP } from './src/model/modelImpactMap.js'; import { MODEL_ARTIFACT_GLOSSARY } from './src/model/modelArtifactGlossary.js'; console.log(auditModelConfig({ calibration: CALIBRATION, impactMap: MODEL_IMPACT_MAP, artifactGlossary: MODEL_ARTIFACT_GLOSSARY }));"
 ```
 
 ## Example
@@ -72,6 +74,21 @@ To make Build more sensitive to functional complexity:
 2. Update comments if the interpretation changes.
 3. Check the deterministic breakdown and Monte Carlo outputs.
 4. Validate low-risk, medium-risk, and high-risk payloads.
+
+## Deterministic Breakdown
+
+The report includes a deterministic estimate breakdown for Build and the selected MUI path. It is the model's central estimate assembled from calibrated components before any random sampling is applied.
+
+Use it to review:
+
+- where launch time comes from,
+- how rework and slip are assembled,
+- how maintenance and TCO are built up,
+- and whether a calibration change moved the central estimate in the intended direction.
+
+The deterministic breakdown can differ from the Monte Carlo medians and P90s because the simulation samples variance and tail risk around the same central structure. That is expected. The breakdown is for explainability and calibration review, not as a replacement for the simulated distribution.
+
+When reviewing calibration changes, compare the deterministic breakdown before and after the edit first. If the central estimate moved in the right direction, then confirm that the Monte Carlo medians and P90s still behave as expected.
 
 ## Practical Notes
 
