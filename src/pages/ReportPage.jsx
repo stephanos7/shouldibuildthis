@@ -233,9 +233,13 @@ function formatNumber(value, maximumFractionDigits = 1) {
     return "N/A";
   }
 
+  const maxFractionDigits = Number.isFinite(maximumFractionDigits)
+    ? clamp(Math.floor(maximumFractionDigits), 0, 20)
+    : 1;
+
   return new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: value % 1 === 0 ? 0 : 1,
-    maximumFractionDigits
+    minimumFractionDigits: maxFractionDigits === 0 ? 0 : value % 1 === 0 ? 0 : 1,
+    maximumFractionDigits: maxFractionDigits
   }).format(value);
 }
 
