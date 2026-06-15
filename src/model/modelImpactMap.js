@@ -1014,27 +1014,40 @@ export const MODEL_IMPACT_MAP = {
     group: "Lifecycle support",
     direction: "contextual",
     summary:
-      "A longer ownership horizon increases support relevance and makes vendor-backed paths more attractive.",
+      "A longer ownership horizon changes ownership burden and path fit only when continuity, support, or internal ownership conditions are already strong or weak enough to matter.",
     impacts: [
       {
-        artifact: "enterpriseReadiness",
+        artifact: "ownershipBurden",
         stage: "derivedFactor",
-        path: "Vendor-backed / standardized paths",
-        direction: "neutral",
-        effectType: "linear",
-        effectScale: "small",
+        path: "Build",
+        direction: "negative",
+        effectType: "conditional",
+        calibrationRef: "ownershipHorizonEffects.ownershipBurden",
         calculatedIn: "buildDerivedFactors",
-        reason: "Longer ownership horizons reinforce long-lived support relevance."
+        reason:
+          "Longer ownership horizons increase ownership burden only when ownership is unclear, knowledge is concentrated, or dependency spread makes continuity harder."
       },
       {
-        artifact: "enterpriseNeed",
-        stage: "scorecardRisk",
-        path: "Vendor-backed / standardized paths",
-        direction: "contextual",
-        effectType: "linear",
-        effectScale: "small",
+        artifact: "enterpriseFit",
+        stage: "pathFit",
+        path: "MUI Enterprise",
+        direction: "positive",
+        effectType: "conditional",
+        calibrationRef: "ownershipHorizonEffects.enterpriseFit",
         calculatedIn: "buildScorecard",
-        reason: "Ownership horizons help translate enterprise readiness into vendor-backed path relevance."
+        reason:
+          "Longer ownership horizons increase Enterprise fit when support, criticality, footprint, or standardization pressure is also present."
+      },
+      {
+        artifact: "buildFit",
+        stage: "pathFit",
+        path: "Build",
+        direction: "positive",
+        effectType: "conditional",
+        calibrationRef: "ownershipHorizonEffects.buildFit",
+        calculatedIn: "buildScorecard",
+        reason:
+          "Longer ownership horizons can increase Build fit when ownership is clear, knowledge is shared, and internal maturity is strong."
       }
     ]
   },

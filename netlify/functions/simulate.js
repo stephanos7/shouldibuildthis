@@ -3,8 +3,11 @@ import {
   CALIBRATION,
   CALIBRATION_VERSION,
   DERIVED_FACTOR_WEIGHTS,
+  INPUT_SCALES,
   PATH_SCORE_WEIGHTS,
   PLAN_FIT_WEIGHTS,
+  PLAN_CONFIG,
+  SCORE_BANDS,
   SCENARIO_LEVER_WEIGHTS
 } from "../../src/model/calibration.js";
 
@@ -185,27 +188,6 @@ const EXPECTED_COLUMNS_INDEX = {
   "under-10": 1,
   "10-30": 2,
   "over-30": 3
-};
-
-const USE_CASE_COMPLEXITY = {
-  "data-grid": 4.7,
-  charts: 3.1,
-  "date-pickers": 2.3,
-  "tree-view": 3.3,
-  scheduler: 5.0,
-  "multi-component": 3.2
-};
-
-const ADVANCED_FEATURE_WEIGHTS = {
-  virtualization: 1.5,
-  "inline-editing": 1.0,
-  "server-side-data": 1.2,
-  "keyboard-navigation": 0.9,
-  exporting: 0.5,
-  "drag-and-drop": 1.0,
-  "custom-rendering": 1.2,
-  "timezone-logic": 0.9,
-  "i18n-localization": 0.8
 };
 
 const SUPPORT_INDEX = {
@@ -414,51 +396,6 @@ const SENSITIVITY_ORDERED_VALUES = {
   expectedColumns: ["under-10", "10-30", "over-30"]
 };
 
-const PLAN_CONFIG = {
-  core: {
-    key: "core",
-    label: "MUI Core",
-    useCaseCoverage: {
-      "data-grid": 0.28,
-      charts: 0.45,
-      "date-pickers": 0.92,
-      "tree-view": 0.5,
-      scheduler: 0.12,
-      "multi-component": 0.32
-    },
-    supportCapability: 0.15,
-    featureCapacity: 2.0
-  },
-  premium: {
-    key: "premium",
-    label: "MUI X Premium",
-    useCaseCoverage: {
-      "data-grid": 0.9,
-      charts: 0.72,
-      "date-pickers": 0.96,
-      "tree-view": 0.84,
-      scheduler: 0.66,
-      "multi-component": 0.76
-    },
-    supportCapability: 0.45,
-    featureCapacity: 4.4
-  },
-  enterprise: {
-    key: "enterprise",
-    label: "MUI X Enterprise",
-    useCaseCoverage: {
-      "data-grid": 0.94,
-      charts: 0.78,
-      "date-pickers": 0.97,
-      "tree-view": 0.88,
-      scheduler: 0.74,
-      "multi-component": 0.82
-    },
-    supportCapability: 0.78,
-    featureCapacity: 5.8
-  }
-};
-
 function jsonResponse(statusCode, body) {
   return {
     statusCode,
@@ -486,11 +423,11 @@ function roundTo(value, decimals = 1) {
 }
 
 function levelFromScore(score) {
-  if (score >= 67) {
+  if (score >= SCORE_BANDS.high.min) {
     return "high";
   }
 
-  if (score >= 34) {
+  if (score >= SCORE_BANDS.medium.min) {
     return "medium";
   }
 
@@ -527,6 +464,121 @@ function bucket(value, small, medium) {
   }
 
   return 3;
+}
+
+function buildOwnershipHorizonEffects(input, overrides = {}) {
+  const horizonEffects = CALIBRATION.ownershipHorizonEffects;
+  const horizonScale = horizonEffects.scale[input.ownershipHorizon] ?? 0;
+  const ownershipBurdenWeights = horizonEffects.ownershipBurden;
+  const enterpriseHorizonWeights = horizonEffects.enterpriseFit;
+  const buildHorizonWeights = horizonEffects.buildFit;
+  const ownershipClarity =
+    overrides.ownershipClarity ??
+    ({
+      "same-product-team": 1,
+      "frontend-platform-team": 0.84,
+      "several-teams-informal": 0.48,
+      unclear: 0.24
+    }[input.ownershipModel] ?? 0);
+  const knowledgeSpread =
+    overrides.knowledgeSpread ??
+    ({
+      shared: 1,
+      "few-owners": 0.62,
+      "single-owner": 0.22,
+      unknown: 0.44
+    }[input.knowledgeConcentration] ?? 0);
+  const dependentTeamsWeakness =
+    overrides.dependentTeamsWeakness ??
+    clamp(
+      (DEPENDENT_TEAMS_INDEX[input.dependentTeams] ??
+        ownershipBurdenWeights.dependentTeamsMaxIndex) /
+        ownershipBurdenWeights.dependentTeamsMaxIndex,
+      0,
+      1
+    );
+  const ownershipWeakness = clamp(
+    (1 - ownershipClarity) * ownershipBurdenWeights.ownershipWeakness +
+      (1 - knowledgeSpread) *
+        ownershipBurdenWeights.knowledgeConcentration +
+      dependentTeamsWeakness * ownershipBurdenWeights.dependentTeams,
+    0,
+    1
+  );
+  const supportNeed =
+    overrides.supportNeed ?? SUPPORT_INDEX[input.supportRequirement] ?? 0;
+  const productionCriticalityNormalized =
+    overrides.productionCriticalityNormalized ??
+    clamp(
+      (PRODUCTION_CRITICALITY_INDEX[input.productionCriticality] ?? 0) /
+        enterpriseHorizonWeights.productionCriticalityMaxIndex,
+      0,
+      1
+    );
+  const standardizationIntent =
+    overrides.standardizationIntent ??
+    clamp(
+      (COMPONENT_STANDARDIZATION_GOAL_INDEX[
+        input.componentStandardizationGoal
+      ] ?? 0) / enterpriseHorizonWeights.standardizationGoalMaxIndex,
+      0,
+      1
+    );
+  const appScale =
+    overrides.appScale ??
+    bucket(
+      input.reactApps,
+      INPUT_SCALES.appScaleBucket.smallMax,
+      INPUT_SCALES.appScaleBucket.mediumMax
+    );
+  const teamScale =
+    overrides.teamScale ??
+    bucket(
+      input.frontendDevelopers,
+      INPUT_SCALES.teamScaleBucket.smallMax,
+      INPUT_SCALES.teamScaleBucket.mediumMax
+    );
+  const internalAbsorptionStrength =
+    overrides.internalAbsorptionStrength ?? 0;
+  const ownershipBurdenEffect =
+    horizonScale * ownershipWeakness * ownershipBurdenWeights.maximumImpact;
+  const enterpriseHorizonContext = clamp(
+    (supportNeed / enterpriseHorizonWeights.supportRequirementMaxIndex) *
+      enterpriseHorizonWeights.supportRequirement +
+      productionCriticalityNormalized *
+        enterpriseHorizonWeights.productionCriticality +
+      standardizationIntent *
+        enterpriseHorizonWeights.standardizationIntent +
+      appScale * enterpriseHorizonWeights.appScale +
+      teamScale * enterpriseHorizonWeights.teamScale,
+    0,
+    1
+  );
+  const enterpriseFitEffect =
+    horizonScale *
+    enterpriseHorizonContext *
+    enterpriseHorizonWeights.maximumImpact;
+  const internalOwnershipStrength = clamp(
+    ownershipClarity * buildHorizonWeights.ownershipClarity +
+      knowledgeSpread * buildHorizonWeights.knowledgeSpread +
+      (overrides.maturityStrength ?? 0) *
+        buildHorizonWeights.designSystemMaturity +
+      internalAbsorptionStrength * buildHorizonWeights.internalAbsorption,
+    0,
+    1
+  );
+  const buildFitEffect =
+    horizonScale * internalOwnershipStrength * buildHorizonWeights.maximumImpact;
+
+  return {
+    scale: horizonScale,
+    ownershipWeakness,
+    internalOwnershipStrength,
+    enterpriseHorizonContext,
+    ownershipBurdenEffect,
+    buildFitEffect,
+    enterpriseFitEffect
+  };
 }
 
 function countLabel(count, singular, plural = `${singular}s`) {
@@ -891,9 +943,9 @@ function validatePayload(normalized, originalPayload) {
 
 function buildDerivedFactors(input) {
   const derivedWeights = DERIVED_FACTOR_WEIGHTS;
-  const useCaseComplexity = USE_CASE_COMPLEXITY[input.primaryUseCase];
+  const useCaseComplexity = INPUT_SCALES.useCaseComplexity[input.primaryUseCase];
   const featureWeight = input.advancedFeatures.reduce(
-    (sum, feature) => sum + ADVANCED_FEATURE_WEIGHTS[feature],
+    (sum, feature) => sum + INPUT_SCALES.advancedFeatureWeights[feature],
     0
   );
   const screenLoad = Math.min(input.dataHeavyScreens, 12);
@@ -936,6 +988,29 @@ function buildDerivedFactors(input) {
       return labels[feature] ?? feature;
     })
   );
+  const ownershipHorizonEffects = buildOwnershipHorizonEffects(input, {
+    ownershipClarity:
+      ({
+        "same-product-team": 1,
+        "frontend-platform-team": 0.84,
+        "several-teams-informal": 0.48,
+        unclear: 0.24
+      }[input.ownershipModel] ?? 0),
+    knowledgeSpread:
+      ({
+        shared: 1,
+        "few-owners": 0.62,
+        "single-owner": 0.22,
+        unknown: 0.44
+      }[input.knowledgeConcentration] ?? 0),
+    dependentTeamsWeakness: clamp(
+      dependentTeams /
+        CALIBRATION.ownershipHorizonEffects.ownershipBurden
+          .dependentTeamsMaxIndex,
+      0,
+      1
+    )
+  });
 
   const functionalDrivers = [
     input.primaryUseCase === "multi-component"
@@ -1053,6 +1128,7 @@ function buildDerivedFactors(input) {
       Math.min(input.reactApps, 8) * derivedWeights.ownershipBurden.reactApps +
       knowledgeConcentration *
         derivedWeights.ownershipBurden.knowledgeConcentration +
+      ownershipHorizonEffects.ownershipBurdenEffect +
       derivedWeights.ownershipBurden.designSystemMaturity[
         input.designSystemMaturity
       ],
@@ -1076,15 +1152,11 @@ function buildDerivedFactors(input) {
       standardizationGoal *
         derivedWeights.enterpriseReadiness.standardizationGoal +
       productionCriticality *
-        derivedWeights.enterpriseReadiness.productionCriticality +
-      derivedWeights.enterpriseReadiness.ownershipHorizon[
-        input.ownershipHorizon
-      ],
+        derivedWeights.enterpriseReadiness.productionCriticality,
     [
       `${input.supportRequirement} support expectations raise enterprise relevance.`,
       `${countLabel(input.reactApps, "React app")} and ${input.dependentTeams} dependent teams widen the rollout footprint.`,
-      `${input.componentStandardizationGoal} standardization intent and ${input.productionCriticality} criticality affect platform pressure.`,
-      `${input.ownershipHorizon}-month ownership horizon reinforces long-lived support planning.`
+      `${input.componentStandardizationGoal} standardization intent and ${input.productionCriticality} criticality affect platform pressure.`
     ]
   );
 
@@ -1106,7 +1178,7 @@ function buildPlanFit(planKey, input, derivedFactors) {
   const planFitWeights = PLAN_FIT_WEIGHTS;
   const plan = PLAN_CONFIG[planKey];
   const featureDemand = input.advancedFeatures.reduce(
-    (sum, feature) => sum + ADVANCED_FEATURE_WEIGHTS[feature],
+    (sum, feature) => sum + INPUT_SCALES.advancedFeatureWeights[feature],
     0
   );
   const performancePressure =
@@ -1547,16 +1619,105 @@ function buildScorecard(input, derivedFactors) {
     KNOWLEDGE_CONCENTRATION_INDEX[input.knowledgeConcentration];
   const handoffFriction =
     DESIGN_DEV_HANDOFF_FRICTION_INDEX[input.designDevHandoffFriction];
+  const knowledgeSpread = {
+    shared: 1,
+    "few-owners": 0.62,
+    "single-owner": 0.22,
+    unknown: 0.44
+  }[input.knowledgeConcentration];
+  const handoffAlignment = {
+    low: 1,
+    medium: 0.68,
+    high: 0.32,
+    unknown: 0.52
+  }[input.designDevHandoffFriction];
   const performanceSensitivity =
     PERFORMANCE_SENSITIVITY_INDEX[input.performanceSensitivity];
-  const teamScale = bucket(input.frontendDevelopers, 3, 8);
-  const appScale = bucket(input.reactApps, 1, 4);
+  const teamScale = bucket(
+    input.frontendDevelopers,
+    INPUT_SCALES.teamScaleBucket.smallMax,
+    INPUT_SCALES.teamScaleBucket.mediumMax
+  );
+  const appScale = bucket(
+    input.reactApps,
+    INPUT_SCALES.appScaleBucket.smallMax,
+    INPUT_SCALES.appScaleBucket.mediumMax
+  );
 
   const planFits = {
     core: buildPlanFit("core", input, derivedFactors),
     premium: buildPlanFit("premium", input, derivedFactors),
     enterprise: buildPlanFit("enterprise", input, derivedFactors)
   };
+  const ownershipClarity = {
+    "same-product-team": 1,
+    "frontend-platform-team": 0.84,
+    "several-teams-informal": 0.48,
+    unclear: 0.24
+  }[input.ownershipModel];
+  const teamFocus = {
+    one: 1,
+    "two-three": 0.74,
+    "four-seven": 0.42,
+    "eight-plus": 0.18
+  }[input.dependentTeams];
+  const reworkStability = {
+    rare: 1,
+    occasional: 0.62,
+    frequent: 0.22,
+    unknown: 0.44
+  }[input.reworkFrequency];
+  const deadlineSlack = {
+    low: 1,
+    medium: 0.62,
+    high: 0.26
+  }[input.deadlinePressure];
+  const supportLightness = {
+    community: 1,
+    standard: 0.74,
+    priority: 0.46,
+    "procurement-sla": 0.18
+  }[input.supportRequirement];
+  const appFocus = clamp(1 - Math.max(0, input.reactApps - 1) * 0.16, 0.42, 1);
+  const maturityStrength = {
+    low: 0.3,
+    medium: 0.62,
+    high: 1
+  }[input.designSystemMaturity];
+  const internalAbsorptionStrength = clamp(
+    deliveryStrength * SCENARIO_LEVER_WEIGHTS.internalAbsorption.deliveryStrength +
+      maturityStrength * SCENARIO_LEVER_WEIGHTS.internalAbsorption.maturityStrength +
+      ownershipClarity * SCENARIO_LEVER_WEIGHTS.internalAbsorption.ownershipClarity +
+      teamFocus * SCENARIO_LEVER_WEIGHTS.internalAbsorption.teamFocus +
+      reworkStability * SCENARIO_LEVER_WEIGHTS.internalAbsorption.reworkStability +
+      knowledgeSpread *
+        SCENARIO_LEVER_WEIGHTS.internalAbsorption.knowledgeSpread +
+      handoffAlignment *
+        SCENARIO_LEVER_WEIGHTS.internalAbsorption.handoffAlignment +
+      deadlineSlack * SCENARIO_LEVER_WEIGHTS.internalAbsorption.deadlineSlack +
+      supportLightness * SCENARIO_LEVER_WEIGHTS.internalAbsorption.supportLightness +
+      appFocus * SCENARIO_LEVER_WEIGHTS.internalAbsorption.appFocus,
+    0,
+    1
+  );
+  const ownershipHorizonEffects = buildOwnershipHorizonEffects(input, {
+    ownershipClarity,
+    knowledgeSpread,
+    dependentTeamsWeakness: clamp(
+      dependentTeams /
+        CALIBRATION.ownershipHorizonEffects.ownershipBurden
+          .dependentTeamsMaxIndex,
+      0,
+      1
+    ),
+    supportNeed,
+    productionCriticalityNormalized,
+    standardizationIntent,
+    appScale,
+    teamScale,
+    maturityStrength,
+    internalAbsorptionStrength
+  });
 
   const buildFit = clamp(
     buildFitWeights.base -
@@ -1567,7 +1728,8 @@ function buildScorecard(input, derivedFactors) {
       (maturity - 2) * buildFitWeights.maturityBonus -
       supportNeed * buildFitWeights.supportNeed -
       (rowScale >= 3 ? buildFitWeights.rowPenalty : 0) -
-      (columnScale >= 3 ? buildFitWeights.columnPenalty : 0),
+      (columnScale >= 3 ? buildFitWeights.columnPenalty : 0) +
+      ownershipHorizonEffects.buildFitEffect,
     0,
     100
   );
@@ -1619,7 +1781,8 @@ function buildScorecard(input, derivedFactors) {
         enterpriseFitWeights.productionCriticality +
       (containedScope
         ? enterpriseFitWeights.simpleScopeAdjustment
-        : 0),
+        : 0) +
+      ownershipHorizonEffects.enterpriseFitEffect,
     0,
     100
   );
@@ -1810,7 +1973,7 @@ function buildPathFitEntry(key, label, score, components, eligible = true) {
 
 function buildPathFits(input, derivedFactors, scorecard, planFits) {
   const featureDemandRaw = input.advancedFeatures.reduce(
-    (sum, feature) => sum + ADVANCED_FEATURE_WEIGHTS[feature],
+    (sum, feature) => sum + INPUT_SCALES.advancedFeatureWeights[feature],
     0
   );
   const featureDemand = clamp((featureDemandRaw / 6) * 100, 0, 100);
@@ -1831,8 +1994,16 @@ function buildPathFits(input, derivedFactors, scorecard, planFits) {
       : clamp(featureDemand * 0.72, 0, 100);
   const standardizationContext = clamp(
     scorecard.standardizationIntent * 42 +
-      bucket(input.reactApps, 1, 4) * 14 +
-      bucket(input.frontendDevelopers, 3, 8) * 10 +
+      bucket(
+        input.reactApps,
+        INPUT_SCALES.appScaleBucket.smallMax,
+        INPUT_SCALES.appScaleBucket.mediumMax
+      ) * 14 +
+      bucket(
+        input.frontendDevelopers,
+        INPUT_SCALES.teamScaleBucket.smallMax,
+        INPUT_SCALES.teamScaleBucket.mediumMax
+      ) * 10 +
       DEPENDENT_TEAMS_INDEX[input.dependentTeams] * 8,
     0,
     100
@@ -2826,11 +2997,27 @@ function buildEvidenceBasis(input, scorecard) {
 }
 
 function buildDiagnostics(input, scorecard, pathFits, evidenceBasis, sensitivity) {
+  const ownershipHorizonEffects = buildOwnershipHorizonEffects(input, {
+    maturityStrength:
+      {
+        low: 0.3,
+        medium: 0.62,
+        high: 1
+      }[input.designSystemMaturity],
+    supportNeed: scorecard.supportNeed,
+    productionCriticalityNormalized: scorecard.productionCriticalityNormalized,
+    standardizationIntent: scorecard.standardizationIntent,
+    appScale: scorecard.appScale,
+    teamScale: scorecard.teamScale,
+    internalAbsorptionStrength: scorecard.internalAbsorption
+  });
+
   return {
     effectiveMuiPlan: scorecard.effectiveMuiPlan,
     containedScope: scorecard.containedScope,
     buildFriendlyContext: scorecard.buildFriendlyContext,
     enterpriseFitStrong: scorecard.enterpriseFitStrong,
+    ownershipHorizonEffects,
     scorecard: {
       buildFit: scorecard.buildFit,
       coreFit: scorecard.coreFit,

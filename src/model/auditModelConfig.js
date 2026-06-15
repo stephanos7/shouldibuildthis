@@ -5,6 +5,8 @@ import { MODEL_IMPACT_MAP } from "./modelImpactMap.js";
 const ALLOWED_DIRECTIONS = new Set([
   "good",
   "bad",
+  "positive",
+  "negative",
   "contextual",
   "cost",
   "mixed",

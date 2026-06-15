@@ -88,6 +88,87 @@
 
 export const CALIBRATION_VERSION = "heuristic-v2";
 
+export const INPUT_SCALES = {
+  useCaseComplexity: {
+    "data-grid": 4.7,
+    charts: 3.1,
+    "date-pickers": 2.3,
+    "tree-view": 3.3,
+    scheduler: 5.0,
+    "multi-component": 3.2
+  },
+  advancedFeatureWeights: {
+    virtualization: 1.5,
+    "inline-editing": 1.0,
+    "server-side-data": 1.2,
+    "keyboard-navigation": 0.9,
+    exporting: 0.5,
+    "drag-and-drop": 1.0,
+    "custom-rendering": 1.2,
+    "timezone-logic": 0.9,
+    "i18n-localization": 0.8
+  },
+  teamScaleBucket: {
+    smallMax: 3,
+    mediumMax: 8
+  },
+  appScaleBucket: {
+    smallMax: 1,
+    mediumMax: 4
+  }
+};
+
+export const PLAN_CONFIG = {
+  core: {
+    key: "core",
+    label: "MUI Core",
+    useCaseCoverage: {
+      "data-grid": 0.28,
+      charts: 0.45,
+      "date-pickers": 0.92,
+      "tree-view": 0.5,
+      scheduler: 0.12,
+      "multi-component": 0.32
+    },
+    supportCapability: 0.15,
+    featureCapacity: 2.0
+  },
+  premium: {
+    key: "premium",
+    label: "MUI X Premium",
+    useCaseCoverage: {
+      "data-grid": 0.9,
+      charts: 0.72,
+      "date-pickers": 0.96,
+      "tree-view": 0.84,
+      scheduler: 0.66,
+      "multi-component": 0.76
+    },
+    supportCapability: 0.45,
+    featureCapacity: 4.4
+  },
+  enterprise: {
+    key: "enterprise",
+    label: "MUI X Enterprise",
+    useCaseCoverage: {
+      "data-grid": 0.94,
+      charts: 0.78,
+      "date-pickers": 0.97,
+      "tree-view": 0.88,
+      scheduler: 0.74,
+      "multi-component": 0.82
+    },
+    supportCapability: 0.78,
+    featureCapacity: 5.8
+  }
+};
+
+export const SCORE_BANDS = {
+  low: { min: 0, maxExclusive: 34 },
+  medium: { min: 34, maxExclusive: 67 },
+  high: { min: 67, maxInclusive: 100 }
+};
+
 /*
  * Calibration glossary
  * --------------------
@@ -303,15 +384,79 @@ export const DERIVED_FACTOR_WEIGHTS = {
     standardizationGoal: 7,
     // Unit: normalized score contribution.
     // More production-critical work increases the need for enterprise support.
-    productionCriticality: 8,
-    ownershipHorizon: {
-      // Longer ownership horizons increase enterprise readiness and long-term support relevance.
-      12: 6,
-      // Longer ownership horizons increase enterprise readiness and long-term support relevance.
-      24: 12,
-      // Longer ownership horizons most strongly increase enterprise readiness.
-      36: 18
-    }
+    productionCriticality: 8
+  }
+};
+
+/*
+ * Ownership horizon effects
+ * -------------------------
+ *
+ * Ownership horizon is not a TCO horizon.
+ *
+ * It changes deterministic ownership and path-fit interpretation:
+ * - longer horizon can increase ownership burden when ownership conditions
+ *   are weak,
+ * - longer horizon can increase Enterprise fit when support/criticality/
+ *   standardization/footprint context is strong,
+ * - longer horizon can increase Build fit when internal ownership conditions
+ *   are strong.
+ */
+export const OWNERSHIP_HORIZON_EFFECTS = {
+  scale: {
+    // Short-lived ownership should not amplify long-term ownership effects.
+    12: 0,
+    // Medium horizon partially activates long-term ownership effects.
+    24: 0.5,
+    // Long-lived ownership fully activates long-term ownership effects.
+    36: 1
+  },
+  ownershipBurden: {
+    // Maximum points added to ownershipBurden when horizon is long and
+    // weak-ownership conditions are fully present.
+    maximumImpact: 8,
+    // Weight for unclear or distributed ownership reducing long-term continuity.
+    ownershipWeakness: 0.45,
+    // Weight for concentrated knowledge increasing long-term continuity risk.
+    knowledgeConcentration: 0.35,
+    // Weight for dependent-team spread increasing long-term ownership burden.
+    dependentTeams: 0.2,
+    // Highest dependent-team index used for normalization.
+    dependentTeamsMaxIndex: 4
+  },
+  enterpriseFit: {
+    // Maximum points added to Enterprise fit when horizon is long and
+    // enterprise context is fully present.
+    maximumImpact: 9,
+    // Highest support index used for normalization.
+    supportRequirementMaxIndex: 3,
+    // Highest production-criticality index used for normalization.
+    productionCriticalityMaxIndex: 3,
+    // Highest standardization-goal index used for normalization.
+    standardizationGoalMaxIndex: 3,
+    // Higher support expectations make long-lived ownership more Enterprise-relevant.
+    supportRequirement: 0.3,
+    // Production-critical work makes long-lived support and accountability more relevant.
+    productionCriticality: 0.24,
+    // Strong standardization goals make long-lived governance more Enterprise-relevant.
+    standardizationIntent: 0.24,
+    // Multi-app footprint increases long-lived rollout/governance context.
+    appScale: 0.12,
+    // Larger frontend organization increases long-lived standardization context.
+    teamScale: 0.1
+  },
+  buildFit: {
+    // Maximum points added to Build fit when horizon is long and
+    // internal ownership conditions are fully present.
+    maximumImpact: 7,
+    // Clear ownership improves long-lived internal ownership credibility.
+    ownershipClarity: 0.32,
+    // Shared knowledge improves long-lived internal continuity.
+    knowledgeSpread: 0.28,
+    // Strong design-system maturity improves long-lived internal reuse credibility.
+    designSystemMaturity: 0.24,
+    // Internal absorption captures whether the team can absorb custom work.
+    internalAbsorption: 0.16
   }
 };
 
@@ -802,6 +947,7 @@ export const RECOMMENDATION_POLICY_WEIGHTS = {
 
 export const CALIBRATION = {
   version: CALIBRATION_VERSION,
+  ownershipHorizonEffects: OWNERSHIP_HORIZON_EFFECTS,
 
   inputIndexes: {},
 
