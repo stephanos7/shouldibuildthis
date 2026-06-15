@@ -6,6 +6,10 @@
  * live in MODEL_ARTIFACT_GLOSSARY. Keep entries concise and causal: what
  * affects what, which path it touches, what direction it pushes, and which
  * calibration key controls the effect when applicable.
+ *
+ * The active backend now uses deterministic fit scoring. Some simulation-era
+ * entries remain here temporarily as historical metadata while the broader UI
+ * and docs transition away from Monte Carlo terminology.
  */
 
 export const MODEL_IMPACT_MAP = {

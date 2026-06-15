@@ -29,7 +29,8 @@ import {
 } from "../data/publicSources.js";
 import { RECOMMENDATION_POLICY_VERSION } from "../model/recommendationPolicy.js";
 
-const CURRENT_MODEL_VERSION = "benchmark-informed-v5";
+const CURRENT_MODEL_VERSION = "deterministic-fit-v1";
+const LEGACY_MODEL_VERSION = "benchmark-informed-v5";
 const CURRENT_CALIBRATION_VERSION = "heuristic-v1";
 const CURRENT_RECOMMENDATION_POLICY_VERSION = RECOMMENDATION_POLICY_VERSION;
 
@@ -1459,12 +1460,16 @@ function EvidenceBasisGroup({ basis, items, sourceMap }) {
 function ReportPage() {
   const simulationResult = readStoredObject("simulationResult");
   const assessmentInput = readStoredObject("assessmentInput");
+  const isDeterministicFitReport =
+    simulationResult?.modelVersion === CURRENT_MODEL_VERSION;
   const isLegacyReport =
     Boolean(simulationResult) &&
-    (simulationResult.modelVersion !== CURRENT_MODEL_VERSION ||
-      simulationResult.calibrationVersion !== CURRENT_CALIBRATION_VERSION ||
-      simulationResult.recommendationPolicyVersion !==
-        CURRENT_RECOMMENDATION_POLICY_VERSION);
+    (isDeterministicFitReport
+      ? simulationResult.calibrationVersion !== CURRENT_CALIBRATION_VERSION
+      : simulationResult.modelVersion !== LEGACY_MODEL_VERSION ||
+        simulationResult.calibrationVersion !== CURRENT_CALIBRATION_VERSION ||
+        simulationResult.recommendationPolicyVersion !==
+          CURRENT_RECOMMENDATION_POLICY_VERSION);
 
   if (!simulationResult) {
     return (
@@ -1490,6 +1495,237 @@ function ReportPage() {
             </Stack>
           </CardContent>
         </Card>
+      </Stack>
+    );
+  }
+
+  if (isDeterministicFitReport) {
+    const recommendation = simulationResult.recommendation ?? {};
+    const confidence = simulationResult.confidence ?? {};
+    const derivedFactors = simulationResult.derivedFactors ?? {};
+    const pathFits = simulationResult.pathFits ?? {};
+    const diagnostics = simulationResult.diagnostics ?? {};
+    const publicSourceMap = getPublicSourceMap(
+      [
+        ...(Array.isArray(simulationResult.publicSources)
+          ? simulationResult.publicSources
+          : []),
+        ...PUBLIC_SOURCES,
+        ...PUBLIC_BENCHMARK_SOURCES
+      ]
+    );
+    const derivedFactorEntries = [
+      ["functionalComplexity", derivedFactors.functionalComplexity],
+      ["qualityBurden", derivedFactors.qualityBurden],
+      ["deliveryMaturity", derivedFactors.deliveryMaturity],
+      ["ownershipBurden", derivedFactors.ownershipBurden],
+      ["enterpriseReadiness", derivedFactors.enterpriseReadiness]
+    ].filter(([, factor]) => factor);
+    const pathFitEntries = Object.values(pathFits).sort(
+      (left, right) => (right?.score ?? 0) - (left?.score ?? 0)
+    );
+    const evidenceBasisGroups = groupEvidenceBasis(diagnostics.evidenceBasis);
+    const scenarioChips = assessmentInput
+      ? [
+          formatLabel("primaryUseCase", assessmentInput.primaryUseCase),
+          `${formatLabel("supportRequirement", assessmentInput.supportRequirement)} support`,
+          formatLabel(
+            "productionCriticality",
+            assessmentInput.productionCriticality
+          )
+        ]
+      : ["Deterministic fit model"];
+
+    return (
+      <Stack spacing={4}>
+        {isLegacyReport ? (
+          <Alert severity="warning" variant="outlined">
+            This report was generated with an older deterministic calibration. Rerun the assessment for the latest fit model.
+          </Alert>
+        ) : null}
+
+        <Box
+          sx={{
+            borderRadius: 4,
+            p: { xs: 3, md: 4 },
+            border: 1,
+            borderColor: "divider",
+            background:
+              "linear-gradient(135deg, rgba(20,83,45,0.11), rgba(255,255,255,0.96) 50%, rgba(180,83,9,0.10))"
+          }}
+        >
+          <Grid container spacing={3}>
+            <Grid size={{ xs: 12, md: 7 }}>
+              <Stack spacing={3}>
+                <PageHero
+                  eyebrow="1. Recommendation"
+                  title={recommendation.option ?? "Recommendation unavailable"}
+                  description={
+                    recommendation.summary ??
+                    "The model did not return a deterministic recommendation."
+                  }
+                  chips={scenarioChips}
+                />
+                <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 760 }}>
+                  This report uses deterministic fit scoring. It does not estimate launch dates, TCO, or probabilities.
+                </Typography>
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                  <Button component={NavLink} to="/assess" variant="contained">
+                    Rerun assessment
+                  </Button>
+                  <Button component={NavLink} to="/methodology" variant="outlined">
+                    Review methodology
+                  </Button>
+                </Stack>
+              </Stack>
+            </Grid>
+            <Grid size={{ xs: 12, md: 5 }}>
+              <Card elevation={0} sx={{ height: "100%", border: 1, borderColor: "divider", bgcolor: "rgba(255,255,255,0.78)" }}>
+                <CardContent sx={{ p: { xs: 2.5, md: 3 } }}>
+                  <Stack spacing={2.5}>
+                    <Typography variant="overline" color="secondary.main">
+                      Deterministic confidence
+                    </Typography>
+                    <MeterRow
+                      label="Confidence"
+                      valueLabel={`${confidence.score ?? 0}/100`}
+                      progress={confidence.score ?? 0}
+                      helper={confidence.rationale}
+                    />
+                    <Divider />
+                    <MeterRow
+                      label="Runner-up gap"
+                      valueLabel={formatNumber(
+                        recommendation.runnerUp?.scoreGap ?? confidence.components?.scoreGap ?? 0
+                      )}
+                      progress={clamp(
+                        (recommendation.runnerUp?.scoreGap ??
+                          confidence.components?.scoreGap ??
+                          0) * 4,
+                        0,
+                        100
+                      )}
+                      helper={`${recommendation.runnerUp?.label ?? "Runner-up"} is the next-closest path.`}
+                      barColor="secondary.main"
+                    />
+                  </Stack>
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
+        </Box>
+
+        <SectionCard
+          title="2. Path ranking"
+          description="Each path fit is a deterministic scorecard, not a delivery or cost estimate."
+        >
+          <Grid container spacing={2.5}>
+            {pathFitEntries.map((path) => (
+              <Grid key={path.key} size={{ xs: 12, md: 6 }}>
+                <Card elevation={0} sx={{ height: "100%", border: 1, borderColor: "divider" }}>
+                  <CardContent sx={{ p: 2.5 }}>
+                    <Stack spacing={2}>
+                      <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
+                        <Typography variant="h6">{path.label}</Typography>
+                        <Chip
+                          size="small"
+                          label={`${formatNumber(path.score)}/100`}
+                          color={path.key === recommendation.key ? "secondary" : "default"}
+                        />
+                      </Stack>
+                      <LinearProgress
+                        variant="determinate"
+                        value={clamp(path.score ?? 0, 0, 100)}
+                        sx={{ height: 10, borderRadius: 999 }}
+                      />
+                      <Typography variant="body2" color="text.secondary">
+                        {path.eligible === false
+                          ? "Not currently eligible even if some fit signals are positive."
+                          : `${path.level} fit for this input set.`}
+                      </Typography>
+                      {Array.isArray(path.strengths) && path.strengths.length > 0 ? (
+                        <Stack spacing={0.75}>
+                          <Typography variant="subtitle2">Strengths</Typography>
+                          {path.strengths.slice(0, 3).map((item) => (
+                            <Typography key={`${path.key}-strength-${item}`} variant="body2" color="text.secondary">
+                              {item}
+                            </Typography>
+                          ))}
+                        </Stack>
+                      ) : null}
+                      {Array.isArray(path.drags) && path.drags.length > 0 ? (
+                        <Stack spacing={0.75}>
+                          <Typography variant="subtitle2">Drags</Typography>
+                          {path.drags.slice(0, 3).map((item) => (
+                            <Typography key={`${path.key}-drag-${item}`} variant="body2" color="text.secondary">
+                              {item}
+                            </Typography>
+                          ))}
+                        </Stack>
+                      ) : null}
+                    </Stack>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+        </SectionCard>
+
+        {derivedFactorEntries.length > 0 ? (
+          <SectionCard
+            title="3. Derived factors"
+            description="These five factor scores are the base signals that feed the deterministic path-fit model."
+          >
+            <Grid container spacing={2.5}>
+              {derivedFactorEntries.map(([key, factor]) => (
+                <Grid key={key} size={{ xs: 12, md: 6 }}>
+                  <FactorCard
+                    title={getFactorTitle(key)}
+                    factor={{ ...factor, key }}
+                  />
+                </Grid>
+              ))}
+            </Grid>
+          </SectionCard>
+        ) : null}
+
+        {evidenceBasisGroups.length > 0 ? (
+          <SectionCard
+            title="4. Evidence basis"
+            description="Public sources inform variable selection and risk direction, not exact coefficients."
+          >
+            <Stack spacing={2.5}>
+              <SourceChipRow
+                sourceKeys={(simulationResult.publicSources ?? PUBLIC_BENCHMARK_SOURCES).map((source) => source.key)}
+                sourceMap={publicSourceMap}
+              />
+              <Grid container spacing={2.5}>
+                {evidenceBasisGroups.map((group) => (
+                  <Grid key={group.basis} size={{ xs: 12, md: 6 }}>
+                    <EvidenceBasisGroup
+                      basis={group.basis}
+                      items={group.items}
+                      sourceMap={publicSourceMap}
+                    />
+                  </Grid>
+                ))}
+              </Grid>
+            </Stack>
+          </SectionCard>
+        ) : null}
+
+        <SectionCard
+          title="5. Assumptions"
+          description="These are the active modeling guardrails for the saved result."
+        >
+          <Stack spacing={1.25}>
+            {(simulationResult.assumptions ?? []).map((assumption) => (
+              <Typography key={assumption} variant="body2" color="text.secondary">
+                {assumption}
+              </Typography>
+            ))}
+          </Stack>
+        </SectionCard>
       </Stack>
     );
   }

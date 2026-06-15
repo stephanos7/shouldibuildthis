@@ -187,7 +187,7 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     path: "Both",
     calculatedIn: "normalizeInput",
     description:
-      "Captures how tightly performance is constrained. Stronger sensitivity raises quality burden and tail risk and only helps MUI conditionally when the selected path is performance-ready."
+      "Captures how tightly performance is constrained. Stronger sensitivity raises quality burden and changes path fit only when Build or the selected MUI path appears ready to absorb it."
   },
   knowledgeConcentration: {
     artifact: "knowledgeConcentration",
@@ -767,7 +767,7 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     path: "Both",
     calculatedIn: "buildScenarioLevers",
     description:
-      "Measures the probability of a worse-than-expected outcome in the long tail."
+      "Measures downside pressure that weakens path fit when delivery, ownership, and quality conditions are unstable."
   },
   coverageStrength: {
     artifact: "coverageStrength",
@@ -1089,35 +1089,25 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     description:
       "MUI-path total cost of ownership."
   },
-  buildPath: {
-    artifact: "buildPath",
+  pathFits: {
+    artifact: "pathFits",
     stage: "output",
-    label: "Build path",
-    direction: "neutral",
-    path: "Build",
-    calculatedIn: "runSimulation",
-    description:
-      "Displayed Build-path summary artifact."
-  },
-  muiPath: {
-    artifact: "muiPath",
-    stage: "output",
-    label: "MUI path",
-    direction: "neutral",
-    path: "MUI",
-    calculatedIn: "runSimulation",
-    description:
-      "Displayed MUI-path summary artifact."
-  },
-  comparison: {
-    artifact: "comparison",
-    stage: "output",
-    label: "Comparison",
+    label: "Path fits",
     direction: "neutral",
     path: "Both",
-    calculatedIn: "runSimulation",
+    calculatedIn: "buildPathFits",
     description:
-      "Displayed side-by-side comparison artifact."
+      "Displayed deterministic fit scores, strengths, and drags for Build, Core, Premium, and Enterprise."
+  },
+  planFits: {
+    artifact: "planFits",
+    stage: "output",
+    label: "Plan fits",
+    direction: "neutral",
+    path: "MUI",
+    calculatedIn: "buildPlanFit",
+    description:
+      "Displayed plan-fit metrics for the MUI tiers, including coverage, support gap, and integration risk."
   },
   recommendation: {
     artifact: "recommendation",
@@ -1125,7 +1115,7 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     label: "Recommendation",
     direction: "contextual",
     path: "Both",
-    calculatedIn: "runSimulation",
+    calculatedIn: "buildDeterministicRecommendation",
     description:
       "Final recommendation artifact that explains the chosen path."
   },
@@ -1135,8 +1125,8 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     label: "Confidence",
     direction: "neutral",
     path: "Both",
-    calculatedIn: "runSimulation",
+    calculatedIn: "buildDeterministicRecommendation",
     description:
-      "Confidence level attached to the recommendation."
+      "Deterministic confidence level attached to the recommendation."
   }
 };

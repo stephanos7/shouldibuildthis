@@ -8,8 +8,8 @@
  * These coefficients convert normalized model artifacts such as
  * functionalRisk, qualityRisk, coverageGap, integrationRisk, supportGap,
  * internalAbsorption, buildReuseLeverage, muiLeverage, and
- * muiAdoptionBurden into estimated engineering weeks, rework, schedule
- * slip, maintenance, TCO, and recommendation signals.
+ * muiAdoptionBurden into deterministic fit signals and recommendation
+ * behavior.
  *
  * These values are not externally certified benchmark constants and are not
  * trained from a project-history dataset. Public software-delivery and
@@ -17,9 +17,10 @@
  * uncertainty is shaped, but they do not justify the exact numeric values in
  * this file.
  *
- * Treat this file as executable model documentation. When changing a value,
- * update related model documentation and validate low-risk, medium-risk, and
- * high-risk scenarios.
+ * The active backend now uses the deterministic fit weights in this file
+ * rather than the legacy Monte Carlo runtime. Treat this file as executable
+ * model documentation. When changing a value, update related model
+ * documentation and validate low-risk, medium-risk, and high-risk scenarios.
  *
  * Glossary
  * --------
@@ -743,17 +744,12 @@ export const SCENARIO_LEVER_WEIGHTS = {
 };
 
 /*
- * Simulation calibration
- * ----------------------
+ * Legacy simulation calibration
+ * -----------------------------
  *
- * These constants convert the derived factors and scenario levers into
- * engineering weeks, variance, rework, slip, launch overhead, maintenance,
- * and TCO for each path.
- *
- * Build coefficients generally increase Build effort, launch time, and
- * maintenance when they rise. MUI coefficients can either increase or reduce
- * effort depending on whether they represent burden, leverage, or shield
- * effects.
+ * These constants supported the retired Monte Carlo runtime. They are kept as
+ * reference material during the deterministic-model transition and should not
+ * be treated as the active backend output logic.
  */
 export const SIMULATION_CALIBRATION = {
   // Simulation prep calibration
@@ -1198,16 +1194,12 @@ export const SIMULATION_CALIBRATION = {
 };
 
 /*
- * Recommendation policy weights
- * -----------------------------
+ * Legacy recommendation policy weights
+ * ------------------------------------
  *
- * These thresholds and penalties convert the simulated outputs into final
- * recommendation behavior and confidence scoring.
- *
- * They affect recommendation eligibility, how much evidence is required for
- * a clear recommendation, and how strongly opposed evidence reduces confidence.
- * Change these deliberately because they influence user-facing decisions even
- * when the underlying estimates stay the same.
+ * These thresholds supported the retired simulation-based recommendation
+ * layer. The active backend now computes deterministic recommendation
+ * confidence from score margin, signal consistency, and ambiguity instead.
  */
 export const RECOMMENDATION_POLICY_WEIGHTS = {
   // Probability threshold where MUI delivery becomes favored.

@@ -32,7 +32,7 @@ const limitationRows = [
   "The model is scenario analysis, not a guaranteed forecast.",
   "Some factors are standards-backed or benchmark-informed, but the numeric weights remain model assumptions.",
   "The tool may recommend build in-house when scope is simple and internal ownership is credible.",
-  "TCO excludes revenue impact, negotiated pricing, and broader migration work unless the user inputs represent them."
+  "The current model does not estimate TCO, launch dates, or probability ranges."
 ];
 
 const benchmarkSourceCards = [
@@ -62,9 +62,9 @@ const workflowRows = [
   "User inputs capture the delivery context, UI scale, and support assumptions.",
   "The model derives five factors from those inputs to keep the recommendation readable.",
   "The model now also asks about performance sensitivity, knowledge concentration, design-dev handoff friction, component standardization intent, and production criticality so the scenario levers better reflect real operating pressure.",
-  "The simulation then applies calibrated internal levers for build absorption, reuse, packaged leverage, adoption burden, and a capped downside-tail layer before estimating outcomes.",
-  "Monte Carlo simulation then estimates median and p90 outcomes for build-in-house and MUI paths.",
-  "Recommendation rules combine the user inputs, derived factors, simulation output, and internally inferred MUI path fit."
+  "The deterministic model then applies calibrated internal levers for build absorption, reuse, packaged leverage, adoption burden, and downside pressure.",
+  "Path-fit scoring ranks Build in-house, MUI Core, MUI X Premium, and MUI X Enterprise.",
+  "Recommendation rules combine the user inputs, derived factors, plan fit, and path-fit scores into a single deterministic decision."
 ];
 
 function Bullet({ children }) {
@@ -119,8 +119,8 @@ function MethodologyPage() {
       <PageHero
         eyebrow="Methodology"
         title="How the benchmark-informed recommendation is produced"
-        description="The app stays recommendation-first. It combines user inputs, derived factors, and simulated risk evidence into a build-vs-buy answer that stays transparent about what it can and cannot know."
-        chips={["Benchmark-informed inputs", "Scenario simulation", "Recommendation first"]}
+        description="The app stays recommendation-first. It combines user inputs, derived factors, and deterministic path-fit scoring into a build-vs-buy answer that stays transparent about what it can and cannot know."
+        chips={["Benchmark-informed inputs", "Deterministic fit model", "Recommendation first"]}
       />
 
       <Grid container spacing={3}>
@@ -164,7 +164,7 @@ function MethodologyPage() {
         <Grid size={{ xs: 12, md: 6 }}>
           <SectionCard
             title="Derived factors"
-            description="The simulation first compresses the inputs into five factors so the report can explain the result in plain language."
+            description="The model first compresses the inputs into five factors so the report can explain the result in plain language."
           >
             <Stack spacing={1.25}>
               {derivedFactorRows.map((row) => (
@@ -176,16 +176,16 @@ function MethodologyPage() {
 
         <Grid size={{ xs: 12, md: 6 }}>
           <SectionCard
-            title="Monte Carlo simulation"
-            description="The factor model feeds a seeded Monte Carlo simulation that estimates the medians and long-tail p90 ranges for both paths."
+            title="Deterministic path-fit scoring"
+            description="The factor model feeds deterministic scoring for Build in-house, MUI Core, MUI X Premium, and MUI X Enterprise."
           >
             <Stack spacing={1.25}>
-              <Bullet>Build-in-house and MUI paths are both simulated under the same input set.</Bullet>
-              <Bullet>The simulation uses public software-estimation concepts such as effort drivers, delivery maturity, integration/adoption risk, rework, and lifecycle maintenance. The coefficients are product heuristics calibrated to the assessment inputs; they are not claimed as externally certified benchmark coefficients.</Bullet>
-              <Bullet>Model coefficients are heuristic calibration weights. They convert normalized risk and fit scores into scenario estimates. Public evidence informs variable selection and risk-shape choices, but the numeric coefficients are not externally certified benchmark parameters.</Bullet>
+              <Bullet>Build in-house and the three MUI paths are all scored from the same input set.</Bullet>
+              <Bullet>The model uses public software-estimation concepts such as effort drivers, delivery maturity, integration/adoption risk, and support pressure. The coefficients are product heuristics calibrated to the assessment inputs; they are not claimed as externally certified benchmark coefficients.</Bullet>
+              <Bullet>Model coefficients are heuristic calibration weights. They convert normalized risk and fit scores into deterministic decision-support signals. Public evidence informs variable selection and risk direction, but the numeric coefficients are not externally certified benchmark parameters.</Bullet>
               <Bullet>Performance sensitivity, i18n/localization, knowledge concentration, design-dev handoff friction, component standardization, and production criticality are treated as scenario pressures rather than promised gains.</Bullet>
-              <Bullet>Median and p90 ranges help expose long-tail delivery and cost risk.</Bullet>
-              <Bullet>Probability outputs summarize how often each path wins across repeated modeled scenarios.</Bullet>
+              <Bullet>Confidence is derived from the top-path score gap, signal consistency, and ambiguity between the top-ranked paths.</Bullet>
+              <Bullet>The current model does not estimate delivery dates, TCO, or Monte Carlo win rates.</Bullet>
             </Stack>
           </SectionCard>
         </Grid>
@@ -223,7 +223,7 @@ function MethodologyPage() {
 
       <SectionCard
         title="Selected public sources"
-        description="Public sources inform which uncertainty families are modeled. They do not define the exact coefficients used in the simulation."
+        description="Public sources inform which decision factors and risk directions are modeled. They do not define the exact coefficients used in the deterministic fit model."
       >
         <Grid container spacing={2}>
           {benchmarkSourceCards.map((card) => {

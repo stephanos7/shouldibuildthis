@@ -1,129 +1,102 @@
 # Model Architecture
 
+## Current runtime
+
+The active backend model is deterministic.
+
+It does not run Monte Carlo sampling, seeded iteration loops, probability comparisons, TCO estimates, launch-week estimates, or P90 calculations.
+
+The backend response now centers on:
+
+- `derivedFactors`
+- `planFits`
+- `pathFits`
+- `recommendation`
+- `confidence`
+- `diagnostics`
+- `assumptions`
+- `publicSources`
+
 ## Responsibilities
 
-`CALIBRATION` is the numeric source of truth. It holds the tunable thresholds, coefficients, caps, floors, multipliers, and policy cutoffs that shape model behavior. Thresholds and recommendation policy values should live here instead of in branching logic.
+`CALIBRATION` remains the numeric source of truth for the active model weights.
 
-Core effort, rework, slip, maintenance, shield, load, and tail coefficients now live in `CALIBRATION`. Simulation formulas should read those values by name instead of introducing new hardcoded effort constants.
+The active runtime primarily uses:
 
-`MODEL_ARTIFACT_GLOSSARY` is the artifact source of truth. It defines meaning, stage, path, and lifecycle notes for each artifact.
+- `DERIVED_FACTOR_WEIGHTS`
+- `PLAN_FIT_WEIGHTS`
+- `PATH_SCORE_WEIGHTS`
+- `SCENARIO_LEVER_WEIGHTS`
 
-`MODEL_IMPACT_MAP` is the semantic dependency source of truth. It explains what affects what, the direction of each effect, where the effect is calculated, why it exists, and which calibration key controls it. It should not repeat artifact definitions.
+`MODEL_ARTIFACT_GLOSSARY` owns artifact meaning and lifecycle notes.
 
-`MODEL_STAGES` defines the stage vocabulary used across the glossary, impact map, and dependency docs.
+`MODEL_IMPACT_MAP` owns causal relationships and calibration traceability. Some simulation-era entries remain as transition metadata, but new behavior should be documented against the deterministic path-fit model.
 
-`auditModelConfig()` is a lightweight developer audit helper. It checks that impact-map calibration references resolve, that impact artifacts exist in the glossary, that every raw input has a matching impact-map entry, and that the allowed direction and effect enums stay within the documented vocabulary.
+## Flow
 
-Calculation code should read numeric values from `CALIBRATION`. The impact map should reference those values through `calibrationRef` instead of duplicating numbers inline.
+The backend model now follows this sequence:
 
-All new model-behavior numbers should be named, documented, and placed in calibration first. The impact map should point at the same calibration key so reviewers can trace causal claims back to the exact numeric source.
+1. Normalize and validate raw assessment input.
+2. Build deterministic `derivedFactors`.
+3. Build MUI-tier `planFits`.
+4. Build a scorecard and scenario levers.
+5. Build four `pathFits`: Build, Core, Premium, Enterprise.
+6. Rank the path fits and synthesize a deterministic recommendation.
+7. Compute deterministic confidence from score margin, signal consistency, and ambiguity.
 
-## Contained-scope guardrail
+## Path fits
 
-The model uses a boolean contained-scope guardrail, historically named `simpleScope`, to prevent small or low-risk cases from being over-escalated to paid MUI tiers.
+`buildPathFits(input, derivedFactors, scorecard, planFits)` returns:
 
-It is not an estimate of effort. It affects tier selection and path scoring.
+- `build`
+- `core`
+- `premium`
+- `enterprise`
 
-When active, it:
+Each path fit contains:
 
-- increases Core credibility,
-- makes Premium harder to select,
-- lowers packaged-path ICP strength,
-- and keeps Build/Core plausible for contained cases.
+- `score`
+- `level`
+- `components`
+- `strengths`
+- `drags`
 
-When inactive, paid tiers can be considered more freely if coverage, support, scale, or complexity justify them.
+These are fit signals, not delivery or cost estimates.
 
-Enterprise handling for this guardrail should be treated as a negative or neutral adjustment unless there is an explicit, documented reason for a positive value.
+## Recommendation
 
-## Change Rules
+`buildDeterministicRecommendation(input, derivedFactors, scorecard, pathFits)`:
 
-When changing a threshold or coefficient:
+1. Ranks all four paths.
+2. Filters by eligibility where appropriate.
+3. Selects the highest eligible path.
+4. Identifies the runner-up.
+5. Computes confidence deterministically.
+6. Returns reasons and tradeoffs.
 
-1. Update the numeric value in `CALIBRATION`.
-2. Confirm the matching `MODEL_IMPACT_MAP` entry still points to the right `calibrationRef`.
-3. Validate representative low-risk, medium-risk, and high-risk scenarios.
-4. Check launch, TCO, and P90 outputs if the change affects effort, cost, or variance.
+Confidence is not probabilistic. It is derived from:
 
-When adding a new model threshold:
+- winner-versus-runner-up score gap
+- signal consistency bonus
+- ambiguity penalty when top paths are close
 
-1. Add it to `CALIBRATION`.
-2. Reference it from the relevant formula or policy branch.
-3. Add or update the corresponding `MODEL_IMPACT_MAP` entry.
-4. Avoid introducing a new hardcoded threshold directly in simulation or scorecard code.
+## Assumptions
 
-To validate the metadata split locally, run the lightweight non-runtime checker:
+The active backend assumptions are:
 
-```txt
-node --input-type=module -e "import { auditModelConfig } from './src/model/auditModelConfig.js'; import { CALIBRATION } from './src/model/calibration.js'; import { MODEL_IMPACT_MAP } from './src/model/modelImpactMap.js'; import { MODEL_ARTIFACT_GLOSSARY } from './src/model/modelArtifactGlossary.js'; console.log(auditModelConfig({ calibration: CALIBRATION, impactMap: MODEL_IMPACT_MAP, artifactGlossary: MODEL_ARTIFACT_GLOSSARY }));"
-```
+- This is a deterministic fit model.
+- It does not estimate delivery dates or TCO.
+- Scores are heuristic decision-support signals, not guarantees.
+- Public sources inform variable selection and risk direction, not exact coefficients.
 
-## Example
+## Change rules
 
-```txt
-To change how frontend developer count affects Build velocity:
-1. Change CALIBRATION.simulation.velocity.frontendDevelopers.build.
-2. Confirm MODEL_IMPACT_MAP.frontendDevelopers references that calibration key.
-3. Validate representative scenarios.
-```
+When changing model behavior:
 
-## How To Change Effort Sensitivity
-
-To make Build more sensitive to functional complexity:
-
-1. Change `CALIBRATION.simulation.build.engineeringMeanWeeks.functionalRisk`.
-2. Update comments if the interpretation changes.
-3. Check the deterministic breakdown and Monte Carlo outputs.
-4. Validate low-risk, medium-risk, and high-risk payloads.
-
-## Deterministic Breakdown
-
-The report includes a deterministic estimate breakdown for Build and the selected MUI path. It is the model's central estimate assembled from calibrated components before any random sampling is applied.
-
-Use it to review:
-
-- where launch time comes from,
-- how rework and slip are assembled,
-- how maintenance and TCO are built up,
-- and whether a calibration change moved the central estimate in the intended direction.
-
-The deterministic breakdown can differ from the Monte Carlo medians and P90s because the simulation samples variance and tail risk around the same central structure. That is expected. The breakdown is for explainability and calibration review, not as a replacement for the simulated distribution.
-
-When reviewing calibration changes, compare the deterministic breakdown before and after the edit first. If the central estimate moved in the right direction, then confirm that the Monte Carlo medians and P90s still behave as expected.
-
-## Sensitivity Diagnostics
-
-The report also includes deterministic adjacent-input sensitivity diagnostics. This reruns the deterministic estimate with nearby input changes and compares each candidate against the base deterministic result.
-
-The method is intentionally deterministic. It does not rerun the full Monte Carlo simulation for each candidate because that would be expensive, slow, and noisy for a debugging view. The goal is to identify which nearby input changes most moved the central estimate and recommendation signal, not to re-estimate the full probabilistic distribution.
-
-The diagnostics reuse the deterministic breakdown and then compare the following deltas for each candidate:
-
-- Build launch weeks
-- MUI launch weeks
-- launch delta
-- Build TCO
-- MUI TCO
-- TCO delta
-- Build tier score
-- selected MUI plan score
-- confidence
-
-Candidate changes are capped to keep runtime bounded.
-
-The candidate labels and impact references should reuse `MODEL_IMPACT_MAP` and `MODEL_ARTIFACT_GLOSSARY` where practical. That keeps the diagnostic output aligned with the same vocabulary used in the model metadata and helps explain why a nearby change matters.
-
-Interpret cost-only inputs carefully:
-
-- `engineerCostPerDay` is cost-only. It should affect Build TCO, MUI TCO, and TCO delta.
-- It should not affect launch time, effort, fit, velocity, or rework.
-- A cost-only diagnostic may still move recommendation confidence indirectly because the modeled cost separation changed.
-
-The resulting summary is best read as a model-debugging signal. It shows which nearby input changes had the largest modeled effect. It does not claim exact causality and it does not prove that the real-world outcome will move the same way.
-
-## Practical Notes
-
-- A calibration change changes behavior.
-- An impact map change changes the explanation of behavior.
-- A stage or glossary change changes the model vocabulary and documentation surface.
-- A documentation-only change should not be used to smuggle in runtime formula changes.
-- `MODEL_IMPACT_MAP` entries should reference calibration keys for major effort, shield, load, and tail effects.
+1. Put numeric changes in `CALIBRATION`.
+2. Keep `MODEL_ARTIFACT_GLOSSARY` aligned with the active output artifacts.
+3. Keep `MODEL_IMPACT_MAP` aligned with active deterministic behavior, or clearly mark transitional legacy entries.
+4. Validate at least:
+   - a low-risk simple case where Build/Core remain plausible
+   - a complex data-grid case where Premium can win
+   - a support/procurement platform case where Enterprise can win
