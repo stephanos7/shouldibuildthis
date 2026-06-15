@@ -90,6 +90,36 @@ The deterministic breakdown can differ from the Monte Carlo medians and P90s bec
 
 When reviewing calibration changes, compare the deterministic breakdown before and after the edit first. If the central estimate moved in the right direction, then confirm that the Monte Carlo medians and P90s still behave as expected.
 
+## Sensitivity Diagnostics
+
+The report also includes deterministic adjacent-input sensitivity diagnostics. This reruns the deterministic estimate with nearby input changes and compares each candidate against the base deterministic result.
+
+The method is intentionally deterministic. It does not rerun the full Monte Carlo simulation for each candidate because that would be expensive, slow, and noisy for a debugging view. The goal is to identify which nearby input changes most moved the central estimate and recommendation signal, not to re-estimate the full probabilistic distribution.
+
+The diagnostics reuse the deterministic breakdown and then compare the following deltas for each candidate:
+
+- Build launch weeks
+- MUI launch weeks
+- launch delta
+- Build TCO
+- MUI TCO
+- TCO delta
+- Build tier score
+- selected MUI plan score
+- confidence
+
+Candidate changes are capped to keep runtime bounded.
+
+The candidate labels and impact references should reuse `MODEL_IMPACT_MAP` and `MODEL_ARTIFACT_GLOSSARY` where practical. That keeps the diagnostic output aligned with the same vocabulary used in the model metadata and helps explain why a nearby change matters.
+
+Interpret cost-only inputs carefully:
+
+- `engineerCostPerDay` is cost-only. It should affect Build TCO, MUI TCO, and TCO delta.
+- It should not affect launch time, effort, fit, velocity, or rework.
+- A cost-only diagnostic may still move recommendation confidence indirectly because the modeled cost separation changed.
+
+The resulting summary is best read as a model-debugging signal. It shows which nearby input changes had the largest modeled effect. It does not claim exact causality and it does not prove that the real-world outcome will move the same way.
+
 ## Practical Notes
 
 - A calibration change changes behavior.

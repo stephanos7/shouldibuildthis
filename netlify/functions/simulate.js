@@ -9,11 +9,15 @@ import {
   SCENARIO_LEVER_WEIGHTS,
   SIMULATION_CALIBRATION
 } from "../../src/model/calibration.js";
+import { MODEL_ARTIFACT_GLOSSARY } from "../../src/model/modelArtifactGlossary.js";
+import { MODEL_IMPACT_MAP } from "../../src/model/modelImpactMap.js";
 import { evaluateThresholdTable } from "../../src/model/evaluateCalibration.js";
 import { RECOMMENDATION_POLICY_VERSION } from "../../src/model/recommendationPolicy.js";
 
 const ITERATIONS = 10000;
 const MODEL_VERSION = "benchmark-informed-v5";
+const SENSITIVITY_MAX_CANDIDATES = 40;
+const SENSITIVITY_TOP_DRIVER_LIMIT = 5;
 
 const EXISTING_MUI_USAGE = new Set(["none", "some", "standardized"]);
 const DESIGN_SYSTEM_MATURITY = new Set(["low", "medium", "high"]);
@@ -339,6 +343,33 @@ function getSensitivityLabel(inputKey) {
       .replace(/-/g, " ")
       .replace(/^./, (char) => char.toUpperCase())
   );
+}
+
+function getArtifactLabel(artifactKey) {
+  return MODEL_ARTIFACT_GLOSSARY[artifactKey]?.label ?? getSensitivityLabel(artifactKey);
+}
+
+function getSensitivityImpactMapRefs(inputKey) {
+  const impactEntry = MODEL_IMPACT_MAP[inputKey];
+
+  if (!impactEntry || !Array.isArray(impactEntry.impacts)) {
+    return [];
+  }
+
+  return impactEntry.impacts.map((impact) => ({
+    artifact: impact.artifact,
+    label: getArtifactLabel(impact.artifact),
+    stage: impact.stage,
+    path: impact.path,
+    direction: impact.direction,
+    calculatedIn: impact.calculatedIn,
+    calibrationRef: impact.calibrationRef ?? null,
+    reason: impact.reason
+  }));
+}
+
+function getSensitivityInputLabel(inputKey) {
+  return MODEL_IMPACT_MAP[inputKey]?.label ?? getSensitivityLabel(inputKey);
 }
 
 function countLabel(count, singular, plural = `${singular}s`) {
@@ -2750,6 +2781,10 @@ function buildImpactSummary(candidate, base) {
     parts.push(`Confidence ${formatSignedScore(confidenceDelta)}`);
   }
 
+  if (candidate.costOnly) {
+    parts.unshift("Cost-only input");
+  }
+
   return parts.length > 0
     ? parts.join("; ")
     : "No material deterministic change.";
@@ -2802,9 +2837,10 @@ function buildSensitivityDiagnostics(input, baseResult) {
     seenInputs.add(candidateSignature);
     candidateSpecs.push({
       inputKey,
-      label: getSensitivityLabel(inputKey),
+      label: getSensitivityInputLabel(inputKey),
       testedChange,
       costOnly,
+      impactMapRefs: getSensitivityImpactMapRefs(inputKey),
       candidateInput
     });
   };
@@ -3005,7 +3041,7 @@ function buildSensitivityDiagnostics(input, baseResult) {
 
   const evaluatedCandidates = [];
 
-  for (const spec of candidateSpecs.slice(0, 40)) {
+  for (const spec of candidateSpecs.slice(0, SENSITIVITY_MAX_CANDIDATES)) {
     const snapshot = buildDeterministicSnapshot(spec.candidateInput);
     const candidate = {
       ...spec,
@@ -3043,7 +3079,7 @@ function buildSensitivityDiagnostics(input, baseResult) {
 
   const topDrivers = [...evaluatedCandidates]
     .sort((left, right) => right.score - left.score)
-    .slice(0, 5)
+    .slice(0, SENSITIVITY_TOP_DRIVER_LIMIT)
     .map(({ score, ...driver }) => driver);
 
   const buildLaunchDrivers = [...evaluatedCandidates]
@@ -3052,7 +3088,7 @@ function buildSensitivityDiagnostics(input, baseResult) {
         Math.abs(right.deltas.buildLaunchWeeks) -
         Math.abs(left.deltas.buildLaunchWeeks)
     )
-    .slice(0, 5)
+    .slice(0, SENSITIVITY_TOP_DRIVER_LIMIT)
     .map(({ score, ...driver }) => driver);
 
   const muiLaunchDrivers = [...evaluatedCandidates]
@@ -3061,7 +3097,7 @@ function buildSensitivityDiagnostics(input, baseResult) {
         Math.abs(right.deltas.muiLaunchWeeks) -
         Math.abs(left.deltas.muiLaunchWeeks)
     )
-    .slice(0, 5)
+    .slice(0, SENSITIVITY_TOP_DRIVER_LIMIT)
     .map(({ score, ...driver }) => driver);
 
   const tcoDrivers = [...evaluatedCandidates]
@@ -3069,7 +3105,7 @@ function buildSensitivityDiagnostics(input, baseResult) {
       (left, right) =>
         Math.abs(right.deltas.tcoDelta) - Math.abs(left.deltas.tcoDelta)
     )
-    .slice(0, 5)
+    .slice(0, SENSITIVITY_TOP_DRIVER_LIMIT)
     .map(({ score, ...driver }) => driver);
 
   const recommendationDrivers = [...evaluatedCandidates]
@@ -3084,11 +3120,12 @@ function buildSensitivityDiagnostics(input, baseResult) {
             left.deltas.selectedMuiPlanScore - left.deltas.buildTierScore
           ))
     )
-    .slice(0, 5)
+    .slice(0, SENSITIVITY_TOP_DRIVER_LIMIT)
     .map(({ score, ...driver }) => driver);
 
   return {
     method: "deterministic-adjacent-input-perturbation",
+    candidateCount: evaluatedCandidates.length,
     topDrivers,
     buildLaunchDrivers,
     muiLaunchDrivers,

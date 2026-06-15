@@ -2083,89 +2083,99 @@ function ReportPage() {
         description="Inputs that most changed the deterministic estimate or recommendation signal."
       >
         {showSensitivity ? (
-          <Accordion
-            elevation={0}
-            disableGutters
-            defaultExpanded
-            expandIcon={
-              <Box component="span" sx={{ color: "text.secondary", fontSize: 18, lineHeight: 1 }}>
-                ⌄
-              </Box>
-            }
-            sx={{
-              border: 1,
-              borderColor: "divider",
-              borderRadius: 3,
-              overflow: "hidden",
-              "&:before": { display: "none" }
-            }}
-          >
-            <AccordionSummary sx={{ px: 2.5, py: 1.5 }}>
-              <Stack spacing={0.5}>
-                <Typography variant="subtitle1" component="div">
-                  Deterministic sensitivity diagnostics
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Top drivers from adjacent-input perturbations. These are not Monte Carlo reruns.
-                </Typography>
-              </Stack>
-            </AccordionSummary>
-            <AccordionDetails sx={{ px: 2.5, pb: 2.5 }}>
-              <Stack spacing={3}>
-                <Box>
-                  <Typography variant="overline" color="secondary.main">
-                    Top 5 overall
-                  </Typography>
-                  <Grid container spacing={2.5} sx={{ mt: 0.25 }}>
-                    {sensitivity.topDrivers.map((driver) => (
-                      <Grid key={`${driver.inputKey}-${driver.testedChange}`} size={{ xs: 12, md: 6 }}>
-                        <SensitivityDriverCard driver={driver} metricKey="overall" />
-                      </Grid>
-                    ))}
-                  </Grid>
+          <Stack spacing={2}>
+            <Typography variant="body2" color="text.secondary">
+              This diagnostic reruns the deterministic estimate with nearby input changes. It does
+              not rerun the full uncertainty simulation, so it is best read as a model-debugging
+              signal.
+            </Typography>
+            <Accordion
+              elevation={0}
+              disableGutters
+              defaultExpanded
+              expandIcon={
+                <Box component="span" sx={{ color: "text.secondary", fontSize: 18, lineHeight: 1 }}>
+                  ⌄
                 </Box>
-                <Divider />
-                <Box>
-                  <Typography variant="overline" color="secondary.main">
-                    Build launch drivers
+              }
+              sx={{
+                border: 1,
+                borderColor: "divider",
+                borderRadius: 3,
+                overflow: "hidden",
+                "&:before": { display: "none" }
+              }}
+            >
+              <AccordionSummary sx={{ px: 2.5, py: 1.5 }}>
+                <Stack spacing={0.5}>
+                  <Typography variant="subtitle1" component="div">
+                    Deterministic adjacent-input sensitivity
                   </Typography>
-                  <Grid container spacing={2.5} sx={{ mt: 0.25 }}>
-                    {sensitivity.buildLaunchDrivers.map((driver) => (
-                      <Grid key={`build-${driver.inputKey}-${driver.testedChange}`} size={{ xs: 12, md: 6 }}>
-                        <SensitivityDriverCard driver={driver} metricKey="buildLaunchWeeks" />
-                      </Grid>
-                    ))}
-                  </Grid>
-                </Box>
-                <Divider />
-                <Box>
-                  <Typography variant="overline" color="secondary.main">
-                    MUI launch drivers
+                  <Typography variant="body2" color="text.secondary">
+                    Nearby input perturbations only. Not a Monte Carlo rerun.
                   </Typography>
-                  <Grid container spacing={2.5} sx={{ mt: 0.25 }}>
-                    {sensitivity.muiLaunchDrivers.map((driver) => (
-                      <Grid key={`mui-${driver.inputKey}-${driver.testedChange}`} size={{ xs: 12, md: 6 }}>
-                        <SensitivityDriverCard driver={driver} metricKey="muiLaunchWeeks" />
-                      </Grid>
-                    ))}
-                  </Grid>
-                </Box>
-                <Divider />
-                <Box>
-                  <Typography variant="overline" color="secondary.main">
-                    TCO drivers
+                  <Typography variant="caption" color="text.secondary">
+                    Evaluated {formatNumber(sensitivity.candidateCount ?? 0)} candidate changes.
                   </Typography>
-                  <Grid container spacing={2.5} sx={{ mt: 0.25 }}>
-                    {sensitivity.tcoDrivers.map((driver) => (
-                      <Grid key={`tco-${driver.inputKey}-${driver.testedChange}`} size={{ xs: 12, md: 6 }}>
-                        <SensitivityDriverCard driver={driver} metricKey="tcoDelta" />
-                      </Grid>
-                    ))}
-                  </Grid>
-                </Box>
-              </Stack>
-            </AccordionDetails>
-          </Accordion>
+                </Stack>
+              </AccordionSummary>
+              <AccordionDetails sx={{ px: 2.5, pb: 2.5 }}>
+                <Stack spacing={3}>
+                  <Box>
+                    <Typography variant="overline" color="secondary.main">
+                      Top 5 overall
+                    </Typography>
+                    <Grid container spacing={2.5} sx={{ mt: 0.25 }}>
+                      {sensitivity.topDrivers.map((driver) => (
+                        <Grid key={`${driver.inputKey}-${driver.testedChange}`} size={{ xs: 12, md: 6 }}>
+                          <SensitivityDriverCard driver={driver} metricKey="overall" />
+                        </Grid>
+                      ))}
+                    </Grid>
+                  </Box>
+                  <Divider />
+                  <Box>
+                    <Typography variant="overline" color="secondary.main">
+                      Build launch drivers
+                    </Typography>
+                    <Grid container spacing={2.5} sx={{ mt: 0.25 }}>
+                      {sensitivity.buildLaunchDrivers.map((driver) => (
+                        <Grid key={`build-${driver.inputKey}-${driver.testedChange}`} size={{ xs: 12, md: 6 }}>
+                          <SensitivityDriverCard driver={driver} metricKey="buildLaunchWeeks" />
+                        </Grid>
+                      ))}
+                    </Grid>
+                  </Box>
+                  <Divider />
+                  <Box>
+                    <Typography variant="overline" color="secondary.main">
+                      MUI launch drivers
+                    </Typography>
+                    <Grid container spacing={2.5} sx={{ mt: 0.25 }}>
+                      {sensitivity.muiLaunchDrivers.map((driver) => (
+                        <Grid key={`mui-${driver.inputKey}-${driver.testedChange}`} size={{ xs: 12, md: 6 }}>
+                          <SensitivityDriverCard driver={driver} metricKey="muiLaunchWeeks" />
+                        </Grid>
+                      ))}
+                    </Grid>
+                  </Box>
+                  <Divider />
+                  <Box>
+                    <Typography variant="overline" color="secondary.main">
+                      TCO drivers
+                    </Typography>
+                    <Grid container spacing={2.5} sx={{ mt: 0.25 }}>
+                      {sensitivity.tcoDrivers.map((driver) => (
+                        <Grid key={`tco-${driver.inputKey}-${driver.testedChange}`} size={{ xs: 12, md: 6 }}>
+                          <SensitivityDriverCard driver={driver} metricKey="tcoDelta" />
+                        </Grid>
+                      ))}
+                    </Grid>
+                  </Box>
+                </Stack>
+              </AccordionDetails>
+            </Accordion>
+          </Stack>
         ) : (
           <Alert severity="info" variant="outlined">
             This saved result predates the deterministic sensitivity diagnostics. Rerun the
