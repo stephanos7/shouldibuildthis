@@ -1,18 +1,8 @@
 import { PUBLIC_BENCHMARK_SOURCES } from "../../src/data/publicSources.js";
 import {
-  CALIBRATION,
   CALIBRATION_VERSION,
-  DERIVED_FACTOR_WEIGHTS,
-  INPUT_SCALES,
-  PATH_SCORE_WEIGHTS,
-  PLAN_FIT_RUNTIME,
-  PLAN_FIT_WEIGHTS,
-  PLAN_CONFIG,
-  SCORE_BANDS,
-  FIT_SIGNAL_SCALES,
-  SCENARIO_LEVER_RUNTIME,
-  SCENARIO_LEVER_WEIGHTS
 } from "../../src/model/calibration.js";
+import { resolveActiveCalibration } from "../../src/model/calibrationRegistry.js";
 
 const MODEL_VERSION = "deterministic-fit-v2";
 
@@ -469,8 +459,8 @@ function bucket(value, small, medium) {
   return 3;
 }
 
-function buildOwnershipHorizonEffects(input, overrides = {}) {
-  const horizonEffects = CALIBRATION.ownershipHorizonEffects;
+function buildOwnershipHorizonEffects(input, calibration, overrides = {}) {
+  const horizonEffects = calibration.ownershipHorizonEffects;
   const horizonScale = horizonEffects.scale[input.ownershipHorizon] ?? 0;
   const ownershipBurdenWeights = horizonEffects.ownershipBurden;
   const enterpriseHorizonWeights = horizonEffects.enterpriseFit;
@@ -531,15 +521,15 @@ function buildOwnershipHorizonEffects(input, overrides = {}) {
     overrides.appScale ??
     bucket(
       input.reactApps,
-      INPUT_SCALES.appScaleBucket.smallMax,
-      INPUT_SCALES.appScaleBucket.mediumMax
+      calibration.inputScales.appScaleBucket.smallMax,
+      calibration.inputScales.appScaleBucket.mediumMax
     );
   const teamScale =
     overrides.teamScale ??
     bucket(
       input.frontendDevelopers,
-      INPUT_SCALES.teamScaleBucket.smallMax,
-      INPUT_SCALES.teamScaleBucket.mediumMax
+      calibration.inputScales.teamScaleBucket.smallMax,
+      calibration.inputScales.teamScaleBucket.mediumMax
     );
   const internalAbsorptionStrength =
     overrides.internalAbsorptionStrength ?? 0;
@@ -944,11 +934,11 @@ function validatePayload(normalized, originalPayload) {
   };
 }
 
-function buildDerivedFactors(input) {
-  const derivedWeights = DERIVED_FACTOR_WEIGHTS;
-  const useCaseComplexity = INPUT_SCALES.useCaseComplexity[input.primaryUseCase];
+function buildDerivedFactors(input, calibration) {
+  const derivedWeights = calibration.derivedFactorWeights;
+  const useCaseComplexity = calibration.inputScales.useCaseComplexity[input.primaryUseCase];
   const featureWeight = input.advancedFeatures.reduce(
-    (sum, feature) => sum + INPUT_SCALES.advancedFeatureWeights[feature],
+    (sum, feature) => sum + calibration.inputScales.advancedFeatureWeights[feature],
     0
   );
   const screenLoad = Math.min(input.dataHeavyScreens, 12);
@@ -991,7 +981,7 @@ function buildDerivedFactors(input) {
       return labels[feature] ?? feature;
     })
   );
-  const ownershipHorizonEffects = buildOwnershipHorizonEffects(input, {
+  const ownershipHorizonEffects = buildOwnershipHorizonEffects(input, calibration, {
     ownershipClarity:
       ({
         "same-product-team": 1,
@@ -1008,7 +998,7 @@ function buildDerivedFactors(input) {
       }[input.knowledgeConcentration] ?? 0),
     dependentTeamsWeakness: clamp(
       dependentTeams /
-        CALIBRATION.ownershipHorizonEffects.ownershipBurden
+        calibration.ownershipHorizonEffects.ownershipBurden
           .dependentTeamsMaxIndex,
       0,
       1
@@ -1095,7 +1085,7 @@ function buildDerivedFactors(input) {
     changeLeadTime * derivedWeights.deliveryMaturity.changeLeadTime +
     reworkFrequency * derivedWeights.deliveryMaturity.reworkFrequency +
     derivedWeights.deliveryMaturity.deadlinePressure[input.deadlinePressure];
-  const deliveryMaturityCaps = CALIBRATION.deliveryMaturityCaps;
+  const deliveryMaturityCaps = calibration.deliveryMaturityCaps;
   const deliveryMaturityCap = Math.min(
     deliveryMaturityCaps.changeLeadTime[input.changeLeadTime],
     deliveryMaturityCaps.reworkFrequency[input.reworkFrequency],
@@ -1177,12 +1167,12 @@ function buildDerivedFactors(input) {
   };
 }
 
-function buildPlanFit(planKey, input, derivedFactors) {
-  const planFitWeights = PLAN_FIT_WEIGHTS;
-  const planFitRuntime = PLAN_FIT_RUNTIME;
-  const plan = PLAN_CONFIG[planKey];
+function buildPlanFit(planKey, input, derivedFactors, calibration) {
+  const planFitWeights = calibration.planFitWeights;
+  const planFitRuntime = calibration.planFitRuntime;
+  const plan = calibration.planConfig[planKey];
   const featureDemand = input.advancedFeatures.reduce(
-    (sum, feature) => sum + INPUT_SCALES.advancedFeatureWeights[feature],
+    (sum, feature) => sum + calibration.inputScales.advancedFeatureWeights[feature],
     0
   );
   const performancePressure =
@@ -1194,7 +1184,7 @@ function buildPlanFit(planKey, input, derivedFactors) {
   const scaleDemand =
     rowScale * planFitRuntime.scaleDemand.rowScale +
     columnScale * planFitRuntime.scaleDemand.columnScale;
-  const planScaleCapacity = PLAN_FIT_WEIGHTS.planScaleCapacity[planKey];
+  const planScaleCapacity = planFitWeights.planScaleCapacity[planKey];
   const featureCoverage = clamp(
     1 -
       Math.max(0, featureDemand - plan.featureCapacity) /
@@ -1303,10 +1293,10 @@ function buildPlanFit(planKey, input, derivedFactors) {
   };
 }
 
-function buildScenarioLevers(input, scorecard) {
-  const scenarioWeights = SCENARIO_LEVER_WEIGHTS;
-  const signalScales = FIT_SIGNAL_SCALES;
-  const runtime = SCENARIO_LEVER_RUNTIME;
+function buildScenarioLevers(input, scorecard, calibration) {
+  const scenarioWeights = calibration.scenarioLeverWeights;
+  const signalScales = calibration.fitSignalScales;
+  const runtime = calibration.scenarioLeverRuntime;
   const planFit = scorecard.effectivePlanFit;
   const featureCount = input.advancedFeatures.length;
   const rowScale = EXPECTED_ROWS_INDEX[input.expectedRows];
@@ -1600,9 +1590,9 @@ function buildScenarioLevers(input, scorecard) {
   };
 }
 
-function buildScorecard(input, derivedFactors) {
-  const pathScoreWeights = PATH_SCORE_WEIGHTS;
-  const policy = CALIBRATION.deterministicPolicy;
+function buildScorecard(input, derivedFactors, calibration) {
+  const pathScoreWeights = calibration.pathScoreWeights;
+  const policy = calibration.deterministicPolicy;
   const buildFitWeights = pathScoreWeights.buildFit;
   const coreFitWeights = pathScoreWeights.coreFit;
   const premiumFitWeights = pathScoreWeights.premiumFit;
@@ -1628,8 +1618,8 @@ function buildScorecard(input, derivedFactors) {
     KNOWLEDGE_CONCENTRATION_INDEX[input.knowledgeConcentration];
   const handoffFriction =
     DESIGN_DEV_HANDOFF_FRICTION_INDEX[input.designDevHandoffFriction];
-  const signalScales = FIT_SIGNAL_SCALES;
-  const runtime = SCENARIO_LEVER_RUNTIME;
+  const signalScales = calibration.fitSignalScales;
+  const runtime = calibration.scenarioLeverRuntime;
   const knowledgeSpread = signalScales.knowledgeSpread[input.knowledgeConcentration];
   const handoffAlignment =
     signalScales.handoffAlignment[input.designDevHandoffFriction];
@@ -1637,19 +1627,19 @@ function buildScorecard(input, derivedFactors) {
     PERFORMANCE_SENSITIVITY_INDEX[input.performanceSensitivity];
   const teamScale = bucket(
     input.frontendDevelopers,
-    INPUT_SCALES.teamScaleBucket.smallMax,
-    INPUT_SCALES.teamScaleBucket.mediumMax
+    calibration.inputScales.teamScaleBucket.smallMax,
+    calibration.inputScales.teamScaleBucket.mediumMax
   );
   const appScale = bucket(
     input.reactApps,
-    INPUT_SCALES.appScaleBucket.smallMax,
-    INPUT_SCALES.appScaleBucket.mediumMax
+    calibration.inputScales.appScaleBucket.smallMax,
+    calibration.inputScales.appScaleBucket.mediumMax
   );
 
   const planFits = {
-    core: buildPlanFit("core", input, derivedFactors),
-    premium: buildPlanFit("premium", input, derivedFactors),
-    enterprise: buildPlanFit("enterprise", input, derivedFactors)
+    core: buildPlanFit("core", input, derivedFactors, calibration),
+    premium: buildPlanFit("premium", input, derivedFactors, calibration),
+    enterprise: buildPlanFit("enterprise", input, derivedFactors, calibration)
   };
   const ownershipClarity = signalScales.ownershipClarity[input.ownershipModel];
   const teamFocus = signalScales.teamFocus[input.dependentTeams];
@@ -1666,27 +1656,27 @@ function buildScorecard(input, derivedFactors) {
   const maturityStrength =
     signalScales.maturityStrength[input.designSystemMaturity];
   const internalAbsorptionStrength = clamp(
-    deliveryStrength * SCENARIO_LEVER_WEIGHTS.internalAbsorption.deliveryStrength +
-      maturityStrength * SCENARIO_LEVER_WEIGHTS.internalAbsorption.maturityStrength +
-      ownershipClarity * SCENARIO_LEVER_WEIGHTS.internalAbsorption.ownershipClarity +
-      teamFocus * SCENARIO_LEVER_WEIGHTS.internalAbsorption.teamFocus +
-      reworkStability * SCENARIO_LEVER_WEIGHTS.internalAbsorption.reworkStability +
+    deliveryStrength * scenarioWeights.internalAbsorption.deliveryStrength +
+      maturityStrength * scenarioWeights.internalAbsorption.maturityStrength +
+      ownershipClarity * scenarioWeights.internalAbsorption.ownershipClarity +
+      teamFocus * scenarioWeights.internalAbsorption.teamFocus +
+      reworkStability * scenarioWeights.internalAbsorption.reworkStability +
       knowledgeSpread *
-        SCENARIO_LEVER_WEIGHTS.internalAbsorption.knowledgeSpread +
+        scenarioWeights.internalAbsorption.knowledgeSpread +
       handoffAlignment *
-        SCENARIO_LEVER_WEIGHTS.internalAbsorption.handoffAlignment +
-      deadlineSlack * SCENARIO_LEVER_WEIGHTS.internalAbsorption.deadlineSlack +
-      supportLightness * SCENARIO_LEVER_WEIGHTS.internalAbsorption.supportLightness +
-      appFocus * SCENARIO_LEVER_WEIGHTS.internalAbsorption.appFocus,
+        scenarioWeights.internalAbsorption.handoffAlignment +
+      deadlineSlack * scenarioWeights.internalAbsorption.deadlineSlack +
+      supportLightness * scenarioWeights.internalAbsorption.supportLightness +
+      appFocus * scenarioWeights.internalAbsorption.appFocus,
     0,
     1
   );
-  const ownershipHorizonEffects = buildOwnershipHorizonEffects(input, {
+  const ownershipHorizonEffects = buildOwnershipHorizonEffects(input, calibration, {
     ownershipClarity,
     knowledgeSpread,
     dependentTeamsWeakness: clamp(
       dependentTeams /
-        CALIBRATION.ownershipHorizonEffects.ownershipBurden
+      calibration.ownershipHorizonEffects.ownershipBurden
           .dependentTeamsMaxIndex,
       0,
       1
@@ -1854,7 +1844,7 @@ function buildScorecard(input, derivedFactors) {
     maturity,
     effectiveMuiPlan,
     effectivePlanFit
-  });
+  }, calibration);
 
   return {
     derivedFactors,
@@ -1974,11 +1964,10 @@ function buildBudgetComponents(budget, signalConfig, normalizedSignals, signalTy
   );
 }
 
-function summarizeComponents(
-  components,
-  minImpact = CALIBRATION.pathFit.shared.componentSummary.minImpact,
-  maxItems = CALIBRATION.pathFit.shared.componentSummary.maxItems
-) {
+function summarizeComponents(components, calibration) {
+  const summaryConfig = calibration.pathFitComponentWeights.shared.componentSummary;
+  const minImpact = summaryConfig.minImpact;
+  const maxItems = summaryConfig.maxItems;
   const positive = components
     .filter((component) => component.signal === "help" && component.impact >= minImpact)
     .sort((left, right) => right.impact - left.impact)
@@ -1999,11 +1988,12 @@ function buildPathFitEntry(
   label,
   score,
   components,
+  calibration,
   eligible = true,
-  calibration = null
+  metadata = null
 ) {
   const normalizedScore = roundTo(clamp(score, 0, 100));
-  const summaries = summarizeComponents(components);
+  const summaries = summarizeComponents(components, calibration);
 
   return {
     key,
@@ -2012,14 +2002,14 @@ function buildPathFitEntry(
     level: levelFromScore(normalizedScore),
     eligible,
     components,
-    calibration,
+    calibration: metadata,
     strengths: summaries.positive,
     drags: summaries.negative
   };
 }
 
-function buildPathFits(input, derivedFactors, scorecard, planFits) {
-  const pathFitWeights = CALIBRATION.pathFit;
+function buildPathFits(input, derivedFactors, scorecard, planFits, calibration) {
+  const pathFitWeights = calibration.pathFitComponentWeights;
   const sharedWeights = pathFitWeights.shared;
   const scoreAdjustments = pathFitWeights.scoreAdjustments;
   const buildPathConfig = pathFitWeights.build;
@@ -2028,7 +2018,7 @@ function buildPathFits(input, derivedFactors, scorecard, planFits) {
   const enterprisePathConfig = pathFitWeights.enterprise;
   const eligibility = pathFitWeights.eligibility;
   const featureDemandRaw = input.advancedFeatures.reduce(
-    (sum, feature) => sum + INPUT_SCALES.advancedFeatureWeights[feature],
+    (sum, feature) => sum + calibration.inputScales.advancedFeatureWeights[feature],
     0
   );
   const featureDemand = clamp(
@@ -2074,13 +2064,13 @@ function buildPathFits(input, derivedFactors, scorecard, planFits) {
       sharedWeights.standardizationContext.standardizationIntent +
       bucket(
         input.reactApps,
-        INPUT_SCALES.appScaleBucket.smallMax,
-        INPUT_SCALES.appScaleBucket.mediumMax
+        calibration.inputScales.appScaleBucket.smallMax,
+        calibration.inputScales.appScaleBucket.mediumMax
       ) * sharedWeights.standardizationContext.appScale +
       bucket(
         input.frontendDevelopers,
-        INPUT_SCALES.teamScaleBucket.smallMax,
-        INPUT_SCALES.teamScaleBucket.mediumMax
+        calibration.inputScales.teamScaleBucket.smallMax,
+        calibration.inputScales.teamScaleBucket.mediumMax
       ) * sharedWeights.standardizationContext.teamScale +
       DEPENDENT_TEAMS_INDEX[input.dependentTeams] *
         sharedWeights.standardizationContext.dependentTeams,
@@ -2339,14 +2329,14 @@ function buildPathFits(input, derivedFactors, scorecard, planFits) {
     input.advancedFeatures.length >= eligibility.premium.minAdvancedFeatures;
 
   return {
-    build: buildPathFitEntry("build", PATH_LABELS.build, buildScore, buildComponents, true, {
+    build: buildPathFitEntry("build", PATH_LABELS.build, buildScore, buildComponents, calibration, true, {
       baseScore: buildPathConfig.baseScore,
       positiveBudget: buildPathConfig.positiveBudget,
       dragBudget: buildPathConfig.dragBudget,
       positiveContribution: roundTo(buildPositiveContribution),
       dragContribution: roundTo(buildDragContribution)
     }),
-    core: buildPathFitEntry("core", PATH_LABELS.core, coreScore, coreComponents, true, {
+    core: buildPathFitEntry("core", PATH_LABELS.core, coreScore, coreComponents, calibration, true, {
       baseScore: corePathConfig.baseScore,
       positiveBudget: corePathConfig.positiveBudget,
       dragBudget: corePathConfig.dragBudget,
@@ -2358,6 +2348,7 @@ function buildPathFits(input, derivedFactors, scorecard, planFits) {
       PATH_LABELS.premium,
       premiumScore,
       premiumComponents,
+      calibration,
       premiumEligible,
       {
         baseScore: premiumPathConfig.baseScore,
@@ -2372,6 +2363,7 @@ function buildPathFits(input, derivedFactors, scorecard, planFits) {
       PATH_LABELS.enterprise,
       enterpriseScore,
       enterpriseComponents,
+      calibration,
       enterpriseEligible,
       {
         baseScore: enterprisePathConfig.baseScore,
@@ -2384,8 +2376,8 @@ function buildPathFits(input, derivedFactors, scorecard, planFits) {
   };
 }
 
-function buildDeterministicRecommendation(input, derivedFactors, scorecard, pathFits) {
-  const confidencePolicy = CALIBRATION.confidencePolicy;
+function buildDeterministicRecommendation(input, derivedFactors, scorecard, pathFits, calibration) {
+  const confidencePolicy = calibration.confidencePolicy;
   const rankedPaths = Object.values(pathFits).sort(
     (left, right) => right.score - left.score
   );
@@ -2490,15 +2482,16 @@ function buildDeterministicRecommendation(input, derivedFactors, scorecard, path
   };
 }
 
-function buildFitSnapshot(input) {
-  const derivedFactors = buildDerivedFactors(input);
-  const scorecard = buildScorecard(input, derivedFactors);
-  const pathFits = buildPathFits(input, derivedFactors, scorecard, scorecard.planFits);
+function buildFitSnapshot(input, calibration) {
+  const derivedFactors = buildDerivedFactors(input, calibration);
+  const scorecard = buildScorecard(input, derivedFactors, calibration);
+  const pathFits = buildPathFits(input, derivedFactors, scorecard, scorecard.planFits, calibration);
   const { recommendation, confidence } = buildDeterministicRecommendation(
     input,
     derivedFactors,
     scorecard,
-    pathFits
+    pathFits,
+    calibration
   );
 
   return {
@@ -2863,12 +2856,12 @@ function buildSensitivityDriver(input, baseline, candidate, evaluated) {
   };
 }
 
-function buildSensitivityDiagnostics(input, baseline) {
+function buildSensitivityDiagnostics(input, baseline, calibration) {
   const candidates = buildSensitivityCandidates(input);
   const evaluated = candidates
     .map((candidate) => {
       const perturbedInput = candidate.apply(input);
-      const snapshot = buildFitSnapshot(perturbedInput);
+      const snapshot = buildFitSnapshot(perturbedInput, calibration);
       const deltas = {
         buildFit: snapshot.pathFits.build.score - baseline.pathFits.build.score,
         coreFit: snapshot.pathFits.core.score - baseline.pathFits.core.score,
@@ -3018,8 +3011,8 @@ function buildEvidenceBasis(input, scorecard) {
   ];
 }
 
-function buildDiagnostics(input, scorecard, pathFits, evidenceBasis, sensitivity) {
-  const ownershipHorizonEffects = buildOwnershipHorizonEffects(input, {
+function buildDiagnostics(input, scorecard, pathFits, evidenceBasis, sensitivity, calibration) {
+  const ownershipHorizonEffects = buildOwnershipHorizonEffects(input, calibration, {
     maturityStrength:
       {
         low: 0.3,
@@ -3068,16 +3061,24 @@ function buildDiagnostics(input, scorecard, pathFits, evidenceBasis, sensitivity
   };
 }
 
-function buildResult(input) {
-  const fitSnapshot = buildFitSnapshot(input);
+function buildResult(input, activeCalibration, calibrationMetadata) {
+  const fitSnapshot = buildFitSnapshot(input, activeCalibration);
   const { derivedFactors, scorecard, pathFits } = fitSnapshot;
   const evidenceBasis = buildEvidenceBasis(input, scorecard);
-  const sensitivity = buildSensitivityDiagnostics(input, fitSnapshot);
-  const diagnostics = buildDiagnostics(input, scorecard, pathFits, evidenceBasis, sensitivity);
+  const sensitivity = buildSensitivityDiagnostics(input, fitSnapshot, activeCalibration);
+  const diagnostics = buildDiagnostics(
+    input,
+    scorecard,
+    pathFits,
+    evidenceBasis,
+    sensitivity,
+    activeCalibration
+  );
 
   return {
     modelVersion: MODEL_VERSION,
     calibrationVersion: CALIBRATION_VERSION,
+    activeCalibration: calibrationMetadata,
     derivedFactors,
     planFits: scorecard.planFits,
     pathFits,
@@ -3113,6 +3114,14 @@ export const handler = async (event) => {
     return badRequest(parsed.error);
   }
 
+  const calibrationResolution = resolveActiveCalibration(
+    parsed.value?.calibrationOverrides
+  );
+
+  if (!calibrationResolution.valid) {
+    return badRequest("Invalid calibrationOverrides.", calibrationResolution.errors);
+  }
+
   const normalized = normalizeInput(parsed.value);
   const validation = validatePayload(normalized, parsed.value);
 
@@ -3120,5 +3129,8 @@ export const handler = async (event) => {
     return badRequest("Validation failed.", validation.errors);
   }
 
-  return jsonResponse(200, buildResult(normalized));
+  return jsonResponse(
+    200,
+    buildResult(normalized, calibrationResolution.calibration, calibrationResolution.metadata)
+  );
 };

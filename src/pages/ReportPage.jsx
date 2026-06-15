@@ -1089,6 +1089,8 @@ function ReportPage() {
   const pathFits = fitResult.pathFits ?? {};
   const sensitivity = fitResult.sensitivity ?? fitResult.diagnostics?.sensitivity ?? {};
   const diagnostics = fitResult.diagnostics ?? {};
+  const activeCalibration = fitResult.activeCalibration ?? {};
+  const hasCustomCalibration = Boolean(activeCalibration.hasOverrides);
   const rankedPaths = Object.values(pathFits)
     .filter(Boolean)
     .sort((left, right) => (right.score ?? 0) - (left.score ?? 0));
@@ -1170,6 +1172,12 @@ function ReportPage() {
           </Grid>
         </Grid>
       </Box>
+
+      {hasCustomCalibration ? (
+        <Alert severity="warning" variant="outlined">
+          Custom calibration active. This report used local override values from the admin calibration page.
+        </Alert>
+      ) : null}
 
       <SectionCard
         title="Path fit comparison"

@@ -117,7 +117,6 @@ export const INPUT_SCALES = {
     mediumMax: 4
   }
 };
-
 export const PLAN_CONFIG = {
   core: {
     key: "core",
@@ -1586,9 +1585,23 @@ export const RECOMMENDATION_POLICY_WEIGHTS = {
   buildFriendlyContextCoverageThreshold: 58
 };
 
-export const CALIBRATION = {
+export const DEFAULT_CALIBRATION = {
   version: CALIBRATION_VERSION,
+  scoreBands: SCORE_BANDS,
+  inputScales: INPUT_SCALES,
+  planConfig: PLAN_CONFIG,
+  derivedFactorWeights: DERIVED_FACTOR_WEIGHTS,
   ownershipHorizonEffects: OWNERSHIP_HORIZON_EFFECTS,
+  planFitWeights: PLAN_FIT_WEIGHTS,
+  planFitRuntime: PLAN_FIT_RUNTIME,
+  pathScoreWeights: PATH_SCORE_WEIGHTS,
+  pathFitComponentWeights: PATH_FIT_COMPONENT_WEIGHTS,
+  deterministicPolicy: DETERMINISTIC_POLICY,
+  confidencePolicy: CONFIDENCE_POLICY,
+  scenarioLeverWeights: SCENARIO_LEVER_WEIGHTS,
+  fitSignalScales: FIT_SIGNAL_SCALES,
+  scenarioLeverRuntime: SCENARIO_LEVER_RUNTIME,
+  recommendationPolicy: RECOMMENDATION_POLICY_WEIGHTS,
 
   inputIndexes: {},
 
@@ -1761,3 +1774,5 @@ export const CALIBRATION = {
     }
   }
 };
+
+export const CALIBRATION = DEFAULT_CALIBRATION;

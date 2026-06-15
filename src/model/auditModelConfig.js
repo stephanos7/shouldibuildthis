@@ -1,4 +1,5 @@
 import { resolveCalibrationRef } from "./evaluateCalibration.js";
+import { DEFAULT_CALIBRATION } from "./calibration.js";
 import { MODEL_ARTIFACT_GLOSSARY } from "./modelArtifactGlossary.js";
 import { MODEL_IMPACT_MAP } from "./modelImpactMap.js";
 
@@ -44,7 +45,7 @@ function getRawInputArtifacts(artifactGlossary) {
 }
 
 export function auditModelConfig({
-  calibration,
+  calibration = DEFAULT_CALIBRATION,
   impactMap = MODEL_IMPACT_MAP,
   artifactGlossary = MODEL_ARTIFACT_GLOSSARY
 }) {
