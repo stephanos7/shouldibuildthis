@@ -1934,17 +1934,21 @@ function buildPathComponent(key, label, rawImpact, signal, detail) {
   };
 }
 
-function summarizeComponents(components, minImpact = 4) {
+function summarizeComponents(
+  components,
+  minImpact = CALIBRATION.pathFit.shared.componentSummary.minImpact,
+  maxItems = CALIBRATION.pathFit.shared.componentSummary.maxItems
+) {
   const positive = components
     .filter((component) => component.signal === "help" && component.impact >= minImpact)
     .sort((left, right) => right.impact - left.impact)
-    .slice(0, 4)
+    .slice(0, maxItems)
     .map((component) => component.detail);
 
   const negative = components
     .filter((component) => component.signal === "hurt" && component.impact >= minImpact)
     .sort((left, right) => right.impact - left.impact)
-    .slice(0, 4)
+    .slice(0, maxItems)
     .map((component) => component.detail);
 
   return { positive, negative };
@@ -1967,77 +1971,125 @@ function buildPathFitEntry(key, label, score, components, eligible = true) {
 }
 
 function buildPathFits(input, derivedFactors, scorecard, planFits) {
+  const pathFitWeights = CALIBRATION.pathFit;
+  const sharedWeights = pathFitWeights.shared;
+  const scoreAdjustments = pathFitWeights.scoreAdjustments;
+  const componentWeights = pathFitWeights.components;
+  const eligibility = pathFitWeights.eligibility;
   const featureDemandRaw = input.advancedFeatures.reduce(
     (sum, feature) => sum + INPUT_SCALES.advancedFeatureWeights[feature],
     0
   );
-  const featureDemand = clamp((featureDemandRaw / 6) * 100, 0, 100);
-  const containedScopeScore = scorecard.containedScope ? 90 : 22;
+  const featureDemand = clamp(
+    (featureDemandRaw / sharedWeights.featureDemand.denominator) *
+      sharedWeights.featureDemand.multiplier,
+    0,
+    100
+  );
+  const containedScopeScore = scorecard.containedScope
+    ? sharedWeights.containedScopeScore.trueValue
+    : sharedWeights.containedScopeScore.falseValue;
   const supportLightness = supportLightnessScore(input);
   const ownershipClarity = ownershipClarityScore(input);
   const knowledgeSpread = knowledgeSpreadScore(input);
   const advancedDataNeed =
     input.primaryUseCase === "data-grid" || input.primaryUseCase === "scheduler"
       ? clamp(
-          52 +
-            (EXPECTED_ROWS_INDEX[input.expectedRows] - 1) * 14 +
-            (EXPECTED_COLUMNS_INDEX[input.expectedColumns] - 1) * 10 +
-            input.advancedFeatures.length * 6,
+          sharedWeights.advancedDataNeed.base +
+            (EXPECTED_ROWS_INDEX[input.expectedRows] - 1) *
+              sharedWeights.advancedDataNeed.rowIncrement +
+            (EXPECTED_COLUMNS_INDEX[input.expectedColumns] - 1) *
+              sharedWeights.advancedDataNeed.columnIncrement +
+            input.advancedFeatures.length *
+              sharedWeights.advancedDataNeed.featureIncrement,
           0,
           100
         )
-      : clamp(featureDemand * 0.72, 0, 100);
+      : clamp(
+          featureDemand * sharedWeights.advancedDataNeed.fallbackMultiplier,
+          0,
+          100
+        );
   const standardizationContext = clamp(
-    scorecard.standardizationIntent * 42 +
+    scorecard.standardizationIntent *
+      sharedWeights.standardizationContext.standardizationIntent +
       bucket(
         input.reactApps,
         INPUT_SCALES.appScaleBucket.smallMax,
         INPUT_SCALES.appScaleBucket.mediumMax
-      ) * 14 +
+      ) * sharedWeights.standardizationContext.appScale +
       bucket(
         input.frontendDevelopers,
         INPUT_SCALES.teamScaleBucket.smallMax,
         INPUT_SCALES.teamScaleBucket.mediumMax
-      ) * 10 +
-      DEPENDENT_TEAMS_INDEX[input.dependentTeams] * 8,
+      ) * sharedWeights.standardizationContext.teamScale +
+      DEPENDENT_TEAMS_INDEX[input.dependentTeams] *
+        sharedWeights.standardizationContext.dependentTeams,
     0,
     100
   );
   const buildScore = clamp(
     scorecard.buildFit +
-      (scorecard.buildFriendlyContext ? 12 : 0) +
-      (input.existingMuiUsage === "none" ? 4 : 0) +
-      (ownershipClarity >= 80 ? 3 : 0),
+      (scorecard.buildFriendlyContext
+        ? scoreAdjustments.build.buildFriendlyContextBonus
+        : 0) +
+      (input.existingMuiUsage === "none"
+        ? scoreAdjustments.build.noMuiUsageBonus
+        : 0) +
+      (ownershipClarity >= scoreAdjustments.build.ownershipClarityThreshold
+        ? scoreAdjustments.build.ownershipClarityBonus
+        : 0),
     0,
     100
   );
   const coreScore = clamp(
     scorecard.coreFit -
       (scorecard.buildFriendlyContext && input.existingMuiUsage === "none"
-        ? 8
+        ? scoreAdjustments.core.buildFriendlyNoMuiPenalty
         : 0),
     0,
     100
   );
   const premiumScore = clamp(
     scorecard.premiumFit +
-      (advancedDataNeed >= 70 ? 6 : 0) -
-      (derivedFactors.enterpriseReadiness.score >= 78 &&
-      scorecard.supportNeed >= 2
-        ? 6
+      (advancedDataNeed >= scoreAdjustments.premium.advancedDataNeedThreshold
+        ? scoreAdjustments.premium.advancedDataNeedBonus
+        : 0) -
+      (derivedFactors.enterpriseReadiness.score >=
+        scoreAdjustments.premium.enterpriseReadinessThreshold &&
+      scorecard.supportNeed >= scoreAdjustments.premium.enterpriseSupportThreshold
+        ? scoreAdjustments.premium.enterprisePullPenalty
         : 0),
     0,
     100
   );
   const enterpriseScore = clamp(
     scorecard.enterpriseFit +
-      (input.supportRequirement === "procurement-sla" ? 10 : 0) +
-      (input.componentStandardizationGoal === "platform-standard" ? 8 : 0) +
-      (input.reactApps >= 4 ? 6 : 0) +
-      (scorecard.productionCriticalityNormalized >= 0.67 ? 6 : 0) -
-      (scorecard.supportNeed <= 1 ? 18 : scorecard.supportNeed === 2 ? 6 : 0) -
-      (input.componentStandardizationGoal !== "platform-standard" ? 8 : 0) -
-      (input.reactApps < 3 ? 8 : 0),
+      (input.supportRequirement === "procurement-sla"
+        ? scoreAdjustments.enterprise.procurementSlaBonus
+        : 0) +
+      (input.componentStandardizationGoal === "platform-standard"
+        ? scoreAdjustments.enterprise.platformStandardBonus
+        : 0) +
+      (input.reactApps >= scoreAdjustments.enterprise.reactAppsThreshold
+        ? scoreAdjustments.enterprise.reactAppsBonus
+        : 0) +
+      (scorecard.productionCriticalityNormalized >=
+      scoreAdjustments.enterprise.productionCriticalityThreshold
+        ? scoreAdjustments.enterprise.productionCriticalityBonus
+        : 0) -
+      (scorecard.supportNeed <= scoreAdjustments.enterprise.lowSupportThreshold
+        ? scoreAdjustments.enterprise.lowSupportPenalty
+        : scorecard.supportNeed ===
+            scoreAdjustments.enterprise.prioritySupportThreshold
+          ? scoreAdjustments.enterprise.prioritySupportPenalty
+          : 0) -
+      (input.componentStandardizationGoal !== "platform-standard"
+        ? scoreAdjustments.enterprise.noPlatformStandardPenalty
+        : 0) -
+      (input.reactApps < scoreAdjustments.enterprise.reactAppsPenaltyThreshold
+        ? scoreAdjustments.enterprise.reactAppsLessThan3Penalty
+        : 0),
     0,
     100
   );
@@ -2046,63 +2098,63 @@ function buildPathFits(input, derivedFactors, scorecard, planFits) {
     buildPathComponent(
       "deliveryMaturity",
       "Delivery maturity",
-      derivedFactors.deliveryMaturity.score * 0.16,
+      derivedFactors.deliveryMaturity.score * componentWeights.build.deliveryMaturity,
       "help",
       "High delivery maturity supports an internal build."
     ),
     buildPathComponent(
       "internalAbsorption",
       "Internal absorption",
-      scorecard.internalAbsorption * 18,
+      scorecard.internalAbsorption * componentWeights.build.internalAbsorption,
       "help",
       "The team appears able to absorb custom implementation work."
     ),
     buildPathComponent(
       "buildReuseLeverage",
       "Build reuse leverage",
-      scorecard.buildReuseLeverage * 16,
+      scorecard.buildReuseLeverage * componentWeights.build.buildReuseLeverage,
       "help",
       "Existing internal patterns and reuse potential help the build path."
     ),
     buildPathComponent(
       "ownershipClarity",
       "Ownership clarity",
-      ownershipClarity * 0.12,
+      ownershipClarity * componentWeights.build.ownershipClarity,
       "help",
       "Clear ownership improves build accountability and maintenance viability."
     ),
     buildPathComponent(
       "knowledgeSpread",
       "Shared knowledge",
-      knowledgeSpread * 0.1,
+      knowledgeSpread * componentWeights.build.knowledgeSpread,
       "help",
       "Shared implementation knowledge reduces build continuity risk."
     ),
     buildPathComponent(
       "supportLightness",
       "Low support pressure",
-      supportLightness * 0.08,
+      supportLightness * componentWeights.build.supportLightness,
       "help",
       "Lower support and procurement pressure keeps internal ownership more plausible."
     ),
     buildPathComponent(
       "functionalComplexity",
       "Functional complexity",
-      derivedFactors.functionalComplexity.score * 0.2,
+      derivedFactors.functionalComplexity.score * componentWeights.build.functionalComplexity,
       "hurt",
       "High functional complexity increases the bespoke implementation burden."
     ),
     buildPathComponent(
       "qualityBurden",
       "Quality burden",
-      derivedFactors.qualityBurden.score * 0.16,
+      derivedFactors.qualityBurden.score * componentWeights.build.qualityBurden,
       "hurt",
       "High QA and verification pressure drag on a build-first path."
     ),
     buildPathComponent(
       "ownershipBurden",
       "Ownership burden",
-      derivedFactors.ownershipBurden.score * 0.14,
+      derivedFactors.ownershipBurden.score * componentWeights.build.ownershipBurden,
       "hurt",
       "Long-term ownership load reduces build fit."
     ),
@@ -2110,7 +2162,9 @@ function buildPathFits(input, derivedFactors, scorecard, planFits) {
       "enterpriseReadiness",
       "Enterprise pressure",
       derivedFactors.enterpriseReadiness.score *
-        (scorecard.supportOrProcurementNeed ? 0.12 : 0.05),
+        (scorecard.supportOrProcurementNeed
+          ? componentWeights.build.enterpriseReadiness.supportOrProcurementNeed
+          : componentWeights.build.enterpriseReadiness.otherwise),
       "hurt",
       "Support, procurement, or standardization pressure weakens the build path."
     ),
@@ -2118,7 +2172,9 @@ function buildPathFits(input, derivedFactors, scorecard, planFits) {
       "productionCriticality",
       "Production criticality",
       derivedFactors.productionCriticality *
-        (scorecard.supportNeed <= 1 ? 4 : 2),
+        (scorecard.supportNeed <= 1
+          ? componentWeights.build.productionCriticalityMultiplier.lowSupportNeed
+          : componentWeights.build.productionCriticalityMultiplier.higherSupportNeed),
       "hurt",
       "Production criticality hurts Build when support readiness is limited."
     )
@@ -2128,77 +2184,78 @@ function buildPathFits(input, derivedFactors, scorecard, planFits) {
     buildPathComponent(
       "coverageScore",
       "Core coverage",
-      planFits.core.coverageScore * 0.28,
+      planFits.core.coverageScore * componentWeights.core.coverageScore,
       "help",
       "Core coverage is strong enough to make the base MUI path credible."
     ),
     buildPathComponent(
       "containedScope",
       "Contained scope",
-      containedScopeScore * 0.18,
+      containedScopeScore * componentWeights.core.containedScope,
       "help",
       "Contained scope makes MUI Core more plausible."
     ),
     buildPathComponent(
       "supportRequirement",
       "Low support requirement",
-      supportLightness * 0.12,
+      supportLightness * componentWeights.core.supportRequirement,
       "help",
       "Low support expectations fit MUI Core better than higher tiers."
     ),
     buildPathComponent(
       "productionCriticality",
       "Lower production criticality",
-      (100 - scorecard.productionCriticalityNormalized * 100) * 0.08,
+      (100 - scorecard.productionCriticalityNormalized * 100) *
+        componentWeights.core.productionCriticality,
       "help",
       "Lower operational sensitivity keeps Core viable."
     ),
     buildPathComponent(
       "advancedFeatureDemand",
       "Contained advanced demand",
-      (100 - featureDemand) * 0.1,
+      (100 - featureDemand) * componentWeights.core.advancedFeatureDemand,
       "help",
       "Lower advanced-feature demand helps the Core path."
     ),
     buildPathComponent(
       "existingMuiUsage",
       "Existing MUI usage",
-      scorecard.muiUsage * 10,
+      scorecard.muiUsage * componentWeights.core.existingMuiUsage,
       "help",
       "Existing MUI usage lowers adoption friction for Core."
     ),
     buildPathComponent(
       "supportGap",
       "Support gap",
-      planFits.core.supportGap * 28,
+      planFits.core.supportGap * componentWeights.core.supportGap,
       "hurt",
       "A larger support gap weakens the Core path."
     ),
     buildPathComponent(
       "coverageGap",
       "Coverage gap",
-      planFits.core.coverageGap * 26,
+      planFits.core.coverageGap * componentWeights.core.coverageGap,
       "hurt",
       "Coverage gaps hurt Core when requirements move beyond contained scope."
     ),
     buildPathComponent(
       "integrationRisk",
       "Integration risk",
-      planFits.core.integrationRisk * 22,
+      planFits.core.integrationRisk * componentWeights.core.integrationRisk,
       "hurt",
       "Integration risk drags on Core fit."
     ),
     buildPathComponent(
       "muiAdoptionBurden",
       "Adoption burden",
-      scorecard.muiAdoptionBurden * 20,
+      scorecard.muiAdoptionBurden * componentWeights.core.muiAdoptionBurden,
       "hurt",
       "Adopting Core still creates adaptation work in this context."
     ),
     buildPathComponent(
       "enterpriseReadiness",
       "Enterprise pressure",
-      derivedFactors.enterpriseReadiness.score * 0.12,
+      derivedFactors.enterpriseReadiness.score * componentWeights.core.enterpriseReadiness,
       "hurt",
       "Enterprise-level support or standardization pressure pulls away from Core."
     )
@@ -2208,63 +2265,64 @@ function buildPathFits(input, derivedFactors, scorecard, planFits) {
     buildPathComponent(
       "coverageScore",
       "Premium coverage",
-      planFits.premium.coverageScore * 0.3,
+      planFits.premium.coverageScore * componentWeights.premium.coverageScore,
       "help",
       "Premium coverage aligns well with the required feature set."
     ),
     buildPathComponent(
       "featureDemand",
       "Advanced feature demand",
-      featureDemand * 0.16,
+      featureDemand * componentWeights.premium.featureDemand,
       "help",
       "Advanced feature demand makes Premium more relevant."
     ),
     buildPathComponent(
       "functionalComplexity",
       "Functional complexity",
-      derivedFactors.functionalComplexity.score * 0.1,
+      derivedFactors.functionalComplexity.score * componentWeights.premium.functionalComplexity,
       "help",
       "Moderate to high complexity favors Premium over Core."
     ),
     buildPathComponent(
       "advancedDataNeed",
       "Advanced data needs",
-      advancedDataNeed * 0.12,
+      advancedDataNeed * componentWeights.premium.advancedDataNeed,
       "help",
       "Data-grid, scheduler, or feature-heavy needs favor Premium."
     ),
     buildPathComponent(
       "supportRequirement",
       "Mid-tier support fit",
-      clamp(scorecard.supportNeed * 34, 0, 100) * 0.06,
+      clamp(scorecard.supportNeed * 34, 0, 100) *
+        componentWeights.premium.supportRequirement,
       "help",
       "Medium support needs can justify Premium without requiring Enterprise."
     ),
     buildPathComponent(
       "muiLeverage",
       "MUI leverage",
-      scorecard.muiLeverage * 18,
+      scorecard.muiLeverage * componentWeights.premium.muiLeverage,
       "help",
       "Existing MUI leverage improves the Premium case."
     ),
     buildPathComponent(
       "containedScope",
       "Contained scope",
-      containedScopeScore * 0.14,
+      containedScopeScore * componentWeights.premium.containedScope,
       "hurt",
       "Contained scope weakens the case for Premium."
     ),
     buildPathComponent(
       "enterpriseReadiness",
       "Enterprise pull",
-      derivedFactors.enterpriseReadiness.score * 0.1,
+      derivedFactors.enterpriseReadiness.score * componentWeights.premium.enterpriseReadiness,
       "hurt",
       "Higher enterprise pressure can pull the decision toward Enterprise instead."
     ),
     buildPathComponent(
       "muiAdoptionBurden",
       "Adoption burden",
-      scorecard.muiAdoptionBurden * 18,
+      scorecard.muiAdoptionBurden * componentWeights.premium.muiAdoptionBurden,
       "hurt",
       "Adoption burden can still drag on Premium."
     )
@@ -2274,85 +2332,89 @@ function buildPathFits(input, derivedFactors, scorecard, planFits) {
     buildPathComponent(
       "coverageScore",
       "Enterprise coverage",
-      planFits.enterprise.coverageScore * 0.24,
+      planFits.enterprise.coverageScore * componentWeights.enterprise.coverageScore,
       "help",
       "Enterprise coverage is strong enough to support the evaluated workload."
     ),
     buildPathComponent(
       "enterpriseReadiness",
       "Enterprise readiness",
-      derivedFactors.enterpriseReadiness.score * 0.22,
+      derivedFactors.enterpriseReadiness.score * componentWeights.enterprise.enterpriseReadiness,
       "help",
       "Support, organizational footprint, and standardization pressure favor Enterprise."
     ),
     buildPathComponent(
       "supportRequirement",
       "Support requirement",
-      clamp(scorecard.supportNeed * 34, 0, 100) * 0.16,
+      clamp(scorecard.supportNeed * 34, 0, 100) *
+        componentWeights.enterprise.supportRequirement,
       "help",
       "Higher support and procurement expectations favor Enterprise."
     ),
     buildPathComponent(
       "productionCriticality",
       "Production criticality",
-      scorecard.productionCriticalityNormalized * 100 * 0.12,
+      scorecard.productionCriticalityNormalized *
+        100 *
+        componentWeights.enterprise.productionCriticality,
       "help",
       "Higher production criticality raises the value of Enterprise readiness."
     ),
     buildPathComponent(
       "standardizationContext",
       "Standardization context",
-      standardizationContext * 0.12,
+      standardizationContext * componentWeights.enterprise.standardizationContext,
       "help",
       "Platform-scale standardization pressure helps Enterprise."
     ),
     buildPathComponent(
       "existingMuiUsage",
       "Existing MUI usage",
-      scorecard.muiUsage * 12,
+      scorecard.muiUsage * componentWeights.enterprise.existingMuiUsage,
       "help",
       "Existing MUI usage lowers the activation cost for Enterprise."
     ),
     buildPathComponent(
       "containedScope",
       "Contained scope",
-      containedScopeScore * 0.16,
+      containedScopeScore * componentWeights.enterprise.containedScope,
       "hurt",
       "Contained scope drags on Enterprise unless the platform footprint clearly justifies it."
     ),
     buildPathComponent(
       "lowSupportRequirement",
       "Low support requirement",
-      supportLightness * 0.14,
+      supportLightness * componentWeights.enterprise.lowSupportRequirement,
       "hurt",
       "Low support pressure weakens the Enterprise case."
     ),
     buildPathComponent(
       "lowCriticality",
       "Low production criticality",
-      (100 - scorecard.productionCriticalityNormalized * 100) * 0.12,
+      (100 - scorecard.productionCriticalityNormalized * 100) *
+        componentWeights.enterprise.lowCriticality,
       "hurt",
       "Low production criticality weakens the Enterprise case."
     ),
     buildPathComponent(
       "coverageWeakness",
       "Coverage weakness",
-      planFits.enterprise.coverageGap * 20,
+      planFits.enterprise.coverageGap * componentWeights.enterprise.coverageWeakness,
       "hurt",
       "Enterprise still needs strong coverage to justify itself."
     )
   ];
 
   const enterpriseEligible =
-    enterpriseScore >= 52 ||
+    enterpriseScore >= eligibility.enterprise.minScore ||
     scorecard.enterpriseFitStrong ||
     input.supportRequirement === "procurement-sla" ||
-    input.componentStandardizationGoal === "platform-standard";
+    input.componentStandardizationGoal === "platform-standard" ||
+    eligibility.enterprise.supportedUseCases.includes(input.primaryUseCase);
   const premiumEligible =
-    premiumScore >= 42 ||
-    input.primaryUseCase === "data-grid" ||
-    input.primaryUseCase === "scheduler" ||
-    input.advancedFeatures.length >= 2;
+    premiumScore >= eligibility.premium.minScore ||
+    eligibility.premium.supportedUseCases.includes(input.primaryUseCase) ||
+    input.advancedFeatures.length >= eligibility.premium.minAdvancedFeatures;
 
   return {
     build: buildPathFitEntry("build", PATH_LABELS.build, buildScore, buildComponents),
@@ -2375,6 +2437,7 @@ function buildPathFits(input, derivedFactors, scorecard, planFits) {
 }
 
 function buildDeterministicRecommendation(input, derivedFactors, scorecard, pathFits) {
+  const confidencePolicy = CALIBRATION.confidencePolicy;
   const rankedPaths = Object.values(pathFits).sort(
     (left, right) => right.score - left.score
   );
@@ -2384,33 +2447,49 @@ function buildDeterministicRecommendation(input, derivedFactors, scorecard, path
     eligiblePaths.find((path) => path.key !== winner.key) ?? rankedPaths[1] ?? winner;
   const scoreGap = clamp(roundTo(winner.score - runnerUp.score), 0, 100);
   const strongStrengthCount = winner.components.filter(
-    (component) => component.signal === "help" && component.impact >= 8
+    (component) =>
+      component.signal === "help" &&
+      component.impact >= confidencePolicy.strongComponentImpact
   ).length;
   const strongDragCount = winner.components.filter(
-    (component) => component.signal === "hurt" && component.impact >= 8
+    (component) =>
+      component.signal === "hurt" &&
+      component.impact >= confidencePolicy.strongComponentImpact
   ).length;
   const signalConsistencyBonus = clamp(
-    strongStrengthCount * 4 +
-      Math.max(0, winner.strengths.length - winner.drags.length) * 2 +
-      (winner.level === "high" ? 4 : winner.level === "medium" ? 2 : 0),
+    strongStrengthCount *
+      confidencePolicy.signalConsistency.strongStrengthMultiplier +
+      Math.max(0, winner.strengths.length - winner.drags.length) *
+        confidencePolicy.signalConsistency.winnerBalanceMultiplier +
+      (confidencePolicy.signalConsistency.winnerLevelBonus[winner.level] ?? 0),
     0,
-    18
+    confidencePolicy.signalConsistency.max
   );
+  const scoreGapPenalty =
+    confidencePolicy.ambiguityPenalty.scoreGapThresholds.find(
+      (band) => scoreGap < band.lt
+    )?.penalty ?? 0;
   const ambiguityPenalty = clamp(
-    (scoreGap < 4 ? 14 : scoreGap < 8 ? 10 : scoreGap < 12 ? 6 : 0) +
-      Math.max(0, strongDragCount - strongStrengthCount) * 2,
+    scoreGapPenalty +
+      Math.max(0, strongDragCount - strongStrengthCount) *
+        confidencePolicy.ambiguityPenalty.strongDragPenaltyMultiplier,
     0,
-    18
+    confidencePolicy.ambiguityPenalty.max
   );
   const confidenceScore = clamp(
-    Math.round(46 + scoreGap * 2.2 + signalConsistencyBonus - ambiguityPenalty),
-    35,
-    94
+    Math.round(
+      confidencePolicy.score.base +
+        scoreGap * confidencePolicy.score.scoreGapMultiplier +
+        signalConsistencyBonus -
+        ambiguityPenalty
+    ),
+    confidencePolicy.score.min,
+    confidencePolicy.score.max
   );
   const confidenceLevel =
-    confidenceScore >= 78
+    confidenceScore >= confidencePolicy.levels.high
       ? "high"
-      : confidenceScore >= 62
+      : confidenceScore >= confidencePolicy.levels.moderate
         ? "moderate"
         : "qualified";
 

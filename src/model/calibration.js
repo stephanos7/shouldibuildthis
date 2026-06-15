@@ -815,6 +815,187 @@ export const PATH_SCORE_WEIGHTS = {
 };
 
 /*
+ * Path fit component weights
+ * --------------------------
+ *
+ * These values shape the post-scorecard path-fit comparison and the
+ * deterministic recommendation confidence calculation. They are kept separate
+ * from the scorecard weights so changes to path eligibility and confidence can
+ * be reviewed independently.
+ */
+export const PATH_FIT_COMPONENT_WEIGHTS = {
+  shared: {
+    featureDemand: {
+      denominator: 6,
+      multiplier: 100
+    },
+    containedScopeScore: {
+      trueValue: 90,
+      falseValue: 22
+    },
+    advancedDataNeed: {
+      base: 52,
+      rowIncrement: 14,
+      columnIncrement: 10,
+      featureIncrement: 6,
+      fallbackMultiplier: 0.72
+    },
+    standardizationContext: {
+      standardizationIntent: 42,
+      appScale: 14,
+      teamScale: 10,
+      dependentTeams: 8
+    },
+    componentSummary: {
+      minImpact: 4,
+      maxItems: 4
+    }
+  },
+  scoreAdjustments: {
+    build: {
+      buildFriendlyContextBonus: 12,
+      noMuiUsageBonus: 4,
+      ownershipClarityThreshold: 80,
+      ownershipClarityBonus: 3
+    },
+    core: {
+      buildFriendlyNoMuiPenalty: 8
+    },
+    premium: {
+      advancedDataNeedThreshold: 70,
+      advancedDataNeedBonus: 6,
+      enterpriseReadinessThreshold: 78,
+      enterpriseSupportThreshold: 2,
+      enterprisePullPenalty: 6
+    },
+    enterprise: {
+      procurementSlaBonus: 10,
+      platformStandardBonus: 8,
+      lowSupportThreshold: 1,
+      prioritySupportThreshold: 2,
+      reactAppsThreshold: 4,
+      reactAppsBonus: 6,
+      reactAppsPenaltyThreshold: 3,
+      productionCriticalityThreshold: 0.67,
+      productionCriticalityBonus: 6,
+      lowSupportPenalty: 18,
+      prioritySupportPenalty: 6,
+      noPlatformStandardPenalty: 8,
+      reactAppsLessThan3Penalty: 8
+    }
+  },
+  components: {
+    build: {
+      deliveryMaturity: 0.16,
+      internalAbsorption: 18,
+      buildReuseLeverage: 16,
+      ownershipClarity: 0.12,
+      knowledgeSpread: 0.1,
+      supportLightness: 0.08,
+      functionalComplexity: 0.2,
+      qualityBurden: 0.16,
+      ownershipBurden: 0.14,
+      enterpriseReadiness: {
+        supportOrProcurementNeed: 0.12,
+        otherwise: 0.05
+      },
+      productionCriticalityMultiplier: {
+        lowSupportNeed: 4,
+        higherSupportNeed: 2
+      }
+    },
+    core: {
+      coverageScore: 0.28,
+      containedScope: 0.18,
+      supportRequirement: 0.12,
+      productionCriticality: 0.08,
+      advancedFeatureDemand: 0.1,
+      existingMuiUsage: 10,
+      supportGap: 28,
+      coverageGap: 26,
+      integrationRisk: 22,
+      muiAdoptionBurden: 20,
+      enterpriseReadiness: 0.12
+    },
+    premium: {
+      coverageScore: 0.3,
+      featureDemand: 0.16,
+      functionalComplexity: 0.1,
+      advancedDataNeed: 0.12,
+      supportRequirement: 0.06,
+      muiLeverage: 18,
+      containedScope: 0.14,
+      enterpriseReadiness: 0.1,
+      muiAdoptionBurden: 18
+    },
+    enterprise: {
+      coverageScore: 0.24,
+      enterpriseReadiness: 0.22,
+      supportRequirement: 0.16,
+      productionCriticality: 0.12,
+      standardizationContext: 0.12,
+      existingMuiUsage: 12,
+      containedScope: 0.16,
+      lowSupportRequirement: 0.14,
+      lowCriticality: 0.12,
+      coverageWeakness: 20
+    }
+  },
+  eligibility: {
+    enterprise: {
+      minScore: 52,
+      supportedUseCases: ["data-grid", "scheduler"]
+    },
+    premium: {
+      minScore: 42,
+      minAdvancedFeatures: 2,
+      supportedUseCases: ["data-grid", "scheduler"]
+    }
+  }
+};
+
+/*
+ * Confidence policy
+ * -----------------
+ *
+ * These values control how the deterministic recommendation converts the
+ * winner-versus-runner-up margin into a confidence score and confidence
+ * label.
+ */
+export const CONFIDENCE_POLICY = {
+  strongComponentImpact: 8,
+  signalConsistency: {
+    strongStrengthMultiplier: 4,
+    winnerBalanceMultiplier: 2,
+    winnerLevelBonus: {
+      high: 4,
+      medium: 2,
+      low: 0
+    },
+    max: 18
+  },
+  ambiguityPenalty: {
+    scoreGapThresholds: [
+      { lt: 4, penalty: 14 },
+      { lt: 8, penalty: 10 },
+      { lt: 12, penalty: 6 }
+    ],
+    strongDragPenaltyMultiplier: 2,
+    max: 18
+  },
+  score: {
+    base: 46,
+    scoreGapMultiplier: 2.2,
+    min: 35,
+    max: 94
+  },
+  levels: {
+    high: 78,
+    moderate: 62
+  }
+};
+
+/*
  * Scenario lever weights
  * ----------------------
  *
@@ -1331,6 +1512,10 @@ export const CALIBRATION = {
       minAdvancedFeatureCount: 4
     }
   },
+
+  pathFit: PATH_FIT_COMPONENT_WEIGHTS,
+
+  confidencePolicy: CONFIDENCE_POLICY,
 
   scenarioLevers: {
     internalAbsorption: {},
