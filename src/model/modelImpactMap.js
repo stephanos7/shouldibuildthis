@@ -8,7 +8,10 @@
  * calibration key controls the effect when applicable.
  *
  * The active backend uses deterministic fit scoring. Keep this map aligned
- * with the active fit, guardrail, and recommendation artifacts.
+ * with the active fit, guardrail, and recommendation artifacts. Path-fit
+ * internals now use per-path positiveSignals and dragSignals budgets; any
+ * report-level strengths and drags are derived summaries, not separate
+ * calibration systems.
  */
 
 export const MODEL_IMPACT_MAP = {

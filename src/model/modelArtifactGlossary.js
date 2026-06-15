@@ -747,7 +747,7 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     path: "Both",
     calculatedIn: "buildPathFits",
     description:
-      "Displayed deterministic fit scores, strengths, and drags for Build, Core, Premium, and Enterprise."
+      "Displayed deterministic fit scores plus calibrated positive/drag signal components for Build, Core, Premium, and Enterprise; report strengths and drags are summarized from those components."
   },
   planFits: {
     artifact: "planFits",

@@ -61,6 +61,19 @@ Each path fit contains:
 - `strengths`
 - `drags`
 
+Internally, each path now calibrates component impact with:
+
+- `baseScore`
+- `positiveBudget`
+- `dragBudget`
+- `positiveSignals`
+- `dragSignals`
+
+Signal shares are only comparable within their local positive or drag group.
+The runtime normalizes those shares before converting them into absolute
+0 to 100 score influence. Report-level `strengths` and `drags` remain derived
+summaries of the calibrated component list.
+
 These are fit signals, not delivery or cost estimates.
 
 ## Score display semantics
@@ -111,3 +124,7 @@ When changing model behavior:
    - a low-risk simple case where Build/Core remain plausible
    - a complex data-grid case where Premium can win
    - a support/procurement platform case where Enterprise can win
+
+Recent note:
+
+- Path-fit calibration now uses normalized positive/drag budgets across Build, Core, Premium, and Enterprise. Exact recommendations may shift slightly at the margins because component impacts are now constrained to explicit per-path budgets instead of mixed raw multipliers.

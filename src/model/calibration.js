@@ -884,61 +884,251 @@ export const PATH_FIT_COMPONENT_WEIGHTS = {
       reactAppsLessThan3Penalty: 8
     }
   },
-  components: {
-    build: {
-      deliveryMaturity: 0.16,
-      internalAbsorption: 18,
-      buildReuseLeverage: 16,
-      ownershipClarity: 0.12,
-      knowledgeSpread: 0.1,
-      supportLightness: 0.08,
-      functionalComplexity: 0.2,
-      qualityBurden: 0.16,
-      ownershipBurden: 0.14,
-      enterpriseReadiness: {
-        supportOrProcurementNeed: 0.12,
-        otherwise: 0.05
+  build: {
+    baseScore: 45,
+    positiveBudget: 45,
+    dragBudget: 40,
+    positiveSignals: {
+      deliveryMaturity: {
+        share: 0.24,
+        label: "Delivery maturity",
+        description: "Higher delivery maturity supports an internal build."
       },
-      productionCriticalityMultiplier: {
-        lowSupportNeed: 4,
-        higherSupportNeed: 2
+      internalAbsorption: {
+        share: 0.24,
+        label: "Internal absorption",
+        description: "The team appears able to absorb custom implementation work."
+      },
+      buildReuseLeverage: {
+        share: 0.2,
+        label: "Build reuse leverage",
+        description: "Existing internal patterns and reuse potential help the build path."
+      },
+      ownershipClarity: {
+        share: 0.14,
+        label: "Ownership clarity",
+        description: "Clear ownership improves build accountability."
+      },
+      knowledgeSpread: {
+        share: 0.1,
+        label: "Shared knowledge",
+        description: "Shared implementation knowledge reduces continuity risk."
+      },
+      supportLightness: {
+        share: 0.08,
+        label: "Low support pressure",
+        description:
+          "Lower support and procurement pressure keeps internal ownership more plausible."
       }
     },
-    core: {
-      coverageScore: 0.28,
-      containedScope: 0.18,
-      supportRequirement: 0.12,
-      productionCriticality: 0.08,
-      advancedFeatureDemand: 0.1,
-      existingMuiUsage: 10,
-      supportGap: 28,
-      coverageGap: 26,
-      integrationRisk: 22,
-      muiAdoptionBurden: 20,
-      enterpriseReadiness: 0.12
+    dragSignals: {
+      functionalComplexity: {
+        share: 0.28,
+        label: "Functional complexity",
+        description: "Higher functional complexity increases bespoke implementation burden."
+      },
+      qualityBurden: {
+        share: 0.22,
+        label: "Quality burden",
+        description: "Higher verification burden drags on a build-first path."
+      },
+      ownershipBurden: {
+        share: 0.24,
+        label: "Ownership burden",
+        description: "Long-term ownership load reduces build fit."
+      },
+      enterpriseReadiness: {
+        share: 0.18,
+        label: "Enterprise pressure",
+        description:
+          "Support, procurement, or standardization pressure weakens the build path."
+      },
+      productionCriticality: {
+        share: 0.08,
+        label: "Production criticality",
+        description:
+          "Production-critical work can weaken Build when support readiness is limited."
+      }
+    }
+  },
+  core: {
+    baseScore: 50,
+    positiveBudget: 40,
+    dragBudget: 42,
+    positiveSignals: {
+      coverageScore: {
+        share: 0.26,
+        label: "Core coverage",
+        description: "Core coverage is strong enough to make the base MUI path credible."
+      },
+      containedScope: {
+        share: 0.19,
+        label: "Contained scope",
+        description: "Contained scope makes MUI Core more plausible."
+      },
+      supportLightness: {
+        share: 0.15,
+        label: "Low support requirement",
+        description: "Low support expectations fit MUI Core better than higher tiers."
+      },
+      lowProductionCriticality: {
+        share: 0.12,
+        label: "Lower production criticality",
+        description: "Lower operational sensitivity keeps Core viable."
+      },
+      containedAdvancedDemand: {
+        share: 0.14,
+        label: "Contained advanced demand",
+        description: "Lower advanced-feature demand helps the Core path."
+      },
+      existingMuiUsage: {
+        share: 0.14,
+        label: "Existing MUI usage",
+        description: "Existing MUI usage lowers adoption friction for Core."
+      }
     },
-    premium: {
-      coverageScore: 0.3,
-      featureDemand: 0.16,
-      functionalComplexity: 0.1,
-      advancedDataNeed: 0.12,
-      supportRequirement: 0.06,
-      muiLeverage: 18,
-      containedScope: 0.14,
-      enterpriseReadiness: 0.1,
-      muiAdoptionBurden: 18
+    dragSignals: {
+      supportGap: {
+        share: 0.24,
+        label: "Support gap",
+        description: "A larger support gap weakens the Core path."
+      },
+      coverageGap: {
+        share: 0.25,
+        label: "Coverage gap",
+        description: "Coverage gaps hurt Core when requirements move beyond contained scope."
+      },
+      integrationRisk: {
+        share: 0.2,
+        label: "Integration risk",
+        description: "Integration risk drags on Core fit."
+      },
+      muiAdoptionBurden: {
+        share: 0.18,
+        label: "Adoption burden",
+        description: "Adopting Core still creates adaptation work in this context."
+      },
+      enterpriseReadiness: {
+        share: 0.13,
+        label: "Enterprise pressure",
+        description: "Enterprise-level support or standardization pressure pulls away from Core."
+      }
+    }
+  },
+  premium: {
+    baseScore: 48,
+    positiveBudget: 44,
+    dragBudget: 36,
+    positiveSignals: {
+      coverageScore: {
+        share: 0.28,
+        label: "Premium coverage",
+        description: "Premium coverage aligns well with the required feature set."
+      },
+      featureDemand: {
+        share: 0.18,
+        label: "Advanced feature demand",
+        description: "Advanced feature demand makes Premium more relevant."
+      },
+      functionalComplexity: {
+        share: 0.14,
+        label: "Functional complexity",
+        description: "Moderate to high complexity favors Premium over Core."
+      },
+      advancedDataNeed: {
+        share: 0.16,
+        label: "Advanced data needs",
+        description: "Data-grid, scheduler, or feature-heavy needs favor Premium."
+      },
+      midTierSupportFit: {
+        share: 0.08,
+        label: "Mid-tier support fit",
+        description:
+          "Medium support needs can justify Premium without requiring Enterprise."
+      },
+      muiLeverage: {
+        share: 0.16,
+        label: "MUI leverage",
+        description: "Existing MUI leverage improves the Premium case."
+      }
     },
-    enterprise: {
-      coverageScore: 0.24,
-      enterpriseReadiness: 0.22,
-      supportRequirement: 0.16,
-      productionCriticality: 0.12,
-      standardizationContext: 0.12,
-      existingMuiUsage: 12,
-      containedScope: 0.16,
-      lowSupportRequirement: 0.14,
-      lowCriticality: 0.12,
-      coverageWeakness: 20
+    dragSignals: {
+      containedScope: {
+        share: 0.3,
+        label: "Contained scope",
+        description: "Contained scope weakens the case for Premium."
+      },
+      enterpriseReadiness: {
+        share: 0.34,
+        label: "Enterprise pull",
+        description: "Higher enterprise pressure can pull the decision toward Enterprise instead."
+      },
+      muiAdoptionBurden: {
+        share: 0.36,
+        label: "Adoption burden",
+        description: "Adoption burden can still drag on Premium."
+      }
+    }
+  },
+  enterprise: {
+    baseScore: 46,
+    positiveBudget: 48,
+    dragBudget: 40,
+    positiveSignals: {
+      coverageScore: {
+        share: 0.24,
+        label: "Enterprise coverage",
+        description: "Enterprise coverage is strong enough to support the evaluated workload."
+      },
+      enterpriseReadiness: {
+        share: 0.24,
+        label: "Enterprise readiness",
+        description:
+          "Support, organizational footprint, and standardization pressure favor Enterprise."
+      },
+      supportRequirement: {
+        share: 0.16,
+        label: "Support requirement",
+        description: "Higher support and procurement expectations favor Enterprise."
+      },
+      productionCriticality: {
+        share: 0.14,
+        label: "Production criticality",
+        description: "Higher production criticality raises the value of Enterprise readiness."
+      },
+      standardizationContext: {
+        share: 0.12,
+        label: "Standardization context",
+        description: "Platform-scale standardization pressure helps Enterprise."
+      },
+      existingMuiUsage: {
+        share: 0.1,
+        label: "Existing MUI usage",
+        description: "Existing MUI usage lowers the activation cost for Enterprise."
+      }
+    },
+    dragSignals: {
+      containedScope: {
+        share: 0.24,
+        label: "Contained scope",
+        description:
+          "Contained scope drags on Enterprise unless the platform footprint clearly justifies it."
+      },
+      lowSupportRequirement: {
+        share: 0.24,
+        label: "Low support requirement",
+        description: "Low support pressure weakens the Enterprise case."
+      },
+      lowCriticality: {
+        share: 0.22,
+        label: "Low production criticality",
+        description: "Low production criticality weakens the Enterprise case."
+      },
+      coverageWeakness: {
+        share: 0.3,
+        label: "Coverage weakness",
+        description: "Enterprise still needs strong coverage to justify itself."
+      }
     }
   },
   eligibility: {
