@@ -1499,6 +1499,10 @@ function buildScenarioLevers(input, scorecard) {
 
 function buildScorecard(input, derivedFactors) {
   const pathScoreWeights = PATH_SCORE_WEIGHTS;
+  const buildFitWeights = pathScoreWeights.buildFit;
+  const coreFitWeights = pathScoreWeights.coreFit;
+  const premiumFitWeights = pathScoreWeights.premiumFit;
+  const enterpriseFitWeights = pathScoreWeights.enterpriseFit;
   const functionalRisk = derivedFactors.functionalComplexity.score / 100;
   const qualityRisk = derivedFactors.qualityBurden.score / 100;
   const deliveryStrength = derivedFactors.deliveryMaturity.score / 100;
@@ -1531,16 +1535,16 @@ function buildScorecard(input, derivedFactors) {
     enterprise: buildPlanFit("enterprise", input, derivedFactors)
   };
 
-  const buildTierScore = clamp(
-    pathScoreWeights.buildTierScore.base -
-      functionalRisk * pathScoreWeights.buildTierScore.functionalRisk -
-      qualityRisk * pathScoreWeights.buildTierScore.qualityRisk -
-      ownershipRisk * pathScoreWeights.buildTierScore.ownershipRisk -
-      deliveryRisk * pathScoreWeights.buildTierScore.deliveryRisk +
-      (maturity - 2) * pathScoreWeights.buildTierScore.maturityBonus -
-      supportNeed * pathScoreWeights.buildTierScore.supportNeed -
-      (rowScale >= 3 ? pathScoreWeights.buildTierScore.rowPenalty : 0) -
-      (columnScale >= 3 ? pathScoreWeights.buildTierScore.columnPenalty : 0),
+  const buildFit = clamp(
+    buildFitWeights.base -
+      functionalRisk * buildFitWeights.functionalRisk -
+      qualityRisk * buildFitWeights.qualityRisk -
+      ownershipRisk * buildFitWeights.ownershipRisk -
+      deliveryRisk * buildFitWeights.deliveryRisk +
+      (maturity - 2) * buildFitWeights.maturityBonus -
+      supportNeed * buildFitWeights.supportNeed -
+      (rowScale >= 3 ? buildFitWeights.rowPenalty : 0) -
+      (columnScale >= 3 ? buildFitWeights.columnPenalty : 0),
     0,
     100
   );
@@ -1553,48 +1557,45 @@ function buildScorecard(input, derivedFactors) {
     rowScale <= 2 &&
     columnScale <= 2;
 
-  const coreTierScore = clamp(
-    pathScoreWeights.coreTierScore.base +
-      planFits.core.coverageScore *
-        pathScoreWeights.coreTierScore.coverageScore +
-      (containedScope ? pathScoreWeights.coreTierScore.simpleScopeBonus : 0) +
-      muiUsage * pathScoreWeights.coreTierScore.muiUsageBonus -
-      functionalRisk * pathScoreWeights.coreTierScore.functionalRisk -
-      qualityRisk * pathScoreWeights.coreTierScore.qualityRisk -
+  const coreFit = clamp(
+    coreFitWeights.base +
+      planFits.core.coverageScore * coreFitWeights.coverageScore +
+      (containedScope ? coreFitWeights.simpleScopeBonus : 0) +
+      muiUsage * coreFitWeights.muiUsageBonus -
+      functionalRisk * coreFitWeights.functionalRisk -
+      qualityRisk * coreFitWeights.qualityRisk -
       Math.max(0, enterpriseNeed - 0.45) *
-        pathScoreWeights.coreTierScore.enterpriseNeedPenalty,
+        coreFitWeights.enterpriseNeedPenalty,
     0,
     100
   );
 
-  const premiumTierScore = clamp(
-    pathScoreWeights.premiumTierScore.base +
-      planFits.premium.coverageScore *
-        pathScoreWeights.premiumTierScore.coverageScore +
-      functionalRisk * pathScoreWeights.premiumTierScore.functionalRisk +
-      qualityRisk * pathScoreWeights.premiumTierScore.qualityRisk +
-      muiUsage * pathScoreWeights.premiumTierScore.muiUsageBonus -
-      (containedScope ? pathScoreWeights.premiumTierScore.simpleScopePenalty : 0) -
+  const premiumFit = clamp(
+    premiumFitWeights.base +
+      planFits.premium.coverageScore * premiumFitWeights.coverageScore +
+      functionalRisk * premiumFitWeights.functionalRisk +
+      qualityRisk * premiumFitWeights.qualityRisk +
+      muiUsage * premiumFitWeights.muiUsageBonus -
+      (containedScope ? premiumFitWeights.simpleScopePenalty : 0) -
       Math.max(0, enterpriseNeed - 0.72) *
-        pathScoreWeights.premiumTierScore.enterpriseNeedPenalty,
+        premiumFitWeights.enterpriseNeedPenalty,
     0,
     100
   );
 
-  const enterpriseTierScore = clamp(
-    pathScoreWeights.enterpriseTierScore.base +
-      planFits.enterprise.coverageScore *
-        pathScoreWeights.enterpriseTierScore.coverageScore +
-      enterpriseNeed * pathScoreWeights.enterpriseTierScore.enterpriseNeed +
-      supportNeed * pathScoreWeights.enterpriseTierScore.supportNeed +
-      appScale * pathScoreWeights.enterpriseTierScore.appScale +
-      teamScale * pathScoreWeights.enterpriseTierScore.teamScale -
-      dependentTeams * pathScoreWeights.enterpriseTierScore.dependentTeams -
+  const enterpriseFit = clamp(
+    enterpriseFitWeights.base +
+      planFits.enterprise.coverageScore * enterpriseFitWeights.coverageScore +
+      enterpriseNeed * enterpriseFitWeights.enterpriseNeed +
+      supportNeed * enterpriseFitWeights.supportNeed +
+      appScale * enterpriseFitWeights.appScale +
+      teamScale * enterpriseFitWeights.teamScale -
+      dependentTeams * enterpriseFitWeights.dependentTeams -
       productionCriticalityNormalized *
         supportNeed *
-        pathScoreWeights.enterpriseTierScore.productionCriticality +
+        enterpriseFitWeights.productionCriticality +
       (containedScope
-        ? pathScoreWeights.enterpriseTierScore.simpleScopeAdjustment
+        ? enterpriseFitWeights.simpleScopeAdjustment
         : 0),
     0,
     100
@@ -1694,10 +1695,10 @@ function buildScorecard(input, derivedFactors) {
     performanceSensitivity,
     teamScale,
     appScale,
-    buildTierScore: roundTo(buildTierScore),
-    coreTierScore: roundTo(coreTierScore),
-    premiumTierScore: roundTo(premiumTierScore),
-    enterpriseTierScore: roundTo(enterpriseTierScore),
+    buildFit: roundTo(buildFit),
+    coreFit: roundTo(coreFit),
+    premiumFit: roundTo(premiumFit),
+    enterpriseFit: roundTo(enterpriseFit),
     icpScore: roundTo(icpScore),
     containedScope,
     simpleScope: containedScope,
@@ -1814,7 +1815,7 @@ function buildPathFits(input, derivedFactors, scorecard, planFits) {
     100
   );
   const buildScore = clamp(
-    scorecard.buildTierScore +
+    scorecard.buildFit +
       (scorecard.buildFriendlyContext ? 12 : 0) +
       (input.existingMuiUsage === "none" ? 4 : 0) +
       (ownershipClarity >= 80 ? 3 : 0),
@@ -1822,7 +1823,7 @@ function buildPathFits(input, derivedFactors, scorecard, planFits) {
     100
   );
   const coreScore = clamp(
-    scorecard.coreTierScore -
+    scorecard.coreFit -
       (scorecard.buildFriendlyContext && input.existingMuiUsage === "none"
         ? 8
         : 0),
@@ -1830,7 +1831,7 @@ function buildPathFits(input, derivedFactors, scorecard, planFits) {
     100
   );
   const premiumScore = clamp(
-    scorecard.premiumTierScore +
+    scorecard.premiumFit +
       (advancedDataNeed >= 70 ? 6 : 0) -
       (derivedFactors.enterpriseReadiness.score >= 78 &&
       scorecard.supportNeed >= 2
@@ -1840,7 +1841,7 @@ function buildPathFits(input, derivedFactors, scorecard, planFits) {
     100
   );
   const enterpriseScore = clamp(
-    scorecard.enterpriseTierScore +
+    scorecard.enterpriseFit +
       (input.supportRequirement === "procurement-sla" ? 10 : 0) +
       (input.componentStandardizationGoal === "platform-standard" ? 8 : 0) +
       (input.reactApps >= 4 ? 6 : 0) +
@@ -2808,10 +2809,10 @@ function buildDiagnostics(input, scorecard, pathFits, evidenceBasis, sensitivity
     buildFriendlyContext: scorecard.buildFriendlyContext,
     enterpriseFitStrong: scorecard.enterpriseFitStrong,
     scorecard: {
-      buildTierScore: scorecard.buildTierScore,
-      coreTierScore: scorecard.coreTierScore,
-      premiumTierScore: scorecard.premiumTierScore,
-      enterpriseTierScore: scorecard.enterpriseTierScore,
+      buildFit: scorecard.buildFit,
+      coreFit: scorecard.coreFit,
+      premiumFit: scorecard.premiumFit,
+      enterpriseFit: scorecard.enterpriseFit,
       icpScore: scorecard.icpScore
     },
     scenarioLevers: scorecard.scenarioLevers,

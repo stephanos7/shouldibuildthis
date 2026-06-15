@@ -4,7 +4,7 @@
 
 The active backend model is deterministic.
 
-It does not run Monte Carlo sampling, seeded iteration loops, probability comparisons, TCO estimates, launch-week estimates, or P90 calculations.
+It does not run seeded iteration loops.
 
 The backend response now centers on:
 
@@ -30,7 +30,7 @@ The active runtime primarily uses:
 
 `MODEL_ARTIFACT_GLOSSARY` owns artifact meaning and lifecycle notes.
 
-`MODEL_IMPACT_MAP` owns causal relationships and calibration traceability. Some simulation-era entries remain as transition metadata, but new behavior should be documented against the deterministic path-fit model.
+`MODEL_IMPACT_MAP` owns causal relationships and calibration traceability. New behavior should be documented against the deterministic path-fit model.
 
 ## Flow
 
@@ -85,7 +85,7 @@ Confidence is not probabilistic. It is derived from:
 The active backend assumptions are:
 
 - This is a deterministic fit model.
-- It does not estimate delivery dates or TCO.
+- It does not estimate delivery dates.
 - Scores are heuristic decision-support signals, not guarantees.
 - Public sources inform variable selection and risk direction, not exact coefficients.
 

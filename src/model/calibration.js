@@ -3,7 +3,7 @@
  * =================
  *
  * This file contains heuristic calibration weights for the build-vs-MUI
- * decision model.
+ * deterministic fit model.
  *
  * These coefficients convert normalized model artifacts such as
  * functionalRisk, qualityRisk, coverageGap, integrationRisk, supportGap,
@@ -17,10 +17,10 @@
  * uncertainty is shaped, but they do not justify the exact numeric values in
  * this file.
  *
- * The active backend now uses the deterministic fit weights in this file
- * rather than the legacy Monte Carlo runtime. Treat this file as executable
- * model documentation. When changing a value, update related model
- * documentation and validate low-risk, medium-risk, and high-risk scenarios.
+ * The active backend now uses the deterministic fit weights in this file.
+ * Treat this file as executable model documentation. When changing a value,
+ * update related model documentation and validate low-risk, medium-risk,
+ * and high-risk scenarios.
  *
  * Glossary
  * --------
@@ -49,8 +49,8 @@
  *   central estimates.
  *
  * variance:
- *   Random spread around a central estimate. Higher variance should mostly
- *   affect ranges and P90 outputs.
+ *   Spread around a central estimate. Higher variance should mostly affect
+ *   confidence and sensitivity analysis.
  *
  * slip:
  *   Schedule time not explained by implementation effort alone, such as
@@ -72,11 +72,11 @@
  * 2. If a change is intended to alter Build vs MUI competitiveness,
  *    state that explicitly in the PR description.
  *
- * 3. If a coefficient changes engineering weeks, also inspect launch weeks
- *    and TCO because those values flow downstream.
+ * 3. If a coefficient changes fit strength, also inspect path-fit and
+ *    recommendation confidence because those values flow downstream.
  *
  * 4. If a coefficient changes variance, tail exposure, or slip, inspect
- *    P90 outputs, not only medians.
+ *    the deterministic fit ranges, not only medians.
  *
  * 5. If adding or removing a coefficient, update the model impact map,
  *    artifact glossary, dependency diagram, and deterministic breakdown
@@ -119,7 +119,7 @@ export const CALIBRATION_VERSION = "heuristic-v1";
  *
  * variance:
  *   Spread around a central estimate. Higher variance should mostly affect
- *   range outputs such as P90.
+ *   deterministic sensitivity analysis.
  *
  * slip:
  *   Schedule time not explained by implementation effort alone, such as
@@ -141,9 +141,9 @@ export const CALIBRATION_VERSION = "heuristic-v1";
  * 2. If changing Build vs MUI competitiveness, state that explicitly in the
  *    PR description.
  *
- * 3. If a value affects effort, check launch and TCO.
+ * 3. If a value affects effort, check the deterministic fit outputs it feeds.
  *
- * 4. If a value affects variance, tail, or slip, check P90.
+ * 4. If a value affects variance, tail, or slip, check deterministic ranges.
  *
  * 5. If adding a calibration key, update the impact map and docs.
  *
@@ -160,8 +160,8 @@ export const CALIBRATION_VERSION = "heuristic-v1";
  *
  * Higher values generally increase the downstream risk or importance of the
  * corresponding input. These weights influence later scorecards, scenario
- * levers, and simulation estimates, so changing them can affect both medians
- * and tails.
+ * levers, and deterministic sensitivity signals, so changing them can affect
+ * both medians and tails.
  */
 export const DERIVED_FACTOR_WEIGHTS = {
   functionalComplexity: {
@@ -428,12 +428,12 @@ export const PLAN_FIT_WEIGHTS = {
  * Path score weights
  * ------------------
  *
- * These scorecards rank Build and the MUI tiers before simulation. They do
- * not directly produce time or cost estimates, but they influence which path
- * is treated as more competitive or better aligned with the assessment.
+ * These scorecards rank Build and the MUI tiers before recommendation. They
+ * do not produce time or cost estimates; they influence which path is treated
+ * as more competitive or better aligned with the assessment.
  */
 export const PATH_SCORE_WEIGHTS = {
-  buildTierScore: {
+  buildFit: {
     // Baseline Build competitiveness before risk modifiers.
     base: 88,
     // Higher functional risk favors Build because custom implementation can fit better.
@@ -453,7 +453,7 @@ export const PATH_SCORE_WEIGHTS = {
     // Larger column-heavy scopes can favor Build in some cases.
     columnPenalty: 4
   },
-  coreTierScore: {
+  coreFit: {
     // Baseline Core competitiveness.
     base: 26,
     // Higher coverage score makes Core more competitive.
@@ -470,7 +470,7 @@ export const PATH_SCORE_WEIGHTS = {
     // Higher enterprise need makes Core less competitive.
     enterpriseNeedPenalty: 24
   },
-  premiumTierScore: {
+  premiumFit: {
     // Baseline Premium competitiveness.
     base: 18,
     // Higher coverage score makes Premium more competitive.
@@ -486,7 +486,7 @@ export const PATH_SCORE_WEIGHTS = {
     // Higher enterprise need makes Premium less competitive versus Enterprise.
     enterpriseNeedPenalty: 14
   },
-  enterpriseTierScore: {
+  enterpriseFit: {
     // Baseline Enterprise competitiveness.
     base: 8,
     // Higher coverage score makes Enterprise more competitive.
@@ -744,476 +744,26 @@ export const SCENARIO_LEVER_WEIGHTS = {
 };
 
 /*
- * Legacy simulation calibration
+ * Recommendation policy weights
  * -----------------------------
  *
- * These constants supported the retired Monte Carlo runtime. They are kept as
- * reference material during the deterministic-model transition and should not
- * be treated as the active backend output logic.
- */
-export const SIMULATION_CALIBRATION = {
-  // Simulation prep calibration
-  // ---------------------------
-  //
-  // These values control shield, load, and tail-preparation behavior before
-  // the path-specific effort formulas run.
-  prep: {
-    coverageShield: {
-      // Unit: normalized shield contribution.
-      // Strong coverage lowers effort and variance more than medium coverage.
-      strongThreshold: 0.72,
-      mediumThreshold: 0.58,
-      strongValue: 0.14,
-      mediumValue: 0.08,
-      fallbackValue: 0
-    },
-    buildAbsorptionShield: {
-      // Higher internalAbsorption and buildReuseLeverage reduce Build effort.
-      internalAbsorption: 0.18,
-      buildReuseLeverage: 0.12,
-      minimum: 0,
-      maximum: 0.24
-    },
-    buildTailPenalty: {
-      // Higher downside-tail exposure increases Build variance and slip.
-      threshold: 0.45,
-      multiplier: 0.22
-    },
-    muiLeverageShield: {
-      // Higher MUI leverage reduces MUI variance and rework.
-      muiLeverage: 0.22,
-      minimum: 0,
-      maximum: 0.18
-    },
-    muiAdoptionLoad: {
-      // Higher MUI adoption burden increases MUI variance and slip.
-      muiAdoptionBurden: 0.26,
-      minimum: 0.02,
-      maximum: 0.18
-    }
-  },
-  build: {
-    engineeringMeanWeeks: {
-      // Unit: engineering weeks.
-      // Each risk is normalized 0..1.
-      // Higher values increase Build effort, launch time, and labor TCO.
-      // These are heuristic calibration weights.
-      // Starting central Build effort in weeks before risk terms.
-      base: 3.4,
-      // Maximum contribution from functional risk to Build engineering weeks.
-      functionalRisk: 11.8,
-      // Maximum contribution from quality risk to Build engineering weeks.
-      qualityRisk: 7.4,
-      // Maximum contribution from ownership risk to Build engineering weeks.
-      ownershipRisk: 6.6,
-      // Maximum contribution from delivery risk to Build engineering weeks.
-      deliveryRisk: 5.2,
-      // Maximum contribution from enterprise need to Build engineering weeks.
-      enterpriseNeed: 1.1,
-      // Extra Build effort for larger-scale applications.
-      largeScaleAdjustment: 0.9,
-      // Lower bound for the central Build estimate.
-      minimum: 2.4
-    },
-    // Lower bound for Build engineering weeks after downstream adjustments.
-    engineeringFloorWeeks: 2,
-    // Lower bound for Build launch slip.
-    slipFloorWeeks: 0.6,
-    engineeringVariance: {
-      // Unit: engineering-week variance contribution.
-      // Each risk is normalized 0..1.
-      // Higher values increase Build variance and tail exposure.
-      // These are heuristic calibration weights.
-      // Base variance around the central Build estimate.
-      base: 0.08,
-      // Functional risk increases Build variance.
-      functionalRisk: 0.11,
-      // Quality risk increases Build variance.
-      qualityRisk: 0.08,
-      // Ownership risk increases Build variance.
-      ownershipRisk: 0.07,
-      // Delivery risk increases Build variance.
-      deliveryRisk: 0.06,
-      // Reduction applied when Build absorption is strong.
-      absorptionShieldReductionFactor: 0.7,
-      // Minimum variance clamp.
-      minimum: 0.06,
-      // Maximum variance clamp.
-      maximum: 0.36
-    },
-    reworkMeanWeeks: {
-      // Unit: engineering weeks.
-      // Each risk is normalized 0..1.
-      // Higher values increase Build effort, launch time, and labor TCO.
-      // These are heuristic calibration weights.
-      // Starting Build rework before risk terms.
-      base: 0.7,
-      // Functional risk increases rework.
-      functionalRisk: 2.6,
-      // Quality risk increases rework.
-      qualityRisk: 2,
-      // Ownership risk increases rework.
-      ownershipRisk: 1.5,
-      // Delivery risk increases rework.
-      deliveryRisk: 1,
-      // Larger scale increases rework.
-      largeScaleAdjustment: 0.4,
-      // Strong absorption lowers the rework mean.
-      absorptionShieldReductionFactor: 0.85,
-      // Downside tail exposure increases rework.
-      downsideTailRiskAddition: 0.28,
-      // Lower bound for Build rework.
-      minimum: 0.35
-    },
-    slipMeanWeeks: {
-      // Unit: engineering weeks.
-      // Each risk is normalized 0..1.
-      // Higher values increase Build effort, launch time, and labor TCO.
-      // These are heuristic calibration weights.
-      // Starting Build slip before risk terms.
-      base: 1.5,
-      // Delivery risk is the strongest Build slip driver.
-      deliveryRisk: 2.3,
-      // Functional risk adds schedule slip.
-      functionalRisk: 1.2,
-      // Quality risk adds schedule slip.
-      qualityRisk: 0.8,
-      // Ownership risk adds schedule slip.
-      ownershipRisk: 0.6,
-      // Enterprise need adds a small amount of Build slip.
-      enterpriseNeed: 0.2,
-      // Larger scale increases Build slip.
-      largeScaleAdjustment: 0.3,
-      // Strong absorption lowers Build slip.
-      absorptionShieldReductionFactor: 0.72,
-      // Tail penalty amplifies Build slip.
-      tailPenaltyMultiplier: 3.6,
-      // Lower bound for Build slip.
-      minimum: 0.5
-    },
-    launch: {
-      // Unit: engineering weeks.
-      // Launch overhead affects schedule only, not engineering effort.
-      // Hard minimum launch overhead in weeks.
-      minimumWeeks: 2,
-      // Additional launch overhead for more apps.
-      appScaleOverheadWeeks: 0.65
-    },
-    maintenanceWeeks: {
-      // Unit: engineering weeks.
-      // Each risk is normalized 0..1.
-      // Higher values increase Build effort, launch time, and labor TCO.
-      // These are heuristic calibration weights.
-      // Starting Build maintenance exposure in weeks.
-      base: 0.95,
-      // Functional risk increases Build maintenance.
-      functionalRisk: 2.8,
-      // Quality risk increases Build maintenance.
-      qualityRisk: 1.7,
-      // Ownership risk increases Build maintenance.
-      ownershipRisk: 2,
-      // Delivery risk increases Build maintenance.
-      deliveryRisk: 0.55,
-      // Larger scale increases Build maintenance.
-      largeScaleAdjustment: 0.18,
-      // Strong absorption lowers Build maintenance.
-      absorptionShieldReductionFactor: 0.68,
-      // Downside tail risk extends the maintenance horizon effect.
-      downsideTailRiskHorizonMultiplier: 0.32,
-      // Minimum base maintenance before floor logic.
-      minimumBase: 0.75,
-      // Absolute lower bound for Build maintenance.
-      minimum: 0.8
-    },
-    fatTail: {
-      // Build and MUI fat-tail settings are modeled separately because the
-      // downside shape differs by path.
-      build: {
-        probabilityCap: 0.16,
-        maxImpact: 0.18,
-        threshold: 0.58,
-        downsideTailRiskMeanMultiplier: 0.9,
-        exposureWeights: {
-          downsideTailRisk: 0.82,
-          deliveryRiskThreshold: 0.45,
-          deliveryRiskBonus: 0.06,
-          ownershipRiskThreshold: 0.55,
-          ownershipRiskBonus: 0.05,
-          scaleDemandThreshold: 5,
-          scaleDemandBonus: 0.04,
-          internalAbsorptionReduction: 0.1
-        },
-        baselineDeviation: 0.024,
-        baselineMin: 0.95,
-        baselineMax: 1.07,
-        reworkDeviation: 0.022,
-        reworkMin: 0.96,
-        reworkMax: 1.08,
-        slipDeviation: 0.02,
-        slipMin: 0.97,
-        slipMax: 1.09,
-        maintenanceDeviation: 0.018,
-        maintenanceMin: 0.97,
-        maintenanceMax: 1.08,
-        reworkBlend: 0.65,
-        slipBlend: 0.82,
-        maintenanceBlend: 0.58
-      },
-      mui: {
-        probabilityCap: 0.1,
-        maxImpact: 0.1,
-        threshold: 0.62,
-        exposureWeights: {
-          muiAdoptionBurdenThreshold: 0.42,
-          muiAdoptionBurdenMultiplier: 0.58,
-          coverageGapThreshold: 0.28,
-          coverageGapMultiplier: 0.34,
-          integrationRiskThreshold: 0.42,
-          integrationRiskMultiplier: 0.28,
-          muiLeverageReduction: 0.08
-        },
-        baselineDeviation: 0.02,
-        baselineMin: 0.96,
-        baselineMax: 1.06,
-        reworkDeviation: 0.018,
-        reworkMin: 0.97,
-        reworkMax: 1.07,
-        slipDeviation: 0.017,
-        slipMin: 0.97,
-        slipMax: 1.06,
-        maintenanceDeviation: 0.016,
-        maintenanceMin: 0.98,
-        maintenanceMax: 1.06,
-        reworkBlend: 0.55,
-        slipBlend: 0.62,
-        maintenanceBlend: 0.42
-      }
-    },
-    sampling: {
-      build: {
-        baselineTailPenaltyFactor: 0.1,
-        reworkStdDevBase: 0.68,
-        reworkStdDevFunctionalRisk: 0.3,
-        reworkStdDevTailPenalty: 1.8,
-        reworkStdDevAbsorptionReduction: 0.45,
-        reworkTailPenaltyFactor: 0.08,
-        slipStdDevBase: 0.74,
-        slipStdDevDeliveryRisk: 0.22,
-        slipStdDevTailPenalty: 1.6,
-        slipStdDevAbsorptionReduction: 0.12,
-        slipTailPenaltyFactor: 0.06,
-        maintenanceStdDevBase: 0.18,
-        maintenanceStdDevOwnershipRisk: 0.05,
-        maintenanceStdDevTailPenalty: 0.42,
-        maintenanceTailPenaltyFactor: 0.05
-      },
-      mui: {
-        baselineAdoptionLoadFactor: 0.06,
-        reworkStdDevBase: 0.36,
-        reworkStdDevCoverageGap: 0.16,
-        reworkStdDevAdoptionLoad: 0.45,
-        reworkStdDevLeverageShield: 0.35,
-        reworkAdoptionLoadFactor: 0.05,
-        slipStdDevBase: 0.4,
-        slipStdDevCoverageGap: 0.12,
-        slipStdDevAdoptionLoad: 0.3,
-        slipStdDevLeverageShield: 0.25,
-        slipAdoptionLoadFactor: 0.04,
-        maintenanceStdDevBase: 0.13,
-        maintenanceStdDevCoverageGap: 0.03,
-        maintenanceStdDevAdoptionLoad: 0.16,
-        maintenanceStdDevLeverageShield: 0.08,
-        maintenanceAdoptionLoadFactor: 0.03
-      }
-    }
-  },
-  mui: {
-    engineeringMeanWeeks: {
-      // Unit: engineering weeks.
-      // MUI still has base integration, configuration, theming, and validation effort.
-      // Each risk is normalized 0..1.
-      // Coverage gap and integration risk make MUI less automatic.
-      // Adoption burden increases MUI effort.
-      // Leverage reduction decreases MUI effort when packaged fit and adoption are strong.
-      // These are heuristic calibration weights.
-      // Starting MUI effort in weeks before fit, burden, and leverage terms.
-      base: 2.2,
-      // Functional risk still costs engineering weeks on MUI.
-      functionalRisk: 5.2,
-      // Quality risk still costs engineering weeks on MUI.
-      qualityRisk: 2.9,
-      // Delivery risk adds some MUI effort.
-      deliveryRisk: 1.5,
-      // Integration risk is a major MUI effort driver.
-      integrationRisk: 2.4,
-      // Coverage gap increases MUI effort.
-      coverageGap: 3.8,
-      // Support gap increases MUI effort.
-      supportGap: 1.5,
-      // Base adoption offset keeps the central estimate from collapsing too low.
-      baseAdoptionOffset: 1,
-      // Coverage shields reduce MUI engineering effort.
-      coverageShieldReduction: 0.18,
-      // Adoption burden increases MUI engineering effort.
-      adoptionBurden: 2.4,
-      // Strong leverage reduces MUI engineering effort.
-      leverageReduction: 1.6,
-      // Extra shield reduction for stronger coverage effects.
-      coverageShieldAdditionalReduction: 0.15,
-      // Lower bound for the central MUI estimate.
-      minimum: 1.6
-    },
-    engineeringVariance: {
-      // Unit: engineering-week variance contribution.
-      // Each risk is normalized 0..1.
-      // Higher values increase MUI variance and tail exposure.
-      // These are heuristic calibration weights.
-      // Base variance around the central MUI estimate.
-      base: 0.06,
-      // Functional risk increases MUI variance.
-      functionalRisk: 0.05,
-      // Integration risk increases MUI variance.
-      integrationRisk: 0.05,
-      // Coverage gap increases MUI variance.
-      coverageGap: 0.05,
-      // Coverage shield reduction lowers MUI variance.
-      coverageShieldReduction: 0.01,
-      // Adoption burden increases MUI variance.
-      adoptionBurden: 0.04,
-      // Leverage shield reduction lowers MUI variance.
-      leverageShieldReduction: 0.18,
-      // Minimum variance clamp.
-      minimum: 0.05,
-      // Maximum variance clamp.
-      maximum: 0.24
-    },
-    // Lower bound for MUI engineering weeks after downstream adjustments.
-    engineeringFloorWeeks: 1.5,
-    // Lower bound for MUI launch slip.
-    slipFloorWeeks: 0.3,
-    reworkMeanWeeks: {
-      // Unit: engineering weeks.
-      // Each risk is normalized 0..1.
-      // Higher values increase MUI effort, launch time, and labor TCO.
-      // These are heuristic calibration weights.
-      // Starting MUI rework before fit, burden, and leverage terms.
-      base: 0.35,
-      // Coverage gap increases MUI rework.
-      coverageGap: 1.3,
-      // Integration risk increases MUI rework.
-      integrationRisk: 1.05,
-      // Quality risk increases MUI rework.
-      qualityRisk: 0.65,
-      // Support gap increases MUI rework.
-      supportGap: 0.35,
-      // Coverage shield reduction lowers MUI rework.
-      coverageShieldReduction: 0.08,
-      // Adoption burden increases MUI rework.
-      adoptionBurden: 0.85,
-      // Leverage reduction lowers MUI rework.
-      leverageReduction: 0.58,
-      // Extra shield reduction for stronger coverage effects.
-      coverageShieldAdditionalReduction: 0.1,
-      // Lower bound for MUI rework.
-      minimum: 0.18
-    },
-    slipMeanWeeks: {
-      // Unit: engineering weeks.
-      // Each risk is normalized 0..1.
-      // Higher values increase MUI effort, launch time, and labor TCO.
-      // These are heuristic calibration weights.
-      // Starting MUI slip before fit, burden, and leverage terms.
-      base: 0.85,
-      // Delivery risk increases MUI slip.
-      deliveryRisk: 1,
-      // Coverage gap increases MUI slip.
-      coverageGap: 0.9,
-      // Integration risk increases MUI slip.
-      integrationRisk: 0.7,
-      // Support gap increases MUI slip.
-      supportGap: 0.35,
-      // Coverage shield reduction lowers MUI slip.
-      coverageShieldReduction: 0.1,
-      // Adoption burden increases MUI slip.
-      adoptionBurden: 0.8,
-      // Leverage reduction lowers MUI slip.
-      leverageReduction: 0.52,
-      // Extra shield reduction for stronger coverage effects.
-      coverageShieldAdditionalReduction: 0.08,
-      // Lower bound for MUI slip.
-      minimum: 0.25
-    },
-    launch: {
-      // Unit: engineering weeks.
-      // Launch overhead affects schedule only, not engineering effort.
-      // Hard minimum launch overhead in weeks.
-      minimumWeeks: 1.4,
-      // Additional launch overhead for more apps.
-      appScaleOverheadWeeks: 0.38
-    },
-    maintenanceWeeks: {
-      // Unit: engineering weeks.
-      // Each risk is normalized 0..1.
-      // Higher values increase MUI effort, launch time, and labor TCO.
-      // These are heuristic calibration weights.
-      // Starting MUI maintenance exposure in weeks.
-      base: 0.55,
-      // Functional risk increases MUI maintenance.
-      functionalRisk: 1,
-      // Quality risk increases MUI maintenance.
-      qualityRisk: 0.68,
-      // Integration risk increases MUI maintenance.
-      integrationRisk: 0.88,
-      // Coverage gap increases MUI maintenance.
-      coverageGap: 1.22,
-      // Support gap increases MUI maintenance.
-      supportGap: 0.68,
-      // Existing MUI usage reduces MUI maintenance.
-      muiUsageReduction: 0.08,
-      // Coverage shield reduction lowers MUI maintenance.
-      coverageShieldReduction: 0.12,
-      // Adoption burden increases MUI maintenance.
-      adoptionBurden: 0.42,
-      // Leverage reduction lowers MUI maintenance.
-      leverageReduction: 0.32,
-      // Extra shield reduction for stronger coverage effects.
-      coverageShieldAdditionalReduction: 0.08,
-      // Minimum base maintenance before floor logic.
-      minimumBase: 0.42,
-      // Absolute lower bound for MUI maintenance.
-      minimum: 0.4
-    },
-    licensing: {
-      // Unit: yearly license cost per developer.
-      // These values affect cost only and do not affect launch time.
-      core: 0,
-      premium: 1800,
-      enterprise: 3600
-    }
-  }
-};
-
-/*
- * Legacy recommendation policy weights
- * ------------------------------------
- *
- * These thresholds supported the retired simulation-based recommendation
- * layer. The active backend now computes deterministic recommendation
- * confidence from score margin, signal consistency, and ambiguity instead.
+ * These thresholds support the deterministic recommendation layer. The
+ * active backend computes recommendation confidence from score margin,
+ * signal consistency, and ambiguity instead of any stochastic output.
  */
 export const RECOMMENDATION_POLICY_WEIGHTS = {
-  // Probability threshold where MUI delivery becomes favored.
-  muiDeliveryFavoredProbability: 55,
+  // Score threshold where MUI delivery becomes favored.
+  muiDeliveryFavoredScore: 55,
   // Delivery-risk reduction used when evaluating MUI delivery advantage.
   deliveryRiskReduction: 12,
-  // Probability threshold where MUI cost becomes favored.
-  muiCostFavoredProbability: 55,
-  // Probability threshold for delivery-only MUI advantage.
-  deliveryOnlyMuiAdvantageProbability: 75,
-  // Buffer in weeks before Build is still considered competitive.
-  buildStillCompetitiveLaunchBufferWeeks: 1.5,
-  // Cost multiplier before Build is still considered competitive.
-  buildStillCompetitiveCostMultiplier: 1.1,
+  // Score threshold where MUI cost becomes favored.
+  muiCostFavoredScore: 55,
+  // Score threshold for delivery-only MUI advantage.
+  deliveryOnlyMuiAdvantageScore: 75,
+  // Score buffer before Build is still considered competitive.
+  buildStillCompetitiveScoreBuffer: 1.5,
+  // Score multiplier before Build is still considered competitive.
+  buildStillCompetitiveScoreMultiplier: 1.1,
   // Coverage score threshold for enterprise fit.
   enterpriseFitCoverageScore: 68,
   // Coverage score threshold for premium fit.
@@ -1224,8 +774,8 @@ export const RECOMMENDATION_POLICY_WEIGHTS = {
   buildFriendlyBuildCompetitiveIndex: 58,
   // Maximum support gap tolerated before enterprise fit weakens.
   enterpriseSupportGapThreshold: 0.18,
-  // Launch delta where Core is materially advantaged.
-  coreMaterialAdvantageLaunchDelta: -2,
+  // Score delta where Core is materially advantaged.
+  coreMaterialAdvantageScoreDelta: -2,
   // Penalty when Core needs stronger evidence.
   coreNeedsStrongerEvidencePenalty: 6,
   // Penalty when delivery-only MUI advantage is present.
@@ -1244,8 +794,8 @@ export const RECOMMENDATION_POLICY_WEIGHTS = {
   confidenceMinOpposed: 42,
   // Upper cap for recommendation confidence.
   confidenceMax: 96,
-  // Threshold for a high Build tier score.
-  buildTierScoreHigh: 67,
+  // Threshold for a high Build fit score.
+  buildFitHigh: 67,
   // Coverage score threshold for a friendly Build context.
   buildFriendlyContextCoverageThreshold: 58
 };
@@ -1276,19 +826,19 @@ export const CALIBRATION = {
 
   pathScores: {
     // Scorecard baselines used in buildScorecard() to rank Build and MUI tiers
-    // before simulation. These are not launch/TCO estimates; they are policy
-    // thresholds and score bonuses/penalties that decide which path is treated
-    // as the best fit for the input shape.
-    buildTierScore: {},
+    // before recommendation. These are fit thresholds and score bonuses/
+    // penalties that decide which path is treated as the best fit for the
+    // input shape.
+    buildFit: {},
     // Core path score inputs. Higher values make the Core tier more or less
     // competitive before recommendation logic runs.
-    coreTierScore: {},
+    coreFit: {},
     // Premium path score inputs. These values shape when the Premium tier
     // becomes the preferred packaged MUI option.
-    premiumTierScore: {},
+    premiumFit: {},
     // Enterprise path score inputs. These values determine when the model
     // should consider the Enterprise tier the strongest MUI fit.
-    enterpriseTierScore: {},
+    enterpriseFit: {},
     // Composite ideal-customer-profile score used to summarize how well the
     // input matches the packaged-path pattern overall.
     icpScore: {},
@@ -1357,79 +907,6 @@ export const CALIBRATION = {
     muiLeverage: {},
     muiAdoptionBurden: {},
     downsideTailRisk: {}
-  },
-
-  simulation: {
-    velocity: {
-      frontendDevelopers: {
-        build: {
-          unit: "velocity multiplier adjustment",
-          description:
-            "Adjusts Build delivery velocity based on frontend implementation capacity.",
-          thresholds: [
-            {
-              maxExclusive: 4,
-              adjustment: -0.03,
-              label: "small-team-capacity-constraint"
-            },
-            {
-              minInclusive: 4,
-              maxExclusive: 8,
-              adjustment: 0.03,
-              label: "medium-team-capacity-bonus"
-            },
-            {
-              minInclusive: 8,
-              adjustment: 0.08,
-              label: "larger-team-capacity-bonus"
-            }
-          ]
-        },
-        mui: {
-          unit: "velocity multiplier adjustment",
-          description:
-            "Adjusts MUI delivery velocity based on frontend implementation capacity.",
-          thresholds: [
-            {
-              maxExclusive: 4,
-              adjustment: -0.01,
-              label: "small-team-capacity-constraint"
-            },
-            {
-              minInclusive: 4,
-              maxExclusive: 8,
-              adjustment: 0.02,
-              label: "medium-team-capacity-bonus"
-            },
-            {
-              minInclusive: 8,
-              adjustment: 0.06,
-              label: "larger-team-capacity-bonus"
-            }
-          ]
-        }
-      },
-      build: {
-        base: 0.84,
-        deliveryStrength: 0.36,
-        ownershipRisk: -0.06,
-        internalAbsorption: 0.08,
-        minimum: 0.58,
-        maximum: 1.32
-      },
-      mui: {
-        base: 0.96,
-        deliveryStrength: 0.18,
-        ownershipRisk: -0.03,
-        muiLeverage: 0.06,
-        muiAdoptionBurden: -0.04,
-        minimum: 0.72,
-        maximum: 1.4
-      }
-    },
-    prep: SIMULATION_CALIBRATION.prep,
-    build: SIMULATION_CALIBRATION.build,
-    mui: SIMULATION_CALIBRATION.mui
   },
 
   recommendationPolicy: {

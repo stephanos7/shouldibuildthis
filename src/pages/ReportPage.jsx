@@ -219,7 +219,7 @@ function readStoredAssessmentInput() {
   if (assessmentInput.assessmentSchemaVersion !== ASSESSMENT_INPUT_SCHEMA_VERSION) {
     if (typeof window !== "undefined") {
       window.localStorage.removeItem("assessmentInput");
-      window.localStorage.removeItem("simulationResult");
+      window.localStorage.removeItem("fitResult");
     }
 
     return null;
@@ -718,12 +718,12 @@ function SourceCard({ source }) {
 
 function ReportPage() {
   const assessmentInput = readStoredAssessmentInput();
-  const simulationResult = readStoredObject("simulationResult");
+  const fitResult = readStoredObject("fitResult");
   const sourceMap = getPublicSourceMap([...PUBLIC_BENCHMARK_SOURCES, ...PUBLIC_SOURCES]);
   const inputChips = buildInputChips(assessmentInput);
 
-  if (!simulationResult || !isCurrentResult(simulationResult)) {
-    const staleSavedResult = Boolean(simulationResult);
+  if (!fitResult || !isCurrentResult(fitResult)) {
+    const staleSavedResult = Boolean(fitResult);
 
     return (
       <Stack spacing={4}>
@@ -760,11 +760,11 @@ function ReportPage() {
     );
   }
 
-  const recommendation = simulationResult.recommendation ?? {};
-  const derivedFactors = simulationResult.derivedFactors ?? {};
-  const pathFits = simulationResult.pathFits ?? {};
-  const sensitivity = simulationResult.sensitivity ?? simulationResult.diagnostics?.sensitivity ?? {};
-  const diagnostics = simulationResult.diagnostics ?? {};
+  const recommendation = fitResult.recommendation ?? {};
+  const derivedFactors = fitResult.derivedFactors ?? {};
+  const pathFits = fitResult.pathFits ?? {};
+  const sensitivity = fitResult.sensitivity ?? fitResult.diagnostics?.sensitivity ?? {};
+  const diagnostics = fitResult.diagnostics ?? {};
   const rankedPaths = Object.values(pathFits)
     .filter(Boolean)
     .sort((left, right) => (right.score ?? 0) - (left.score ?? 0));
@@ -774,7 +774,7 @@ function ReportPage() {
   const winnerSignals = buildWinnerSignals(recommendation, winner ?? {}, runnerUp ?? {});
   const changeItems = buildChangeItems(recommendation.key, assessmentInput);
   const evidenceBasis = Array.isArray(diagnostics.evidenceBasis) ? diagnostics.evidenceBasis : [];
-  const sourceChips = (simulationResult.publicSources ?? PUBLIC_BENCHMARK_SOURCES).map(
+  const sourceChips = (fitResult.publicSources ?? PUBLIC_BENCHMARK_SOURCES).map(
     (source) => source.shortLabel ?? source.title
   );
   const factorEntries = Object.entries({

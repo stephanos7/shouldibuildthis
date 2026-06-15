@@ -30,20 +30,20 @@ export const MODEL_STAGES = {
     description:
       "Path-specific levers that shape effort, risk, uncertainty, and path credibility."
   },
-  simulationPrep: {
-    label: "Simulation preparation",
+  deterministicSensitivity: {
+    label: "Deterministic sensitivity",
     description:
-      "Shields, penalties, exposures, and velocity factors used by estimates."
+      "Deterministic guardrails, sensitivity signals, and path-fit adjustments used by fit scoring."
   },
-  buildEstimate: {
-    label: "Build estimate",
+  buildFitOutput: {
+    label: "Build fit output",
     description:
-      "Build-path effort, rework, slip, launch, maintenance, and TCO artifacts."
+      "Deterministic Build fit artifacts and recommendation support signals."
   },
-  muiEstimate: {
-    label: "MUI estimate",
+  muiFitOutput: {
+    label: "MUI fit output",
     description:
-      "MUI-path effort, rework, slip, launch, maintenance, license, and TCO artifacts."
+      "Deterministic MUI fit artifacts and recommendation support signals."
   },
   output: {
     label: "Output",

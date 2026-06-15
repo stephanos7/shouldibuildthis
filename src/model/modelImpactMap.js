@@ -7,9 +7,8 @@
  * affects what, which path it touches, what direction it pushes, and which
  * calibration key controls the effect when applicable.
  *
- * The active backend now uses deterministic fit scoring. Some simulation-era
- * entries remain here temporarily as historical metadata while the broader UI
- * and docs transition away from Monte Carlo terminology.
+ * The active backend uses deterministic fit scoring. Keep this map aligned
+ * with the active fit, guardrail, and recommendation artifacts.
  */
 
 export const MODEL_IMPACT_MAP = {
@@ -18,34 +17,8 @@ export const MODEL_IMPACT_MAP = {
     group: "Organization and capacity",
     direction: "mixed",
     summary:
-      "Frontend capacity can improve delivery speed and packaged-path adoption while also changing paid-seat exposure.",
+      "Frontend capacity can improve packaged-path adoption and enterprise relevance while also changing standardization context.",
     impacts: [
-      {
-        artifact: "buildVelocity",
-        stage: "simulationPrep",
-        path: "Build",
-        direction: "good",
-        effectType: "threshold",
-        effectScale: "small",
-        calculatedIn: "runSimulation",
-        calibrationRef: "simulation.velocity.frontendDevelopers.build",
-        formulaSummary: "Capacity bonus changes by team-size threshold.",
-        thresholds: "Under 4, 4-7, and 8+ frontend developers.",
-        reason: "More frontend capacity improves internal implementation velocity on the Build path."
-      },
-      {
-        artifact: "muiVelocity",
-        stage: "simulationPrep",
-        path: "MUI",
-        direction: "good",
-        effectType: "threshold",
-        effectScale: "small",
-        calculatedIn: "runSimulation",
-        calibrationRef: "simulation.velocity.frontendDevelopers.mui",
-        formulaSummary: "Capacity bonus changes by team-size threshold.",
-        thresholds: "Under 4, 4-7, and 8+ frontend developers.",
-        reason: "More frontend capacity improves MUI implementation and configuration velocity."
-      },
       {
         artifact: "enterpriseReadiness",
         stage: "derivedFactor",
@@ -58,25 +31,6 @@ export const MODEL_IMPACT_MAP = {
         reason: "Larger frontend orgs can increase standardization and supportability relevance."
       },
       {
-        artifact: "estimatedLicensedDevelopers",
-        stage: "muiEstimate",
-        path: "Paid MUI",
-        direction: "cost",
-        effectType: "plan-conditional",
-        calculatedIn: "estimateLicensedDevelopers",
-        reason: "Paid MUI plans can scale seat exposure with frontend developer count."
-      },
-      {
-        artifact: "muiLicenseCost",
-        stage: "muiEstimate",
-        path: "Paid MUI",
-        direction: "cost",
-        effectType: "cost-only",
-        calculatedIn: "runSimulation",
-        calibrationRef: "simulation.mui.licensing",
-        reason: "Estimated licensed developers flow into license cost and TCO."
-      },
-      {
         artifact: "ownershipBurden",
         stage: "derivedFactor",
         path: "Build",
@@ -84,386 +38,6 @@ export const MODEL_IMPACT_MAP = {
         effectType: "guardrail",
         calculatedIn: "buildDerivedFactors",
         reason: "Developer count should not increase ownership burden; capacity and coordination should be modeled separately."
-      }
-    ]
-  },
-  buildVelocity: {
-    label: "Build velocity",
-    group: "Delivery and velocity",
-    direction: "good",
-    summary:
-      "Build velocity is calibrated from delivery strength, ownership risk, internal absorption, and frontend capacity thresholds.",
-    impacts: [
-      {
-        artifact: "buildVelocity",
-        stage: "simulationPrep",
-        path: "Build",
-        direction: "good",
-        effectType: "linear",
-        effectScale: "small",
-        calculatedIn: "runSimulation",
-        calibrationRef: "simulation.velocity.build",
-        reason: "Base velocity, risk modifiers, and calibrated bounds determine the Build velocity multiplier."
-      }
-    ]
-  },
-  muiVelocity: {
-    label: "MUI velocity",
-    group: "Delivery and velocity",
-    direction: "good",
-    summary:
-      "MUI velocity is calibrated from delivery strength, ownership risk, adoption burden, and frontend capacity thresholds.",
-    impacts: [
-      {
-        artifact: "muiVelocity",
-        stage: "simulationPrep",
-        path: "MUI",
-        direction: "good",
-        effectType: "linear",
-        effectScale: "small",
-        calculatedIn: "runSimulation",
-        calibrationRef: "simulation.velocity.mui",
-        reason: "Base velocity, risk modifiers, leverage, burden, and calibrated bounds determine the MUI velocity multiplier."
-      }
-    ]
-  },
-  coverageShield: {
-    label: "Coverage shield",
-    group: "Simulation prep",
-    direction: "good",
-    summary:
-      "Coverage strength can reduce effort when the selected MUI plan fits well enough.",
-    impacts: [
-      {
-        artifact: "coverageShield",
-        stage: "simulationPrep",
-        path: "MUI",
-        direction: "good",
-        effectType: "threshold",
-        effectScale: "small",
-        calculatedIn: "runSimulation",
-        calibrationRef: "simulation.prep.coverageShield",
-        reason: "Coverage shield thresholds and values are named in calibration."
-      }
-    ]
-  },
-  buildAbsorptionShield: {
-    label: "Build absorption shield",
-    group: "Simulation prep",
-    direction: "good",
-    summary:
-      "Internal absorption and reuse can reduce Build effort when the team can take on custom work cleanly.",
-    impacts: [
-      {
-        artifact: "buildAbsorptionShield",
-        stage: "simulationPrep",
-        path: "Build",
-        direction: "good",
-        effectType: "interaction",
-        effectScale: "small",
-        calculatedIn: "runSimulation",
-        calibrationRef: "simulation.prep.buildAbsorptionShield",
-        reason: "Build absorption shielding is controlled by named calibration weights."
-      }
-    ]
-  },
-  buildTailPenalty: {
-    label: "Build tail penalty",
-    group: "Simulation prep",
-    direction: "bad",
-    summary:
-      "Downside tail risk can widen Build variance, slip, and long-tail exposure.",
-    impacts: [
-      {
-        artifact: "buildTailPenalty",
-        stage: "simulationPrep",
-        path: "Build",
-        direction: "bad",
-        effectType: "interaction",
-        effectScale: "small",
-        calculatedIn: "runSimulation",
-        calibrationRef: "simulation.prep.buildTailPenalty",
-        reason: "Build tail penalty thresholds and multipliers are named in calibration."
-      }
-    ]
-  },
-  muiLeverageShield: {
-    label: "MUI leverage shield",
-    group: "Simulation prep",
-    direction: "good",
-    summary:
-      "MUI leverage can reduce MUI effort when fit and adoption signals are strong.",
-    impacts: [
-      {
-        artifact: "muiLeverageShield",
-        stage: "simulationPrep",
-        path: "MUI",
-        direction: "good",
-        effectType: "interaction",
-        effectScale: "small",
-        calculatedIn: "runSimulation",
-        calibrationRef: "simulation.prep.muiLeverageShield",
-        reason: "MUI leverage shielding is controlled by named calibration weights."
-      }
-    ]
-  },
-  muiAdoptionLoad: {
-    label: "MUI adoption load",
-    group: "Simulation prep",
-    direction: "bad",
-    summary:
-      "Adoption burden can increase MUI effort, slip, and variance when the team has to adapt a packaged path.",
-    impacts: [
-      {
-        artifact: "muiAdoptionLoad",
-        stage: "simulationPrep",
-        path: "MUI",
-        direction: "bad",
-        effectType: "interaction",
-        effectScale: "small",
-        calculatedIn: "runSimulation",
-        calibrationRef: "simulation.prep.muiAdoptionLoad",
-        reason: "MUI adoption load is controlled by named calibration weights."
-      }
-    ]
-  },
-  buildEngineeringMean: {
-    label: "Build engineering mean",
-    group: "Build estimate",
-    direction: "bad",
-    summary:
-      "The central Build effort estimate is driven by named risk weights in calibration.",
-    impacts: [
-      {
-        artifact: "buildEngineeringMean",
-        stage: "buildEstimate",
-        path: "Build",
-        direction: "bad",
-        effectType: "linear",
-        effectScale: "moderate",
-        calculatedIn: "runSimulation",
-        calibrationRef: "simulation.build.engineeringMeanWeeks",
-        reason: "Build engineering mean weights are controlled by calibration."
-      }
-    ]
-  },
-  buildEngineeringVariance: {
-    label: "Build engineering variance",
-    group: "Build estimate",
-    direction: "bad",
-    summary:
-      "Build variance is driven by named calibration weights and shield reduction factors.",
-    impacts: [
-      {
-        artifact: "buildEngineeringVariance",
-        stage: "buildEstimate",
-        path: "Build",
-        direction: "bad",
-        effectType: "linear",
-        effectScale: "moderate",
-        calculatedIn: "runSimulation",
-        calibrationRef: "simulation.build.engineeringVariance",
-        reason: "Build engineering variance weights are controlled by calibration."
-      }
-    ]
-  },
-  buildReworkMean: {
-    label: "Build rework mean",
-    group: "Build estimate",
-    direction: "bad",
-    summary:
-      "Build rework is driven by named calibration weights and downside tail additions.",
-    impacts: [
-      {
-        artifact: "buildReworkMean",
-        stage: "buildEstimate",
-        path: "Build",
-        direction: "bad",
-        effectType: "linear",
-        effectScale: "moderate",
-        calculatedIn: "runSimulation",
-        calibrationRef: "simulation.build.reworkMeanWeeks",
-        reason: "Build rework mean weights are controlled by calibration."
-      }
-    ]
-  },
-  buildSlipMean: {
-    label: "Build slip mean",
-    group: "Build estimate",
-    direction: "bad",
-    summary:
-      "Build slip is driven by named calibration weights and tail penalty multipliers.",
-    impacts: [
-      {
-        artifact: "buildSlipMean",
-        stage: "buildEstimate",
-        path: "Build",
-        direction: "bad",
-        effectType: "linear",
-        effectScale: "moderate",
-        calculatedIn: "runSimulation",
-        calibrationRef: "simulation.build.slipMeanWeeks",
-        reason: "Build slip mean weights are controlled by calibration."
-      }
-    ]
-  },
-  buildLaunch: {
-    label: "Build launch",
-    group: "Build estimate",
-    direction: "bad",
-    summary:
-      "Build launch combines engineering, slip, and rollout overhead from calibration.",
-    impacts: [
-      {
-        artifact: "buildLaunch",
-        stage: "buildEstimate",
-        path: "Build",
-        direction: "bad",
-        effectType: "linear",
-        effectScale: "moderate",
-        calculatedIn: "runSimulation",
-        calibrationRef: "simulation.build.launch",
-        reason: "Build launch overhead is controlled by calibration."
-      }
-    ]
-  },
-  buildMaintenance: {
-    label: "Build maintenance",
-    group: "Build estimate",
-    direction: "bad",
-    summary:
-      "Build maintenance exposure is driven by named calibration weights over the chosen horizon.",
-    impacts: [
-      {
-        artifact: "buildMaintenance",
-        stage: "buildEstimate",
-        path: "Build",
-        direction: "bad",
-        effectType: "linear",
-        effectScale: "moderate",
-        calculatedIn: "runSimulation",
-        calibrationRef: "simulation.build.maintenanceWeeks",
-        reason: "Build maintenance weights are controlled by calibration."
-      }
-    ]
-  },
-  muiEngineeringMean: {
-    label: "MUI engineering mean",
-    group: "MUI estimate",
-    direction: "bad",
-    summary:
-      "The central MUI effort estimate is driven by named fit, burden, and leverage weights.",
-    impacts: [
-      {
-        artifact: "muiEngineeringMean",
-        stage: "muiEstimate",
-        path: "MUI",
-        direction: "bad",
-        effectType: "linear",
-        effectScale: "moderate",
-        calculatedIn: "runSimulation",
-        calibrationRef: "simulation.mui.engineeringMeanWeeks",
-        reason: "MUI engineering mean weights are controlled by calibration."
-      }
-    ]
-  },
-  muiEngineeringVariance: {
-    label: "MUI engineering variance",
-    group: "MUI estimate",
-    direction: "bad",
-    summary:
-      "MUI variance is driven by named calibration weights and leverage/shield effects.",
-    impacts: [
-      {
-        artifact: "muiEngineeringVariance",
-        stage: "muiEstimate",
-        path: "MUI",
-        direction: "bad",
-        effectType: "linear",
-        effectScale: "moderate",
-        calculatedIn: "runSimulation",
-        calibrationRef: "simulation.mui.engineeringVariance",
-        reason: "MUI engineering variance weights are controlled by calibration."
-      }
-    ]
-  },
-  muiReworkMean: {
-    label: "MUI rework mean",
-    group: "MUI estimate",
-    direction: "bad",
-    summary:
-      "MUI rework is driven by named calibration weights and coverage/shield effects.",
-    impacts: [
-      {
-        artifact: "muiReworkMean",
-        stage: "muiEstimate",
-        path: "MUI",
-        direction: "bad",
-        effectType: "linear",
-        effectScale: "moderate",
-        calculatedIn: "runSimulation",
-        calibrationRef: "simulation.mui.reworkMeanWeeks",
-        reason: "MUI rework mean weights are controlled by calibration."
-      }
-    ]
-  },
-  muiSlipMean: {
-    label: "MUI slip mean",
-    group: "MUI estimate",
-    direction: "bad",
-    summary:
-      "MUI slip is driven by named calibration weights and tail penalty multipliers.",
-    impacts: [
-      {
-        artifact: "muiSlipMean",
-        stage: "muiEstimate",
-        path: "MUI",
-        direction: "bad",
-        effectType: "linear",
-        effectScale: "moderate",
-        calculatedIn: "runSimulation",
-        calibrationRef: "simulation.mui.slipMeanWeeks",
-        reason: "MUI slip mean weights are controlled by calibration."
-      }
-    ]
-  },
-  muiLaunch: {
-    label: "MUI launch",
-    group: "MUI estimate",
-    direction: "bad",
-    summary:
-      "MUI launch combines engineering, slip, and rollout overhead from calibration.",
-    impacts: [
-      {
-        artifact: "muiLaunch",
-        stage: "muiEstimate",
-        path: "MUI",
-        direction: "bad",
-        effectType: "linear",
-        effectScale: "moderate",
-        calculatedIn: "runSimulation",
-        calibrationRef: "simulation.mui.launch",
-        reason: "MUI launch overhead is controlled by calibration."
-      }
-    ]
-  },
-  muiMaintenance: {
-    label: "MUI maintenance",
-    group: "MUI estimate",
-    direction: "bad",
-    summary:
-      "MUI maintenance exposure is driven by named calibration weights over the chosen horizon.",
-    impacts: [
-      {
-        artifact: "muiMaintenance",
-        stage: "muiEstimate",
-        path: "MUI",
-        direction: "bad",
-        effectType: "linear",
-        effectScale: "moderate",
-        calculatedIn: "runSimulation",
-        calibrationRef: "simulation.mui.maintenanceWeeks",
-        reason: "MUI maintenance weights are controlled by calibration."
       }
     ]
   },
@@ -494,35 +68,6 @@ export const MODEL_IMPACT_MAP = {
         calculatedIn: "buildDerivedFactors",
         reason: "A broader footprint increases the relevance of rollout support and standardization."
       },
-      {
-        artifact: "buildLaunch",
-        stage: "buildEstimate",
-        path: "Build",
-        direction: "bad",
-        effectType: "conditional",
-        effectScale: "small",
-        calculatedIn: "runSimulation",
-        reason: "More apps increase rollout overhead and can slow the Build path."
-      },
-      {
-        artifact: "muiLaunch",
-        stage: "muiEstimate",
-        path: "MUI",
-        direction: "bad",
-        effectType: "conditional",
-        effectScale: "small",
-        calculatedIn: "runSimulation",
-        reason: "More apps increase rollout overhead even when using a packaged path."
-      },
-      {
-        artifact: "estimatedLicensedDevelopers",
-        stage: "muiEstimate",
-        path: "Paid MUI",
-        direction: "cost",
-        effectType: "plan-conditional",
-        calculatedIn: "estimateLicensedDevelopers",
-        reason: "A large app footprint can increase Enterprise seat exposure."
-      }
     ]
   },
   dependentTeams: {
@@ -530,7 +75,7 @@ export const MODEL_IMPACT_MAP = {
     group: "Organization and dependencies",
     direction: "mixed",
     summary:
-      "More dependent teams increase coordination drag, support relevance, long-tail risk, and Enterprise cost exposure.",
+      "More dependent teams increase coordination drag, support relevance, and long-tail risk.",
     impacts: [
       {
         artifact: "ownershipBurden",
@@ -573,14 +118,14 @@ export const MODEL_IMPACT_MAP = {
         reason: "A larger dependency graph increases the relevance of rollout coordination and vendor-backed support."
       },
       {
-        artifact: "estimatedLicensedDevelopers",
-        stage: "muiEstimate",
-        path: "Enterprise",
-        direction: "cost",
-        effectType: "plan-conditional",
-        effectScale: "small",
-        calculatedIn: "estimateLicensedDevelopers",
-        reason: "A wider dependency graph can increase Enterprise seat exposure."
+        artifact: "enterpriseReadiness",
+        stage: "derivedFactor",
+        path: "Vendor-backed / standardized paths",
+        direction: "contextual",
+        effectType: "interaction",
+        effectScale: "moderate",
+        calculatedIn: "buildDerivedFactors",
+        reason: "A wider dependency graph increases the relevance of rollout support and standardization."
       }
     ]
   },
@@ -1224,14 +769,14 @@ export const MODEL_IMPACT_MAP = {
         reason: "Fast-moving teams can absorb Build work more easily."
       },
       {
-        artifact: "buildVelocity",
-        stage: "simulationPrep",
-        path: "Build",
+        artifact: "deliveryMaturity",
+        stage: "derivedFactor",
+        path: "Both",
         direction: "good",
-        effectType: "linear",
+        effectType: "interaction",
         effectScale: "small",
-        calculatedIn: "runSimulation",
-        reason: "Faster teams tend to sustain higher Build velocity."
+        calculatedIn: "buildDerivedFactors",
+        reason: "Faster teams tend to have stronger delivery maturity and fit."
       }
     ]
   },
@@ -1272,16 +817,6 @@ export const MODEL_IMPACT_MAP = {
         calculatedIn: "buildScenarioLevers",
         reason: "Frequent rework raises the chance of a worse-than-expected outcome."
       },
-      {
-        artifact: "buildSlip",
-        stage: "buildEstimate",
-        path: "Build",
-        direction: "bad",
-        effectType: "conditional",
-        effectScale: "small",
-        calculatedIn: "runSimulation",
-        reason: "More rework tends to add slip to the Build schedule."
-      }
     ]
   },
   deadlinePressure: {
@@ -1310,26 +845,6 @@ export const MODEL_IMPACT_MAP = {
         effectScale: "moderate",
         calculatedIn: "buildScorecard",
         reason: "More deadline pressure increases the normalized delivery-risk score."
-      },
-      {
-        artifact: "buildSlipMean",
-        stage: "buildEstimate",
-        path: "Build",
-        direction: "bad",
-        effectType: "conditional",
-        effectScale: "small",
-        calculatedIn: "runSimulation",
-        reason: "Deadline pressure raises expected Build slip."
-      },
-      {
-        artifact: "muiSlipMean",
-        stage: "muiEstimate",
-        path: "MUI",
-        direction: "bad",
-        effectType: "conditional",
-        effectScale: "small",
-        calculatedIn: "runSimulation",
-        reason: "Deadline pressure also raises expected MUI slip."
       },
       {
         artifact: "downsideTailRisk",
@@ -1381,7 +896,7 @@ export const MODEL_IMPACT_MAP = {
         reason: "Weaker packaged paths can leave part of the support need uncovered."
       },
       {
-        artifact: "buildTierScore",
+        artifact: "buildFit",
         stage: "pathScore",
         path: "Build",
         direction: "bad",
@@ -1391,7 +906,7 @@ export const MODEL_IMPACT_MAP = {
         reason: "High support and procurement needs can reduce Build attractiveness when support matters."
       },
       {
-        artifact: "enterpriseTierScore",
+        artifact: "enterpriseFit",
         stage: "pathScore",
         path: "MUI Enterprise",
         direction: "good",
@@ -1742,7 +1257,7 @@ export const MODEL_IMPACT_MAP = {
         direction: "contextual",
         effectType: "guardrail",
         effectScale: "small",
-        calculatedIn: "runSimulation",
+        calculatedIn: "buildDeterministicRecommendation",
         calibrationRef: "recommendationPolicy.dominance",
         reason: "Dominance thresholds decide when one path clearly wins on delivery or cost."
       },
@@ -1753,7 +1268,7 @@ export const MODEL_IMPACT_MAP = {
         direction: "contextual",
         effectType: "guardrail",
         effectScale: "small",
-        calculatedIn: "runSimulation",
+        calculatedIn: "buildDeterministicRecommendation",
         calibrationRef: "recommendationPolicy.coreEvidence",
         reason: "Core recommendations require stronger evidence when the context is otherwise build-friendly."
       }
@@ -1773,7 +1288,7 @@ export const MODEL_IMPACT_MAP = {
         direction: "neutral",
         effectType: "guardrail",
         effectScale: "small",
-        calculatedIn: "runSimulation",
+        calculatedIn: "buildDeterministicRecommendation",
         calibrationRef: "recommendationPolicy.confidence",
         reason: "Confidence scoring uses calibrated floors, ceilings, and high/medium cutoffs."
       }

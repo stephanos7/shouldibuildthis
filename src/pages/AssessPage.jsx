@@ -269,7 +269,7 @@ function readStoredAssessmentInput() {
 
     if (parsed.assessmentSchemaVersion !== ASSESSMENT_INPUT_SCHEMA_VERSION) {
       window.localStorage.removeItem("assessmentInput");
-      window.localStorage.removeItem("simulationResult");
+      window.localStorage.removeItem("fitResult");
       return defaultFormValues;
     }
 
@@ -471,7 +471,7 @@ function removeStorageItem(key) {
   window.localStorage.removeItem(key);
 }
 
-async function runSimulationRequest(input) {
+async function runFitRequest(input) {
   const response = await fetch("/.netlify/functions/simulate", {
     method: "POST",
     headers: {
@@ -493,8 +493,7 @@ async function runSimulationRequest(input) {
       ? ` ${payload.details.join(" ")}`
       : "";
     const message =
-      payload?.error ??
-      `Simulation request failed with status ${response.status}.`;
+      payload?.error ?? `Fit request failed with status ${response.status}.`;
 
     throw new Error(`${message}${details}`);
   }
@@ -644,17 +643,17 @@ function AssessPage() {
 
     try {
       writeStorageItem("assessmentInput", normalizedInput);
-      removeStorageItem("simulationResult");
+      removeStorageItem("fitResult");
 
-      const simulationResult = await runSimulationRequest(normalizedInput);
+      const fitResult = await runFitRequest(normalizedInput);
 
-      writeStorageItem("simulationResult", simulationResult);
+      writeStorageItem("fitResult", fitResult);
       navigate("/report");
     } catch (error) {
       setSubmitError(
         error instanceof Error
           ? error.message
-          : "Unable to run the simulation right now."
+          : "Unable to run the fit analysis right now."
       );
     } finally {
       setIsSubmitting(false);
@@ -685,8 +684,8 @@ function AssessPage() {
     <Stack spacing={4}>
       <PageHero
         eyebrow="Assess"
-        title="Capture the inputs for a build-vs-buy recommendation"
-        description="Work through the wizard to describe your React team, the component workload, and the support assumptions. Submitting this form runs the simulator, saves the input and result locally, and opens the report route."
+      title="Capture the inputs for a build-vs-buy recommendation"
+      description="Work through the wizard to describe your React team, the component workload, and the support assumptions. Submitting this form runs the fit analysis, saves the input and result locally, and opens the report route."
         chips={[
           "MUI stepper flow",
           "Netlify function submit",
@@ -1046,7 +1045,7 @@ function AssessPage() {
                         onChange={handleFieldChange}
                         options={changeLeadTimeOptions}
                         error={errors.changeLeadTime}
-                        helperText="Unknown or slower delivery cadence widens the simulation band."
+                        helperText="Unknown or slower delivery cadence widens the fit band."
                         row
                       />
                     </Grid>
@@ -1082,8 +1081,8 @@ function AssessPage() {
                     <Grid size={{ xs: 12 }}>
                       <Alert severity="info" variant="outlined">
                         Submitting from this step sends the assessment to the
-                        Netlify simulation function, stores the response
-                        locally, and then opens the report route.
+                        Netlify fit function, stores the response locally,
+                        and then opens the report route.
                       </Alert>
                     </Grid>
                     <Grid size={{ xs: 12 }}>
@@ -1180,7 +1179,7 @@ function AssessPage() {
                     >
                       {isFinalStep
                         ? isSubmitting
-                          ? "Running simulation..."
+                          ? "Running fit analysis..."
                           : "Submit and open report"
                         : "Next section"}
                     </Button>

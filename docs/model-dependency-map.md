@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document shows how the recommendation model moves from raw assessment inputs to derived factors, scorecards, plan fit, simulation prep, estimates, outputs, and final recommendation.
+This document shows how the recommendation model moves from raw assessment inputs to derived factors, scorecards, plan fit, path fit, outputs, and final recommendation.
 
 `MODEL_ARTIFACT_GLOSSARY` owns artifact meaning and lifecycle notes. `MODEL_IMPACT_MAP` owns causal relationships. `CALIBRATION` controls actual numeric behavior.
 
@@ -13,12 +13,9 @@ This document shows how the recommendation model moves from raw assessment input
 - `derivedFactor`: rule-based factor scores calculated from raw inputs.
 - `scorecardRisk`: normalized risks and strengths used by later calculations.
 - `planFit`: fit, gap, integration, and support artifacts for Core, Premium, and Enterprise paths.
-- `pathScore`: rule-based Build/Core/Premium/Enterprise scores and selection flags.
-- `scenarioLever`: path-specific levers that shape effort, risk, uncertainty, and path credibility.
-- `simulationPrep`: shields, penalties, exposures, and velocity factors used by estimates.
-- `buildEstimate`: Build-path effort, rework, slip, launch, maintenance, and TCO artifacts.
-- `muiEstimate`: MUI-path effort, rework, slip, launch, maintenance, license, and TCO artifacts.
-- `output`: displayed Build/MUI estimates and comparison metrics.
+- `pathScore`: Build/Core/Premium/Enterprise fit scores and selection flags.
+- `scenarioLever`: path-specific levers that shape fit strength, burden, and deterministic sensitivity.
+- `output`: displayed path-fit metrics and recommendation outputs.
 - `recommendation`: final recommendation option, summary, and confidence.
 
 ## Direction Legend
@@ -26,7 +23,6 @@ This document shows how the recommendation model moves from raw assessment input
 - `good`: pushes the downstream artifact in a favorable direction.
 - `bad`: pushes the downstream artifact in an unfavorable direction.
 - `contextual`: the effect depends on the rest of the model.
-- `cost`: affects monetary exposure or TCO directly.
 - `mixed`: has both favorable and unfavorable downstream effects.
 - `neutral`: a structural or indexing artifact rather than a directional signal.
 
@@ -44,8 +40,6 @@ When active, it:
 - and keeps Build/Core plausible for contained cases.
 
 When inactive, paid tiers can be considered more freely if coverage, support, scale, or complexity justify them.
-
-Enterprise handling for this guardrail should be treated as a negative or neutral adjustment unless there is an explicit, documented reason for a positive value.
 
 ## Full Dependency Graph
 
@@ -94,8 +88,6 @@ flowchart LR
     appScale["appScale"]
     scaleDemand["scaleDemand"]
     featureDemand["featureDemand"]
-    horizonYears["horizonYears"]
-    laborCostPerWeek["laborCostPerWeek"]
   end
 
   subgraph D["Derived factors"]
@@ -129,15 +121,14 @@ flowchart LR
     effectiveMuiPlan["effectiveMuiPlan"]
   end
 
-  subgraph T["Path scores"]
-    buildTierScore["buildTierScore"]
-    coreTierScore["coreTierScore"]
-    premiumTierScore["premiumTierScore"]
-    enterpriseTierScore["enterpriseTierScore"]
+  subgraph T["Path fit"]
+    buildFit["buildFit"]
+    coreFit["coreFit"]
+    premiumFit["premiumFit"]
+    enterpriseFit["enterpriseFit"]
     icpScore["icpScore"]
     simpleScope["simpleScope (contained-scope guardrail)"]
     buildFriendlyContext["buildFriendlyContext"]
-    enterpriseFitStrong["enterpriseFitStrong"]
   end
 
   subgraph L["Scenario levers"]
@@ -148,76 +139,25 @@ flowchart LR
     downsideTailRisk["downsideTailRisk"]
   end
 
-  subgraph SP["Simulation preparation"]
-    coverageStrength["coverageStrength"]
-    coverageShield["coverageShield"]
-    buildAbsorptionShield["buildAbsorptionShield"]
-    buildTailPenalty["buildTailPenalty"]
-    muiLeverageShield["muiLeverageShield"]
-    muiAdoptionLoad["muiAdoptionLoad"]
-    buildFatTailExposure["buildFatTailExposure"]
-    muiFatTailExposure["muiFatTailExposure"]
-    buildVelocity["buildVelocity"]
-    muiVelocity["muiVelocity"]
-  end
-
-  subgraph B["Build estimate"]
-    buildEngineeringMean["buildEngineeringMean"]
-    buildEngineeringVariance["buildEngineeringVariance"]
-    buildReworkMean["buildReworkMean"]
-    buildRework["buildRework"]
-    buildEngineering["buildEngineering"]
-    buildSlipMean["buildSlipMean"]
-    buildSlip["buildSlip"]
-    buildLaunch["buildLaunch"]
-    buildMaintenance["buildMaintenance"]
-    buildTotalCost["buildTotalCost"]
-  end
-
-  subgraph M["MUI estimate"]
-    muiEngineeringMean["muiEngineeringMean"]
-    muiEngineeringVariance["muiEngineeringVariance"]
-    muiReworkMean["muiReworkMean"]
-    muiRework["muiRework"]
-    muiEngineering["muiEngineering"]
-    muiSlipMean["muiSlipMean"]
-    muiSlip["muiSlip"]
-    muiLaunch["muiLaunch"]
-    muiMaintenance["muiMaintenance"]
-    estimatedLicensedDevelopers["estimatedLicensedDevelopers"]
-    muiLicenseCost["muiLicenseCost"]
-    muiTotalCost["muiTotalCost"]
-  end
-
   subgraph O["Outputs"]
-    buildPath["buildPath"]
-    muiPath["muiPath"]
-    comparison["comparison"]
-  end
-
-  subgraph R2["Recommendation"]
+    pathFits["pathFits"]
+    planFits["planFits"]
     recommendation["recommendation"]
     confidence["confidence"]
   end
 
   frontendDevelopers --> teamScale
   frontendDevelopers --> enterpriseReadiness
-  frontendDevelopers --> buildVelocity
-  frontendDevelopers --> muiVelocity
-  frontendDevelopers --> estimatedLicensedDevelopers
+  frontendDevelopers --> supportNeed
 
   reactApps --> appScale
   reactApps --> ownershipBurden
   reactApps --> enterpriseReadiness
-  reactApps --> buildLaunch
-  reactApps --> muiLaunch
-  reactApps --> estimatedLicensedDevelopers
 
   dependentTeams --> dependentTeamsIndex
   dependentTeams --> ownershipBurden
   dependentTeams --> enterpriseReadiness
   dependentTeams --> downsideTailRisk
-  dependentTeams --> estimatedLicensedDevelopers
   dependentTeams --> internalAbsorption
 
   ownershipModel --> ownershipModelIndex
@@ -282,24 +222,20 @@ flowchart LR
   changeLeadTime --> changeLeadTimeIndex
   changeLeadTime --> deliveryMaturity
   changeLeadTime --> internalAbsorption
-  changeLeadTime --> buildVelocity
 
   reworkFrequency --> reworkFrequencyIndex
   reworkFrequency --> deliveryMaturity
   reworkFrequency --> downsideTailRisk
-  reworkFrequency --> buildSlip
 
   deadlinePressure --> deliveryMaturity
   deadlinePressure --> deliveryRisk
-  deadlinePressure --> buildSlipMean
-  deadlinePressure --> muiSlipMean
   deadlinePressure --> downsideTailRisk
 
   supportRequirement --> supportNeed
   supportRequirement --> enterpriseReadiness
   supportRequirement --> supportGap
-  supportRequirement --> buildTierScore
-  supportRequirement --> enterpriseTierScore
+  supportRequirement --> buildFit
+  supportRequirement --> enterpriseFit
 
   ownershipHorizon --> enterpriseReadiness
   ownershipHorizon --> enterpriseNeed
@@ -338,16 +274,12 @@ flowchart LR
   muiUsage --> enterpriseReadiness
   maturity --> ownershipBurden
   supportNeed --> enterpriseNeed
-  teamScale --> buildTierScore
-  teamScale --> enterpriseTierScore
-  appScale --> buildTierScore
-  appScale --> enterpriseTierScore
+  teamScale --> buildFit
+  teamScale --> enterpriseFit
+  appScale --> buildFit
+  appScale --> enterpriseFit
   scaleDemand --> scaleCoverage
   featureDemand --> featureCoverage
-  horizonYears --> buildMaintenance
-  horizonYears --> muiMaintenance
-  laborCostPerWeek --> buildTotalCost
-  laborCostPerWeek --> muiTotalCost
 
   functionalComplexity --> functionalRisk
   qualityBurden --> qualityRisk
@@ -367,83 +299,44 @@ flowchart LR
   coverageScore --> supportGap
   coverageScore --> effectiveMuiPlan
 
-  functionalRisk --> buildTierScore
-  qualityRisk --> buildTierScore
-  ownershipRisk --> buildTierScore
-  deliveryRisk --> buildTierScore
-  deliveryStrength --> buildTierScore
-  enterpriseNeed --> buildTierScore
-  simpleScope --> coreTierScore
-  buildFriendlyContext --> buildTierScore
-  enterpriseFitStrong --> enterpriseTierScore
+  functionalRisk --> buildFit
+  qualityRisk --> buildFit
+  ownershipRisk --> buildFit
+  deliveryRisk --> buildFit
+  deliveryStrength --> buildFit
+  enterpriseNeed --> buildFit
+  simpleScope --> coreFit
+  buildFriendlyContext --> buildFit
+  enterpriseNeed --> enterpriseFit
 
-  internalAbsorption --> buildAbsorptionShield
-  buildReuseLeverage --> buildAbsorptionShield
-  buildAbsorptionShield --> buildEngineeringMean
-  buildTailPenalty --> buildEngineeringVariance
-  downsideTailRisk --> buildTailPenalty
-  muiLeverage --> muiLeverageShield
-  muiLeverageShield --> muiEngineeringMean
-  muiAdoptionBurden --> muiAdoptionLoad
-  muiAdoptionLoad --> muiEngineeringMean
-  buildFatTailExposure --> buildEngineeringVariance
-  muiFatTailExposure --> muiEngineeringVariance
-  buildVelocity --> buildEngineering
-  muiVelocity --> muiEngineering
+  internalAbsorption --> buildReuseLeverage
+  buildReuseLeverage --> buildFit
+  muiLeverage --> coreFit
+  muiLeverage --> premiumFit
+  muiLeverage --> enterpriseFit
+  muiAdoptionBurden --> coreFit
+  muiAdoptionBurden --> premiumFit
+  muiAdoptionBurden --> enterpriseFit
+  downsideTailRisk --> buildFit
 
-  coverageStrength --> coverageShield
-  coverageShield --> buildEngineeringMean
-
-  buildEngineeringMean --> buildEngineeringVariance
-  buildEngineeringVariance --> buildReworkMean
-  buildReworkMean --> buildRework
-  buildRework --> buildEngineering
-  buildEngineering --> buildSlipMean
-  buildSlipMean --> buildSlip
-  buildSlip --> buildLaunch
-  buildLaunch --> buildMaintenance
-  buildMaintenance --> buildTotalCost
-
-  muiEngineeringMean --> muiEngineeringVariance
-  muiEngineeringVariance --> muiReworkMean
-  muiReworkMean --> muiRework
-  muiRework --> muiEngineering
-  muiEngineering --> muiSlipMean
-  muiSlipMean --> muiSlip
-  muiSlip --> muiLaunch
-  muiLaunch --> muiMaintenance
-  muiMaintenance --> muiLicenseCost
-  estimatedLicensedDevelopers --> muiLicenseCost
-  muiLicenseCost --> muiTotalCost
-
-  buildTotalCost --> comparison
-  muiTotalCost --> comparison
-  buildLaunch --> comparison
-  muiLaunch --> comparison
-  comparison --> recommendation
+  pathFits --> recommendation
+  planFits --> recommendation
   recommendation --> confidence
-
-  dependentTeams --> ownershipBurden
-  dependentTeams --> enterpriseReadiness
-  dependentTeams --> downsideTailRisk
-  dependentTeams --> estimatedLicensedDevelopers
-  ownershipBurden --> buildTierScore
 ```
 
 ## Mixed-Effect Examples
 
-- `frontendDevelopers` helps `buildVelocity` and `muiVelocity`, can increase `estimatedLicensedDevelopers`, and should not increase `ownershipBurden`.
+- `frontendDevelopers` improves `enterpriseReadiness`, can strengthen standardization relevance, and should not increase `ownershipBurden`.
 - `existingMuiUsage` improves `adoptionBoost`, `coverageScore`, and `muiLeverage`, lowers `integrationRisk` and `muiAdoptionBurden`, and can reduce `buildReuseLeverage` when the codebase is already standardized.
 - `designSystemMaturity` improves `internalAbsorption` and `buildReuseLeverage`, lowers `ownershipBurden`, and can increase `muiAdoptionBurden` when `existingMuiUsage` is none.
 - `supportRequirement` raises `supportNeed`, increases `enterpriseReadiness`, can create `supportGap` for weaker MUI paths, and should not force Enterprise by itself.
-- `ownershipHorizon` affects enterprise readiness and vendor-backed path relevance, but should not affect effort, fit, velocity, schedule, or cost assumptions.
-- `dependentTeams` is bad for `ownershipBurden`, `internalAbsorption`, and `downsideTailRisk`, while making `enterpriseReadiness` more contextually relevant and increasing Enterprise seat exposure.
+- `ownershipHorizon` affects enterprise readiness and vendor-backed path relevance, but should not affect effort, fit, schedule, or cost assumptions.
+- `dependentTeams` is bad for `ownershipBurden`, `internalAbsorption`, and `downsideTailRisk`, while making `enterpriseReadiness` more contextually relevant.
 
 ## Maintenance Rules
 
 - When a numeric value changes, update `CALIBRATION` first.
 - When a relationship changes, update `MODEL_IMPACT_MAP`.
 - When a stage name changes, update `MODEL_STAGES` and the glossary.
-- Do not treat documentation as a substitute for calibration changes.
 - Keep mixed-effect descriptions explicit so maintainers can see both the benefit and the downside of an input.
 - Use the lightweight validator when you need a quick metadata sanity check outside runtime.
