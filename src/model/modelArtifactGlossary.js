@@ -159,25 +159,15 @@ export const MODEL_ARTIFACT_GLOSSARY = {
     description:
       "Expresses the desired vendor or support level. Higher support need raises enterprise readiness and can create support gaps for weaker packaged paths without forcing Enterprise alone."
   },
-  maintenanceHorizonMonths: {
-    artifact: "maintenanceHorizonMonths",
+  ownershipHorizon: {
+    artifact: "ownershipHorizon",
     stage: "rawInput",
-    label: "Maintenance horizon months",
-    direction: "cost",
-    path: "Both",
+    label: "Ownership horizon",
+    direction: "contextual",
+    path: "Vendor-backed / standardized paths",
     calculatedIn: "normalizeInput",
     description:
-      "Defines how long the component is expected to remain in service. Longer horizons increase maintenance exposure and paid-path licensing relevance."
-  },
-  engineerCostPerDay: {
-    artifact: "engineerCostPerDay",
-    stage: "rawInput",
-    label: "Engineer cost per day",
-    direction: "cost",
-    path: "Both",
-    calculatedIn: "normalizeInput",
-    description:
-      "Converts weeks into labor TCO and does not affect launch time or effort."
+      "Defines how long the component is expected to remain under active ownership. Longer horizons increase long-lived support relevance and paid-path fit."
   },
   performanceSensitivity: {
     artifact: "performanceSensitivity",

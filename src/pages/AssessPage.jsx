@@ -12,7 +12,6 @@ import {
   FormHelperText,
   FormLabel,
   Grid,
-  InputAdornment,
   MenuItem,
   Radio,
   RadioGroup,
@@ -26,6 +25,8 @@ import {
 } from "@mui/material";
 import { NavLink, useNavigate } from "react-router-dom";
 import PageHero from "../components/PageHero.jsx";
+
+const ASSESSMENT_INPUT_SCHEMA_VERSION = 2;
 
 const existingMuiUsageOptions = [
   { value: "none", label: "None" },
@@ -148,7 +149,7 @@ const productionCriticalityOptions = [
   { value: "regulated-or-sla-backed", label: "Regulated or SLA-backed" }
 ];
 
-const maintenanceHorizonOptions = [
+const ownershipHorizonOptions = [
   { value: "12", label: "12 months" },
   { value: "24", label: "24 months" },
   { value: "36", label: "36 months" }
@@ -174,22 +175,22 @@ const steps = [
       "Capture the React footprint, current MUI familiarity, and how ownership is distributed across teams."
   },
   {
-    label: "UI complexity",
+    label: "UI requirement",
     title: "Describe the component workload",
     description:
       "Define the primary UI category, row and column scale, and the advanced behaviors that can raise delivery, quality, integration, and maintenance uncertainty."
   },
   {
-    label: "Quality and delivery baseline",
+    label: "Delivery context",
     title: "Set the delivery pressure and quality bar",
     description:
       "These inputs frame accessibility expectations, change lead time, rework frequency, and schedule pressure."
   },
   {
-    label: "Support and assumptions",
-    title: "Capture the support and cost assumptions",
+    label: "Support and operating context",
+    title: "Capture the support and operating context",
     description:
-      "Collect the support posture, maintenance horizon, and internal cost assumptions used by the simulator."
+      "Collect the support posture, ownership horizon, and operating context used by the simulator."
   }
 ];
 
@@ -213,10 +214,9 @@ const defaultFormValues = {
   performanceSensitivity: "",
   reworkFrequency: "",
   deadlinePressure: "",
-  maintenanceHorizonMonths: "",
+  ownershipHorizon: "",
   supportRequirement: "",
-  productionCriticality: "",
-  engineerCostPerDay: ""
+  productionCriticality: ""
 };
 
 const optionLabelMaps = {
@@ -235,7 +235,7 @@ const optionLabelMaps = {
   deadlinePressure: toLabelMap(pressureOptions),
   expectedRows: toLabelMap(expectedRowsOptions),
   expectedColumns: toLabelMap(expectedColumnsOptions),
-  maintenanceHorizonMonths: toLabelMap(maintenanceHorizonOptions),
+  ownershipHorizon: toLabelMap(ownershipHorizonOptions),
   supportRequirement: toLabelMap(supportRequirementOptions),
   productionCriticality: toLabelMap(productionCriticalityOptions),
   advancedFeatures: toLabelMap(advancedFeatureOptions)
@@ -264,6 +264,12 @@ function readStoredAssessmentInput() {
     const parsed = JSON.parse(raw);
 
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return defaultFormValues;
+    }
+
+    if (parsed.assessmentSchemaVersion !== ASSESSMENT_INPUT_SCHEMA_VERSION) {
+      window.localStorage.removeItem("assessmentInput");
+      window.localStorage.removeItem("simulationResult");
       return defaultFormValues;
     }
 
@@ -310,20 +316,6 @@ function validateNonNegativeInteger(value, label) {
 
   if (!Number.isInteger(parsed) || parsed < 0) {
     return `${label} must be a whole number of 0 or more.`;
-  }
-
-  return "";
-}
-
-function validatePositiveNumber(value, label) {
-  if (value === "") {
-    return `${label} is required.`;
-  }
-
-  const parsed = Number(value);
-
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    return `${label} must be greater than 0.`;
   }
 
   return "";
@@ -426,13 +418,9 @@ function validateStep(stepIndex, formValues) {
       formValues.productionCriticality,
       "Production criticality"
     );
-    errors.maintenanceHorizonMonths = validateRequired(
-      formValues.maintenanceHorizonMonths,
-      "Maintenance horizon"
-    );
-    errors.engineerCostPerDay = validatePositiveNumber(
-      formValues.engineerCostPerDay,
-      "Engineer cost per day"
+    errors.ownershipHorizon = validateRequired(
+      formValues.ownershipHorizon,
+      "Expected ownership horizon"
     );
   }
 
@@ -459,11 +447,11 @@ function normalizeAssessmentInput(formValues) {
     performanceSensitivity: formValues.performanceSensitivity,
     reworkFrequency: formValues.reworkFrequency,
     deadlinePressure: formValues.deadlinePressure,
-    maintenanceHorizonMonths: Number(formValues.maintenanceHorizonMonths),
+    ownershipHorizon: Number(formValues.ownershipHorizon),
     supportRequirement: formValues.supportRequirement,
     productionCriticality: formValues.productionCriticality,
-    engineerCostPerDay: Number(formValues.engineerCostPerDay),
-    advancedFeatures: [...new Set(formValues.advancedFeatures)]
+    advancedFeatures: [...new Set(formValues.advancedFeatures)],
+    assessmentSchemaVersion: ASSESSMENT_INPUT_SCHEMA_VERSION
   };
 }
 
@@ -1137,44 +1125,22 @@ function AssessPage() {
                         select
                         fullWidth
                         required
-                        name="maintenanceHorizonMonths"
-                        label="Maintenance horizon"
-                        value={formValues.maintenanceHorizonMonths}
+                        name="ownershipHorizon"
+                        label="Expected ownership horizon"
+                        value={formValues.ownershipHorizon}
                         onChange={handleFieldChange}
-                        error={Boolean(errors.maintenanceHorizonMonths)}
+                        error={Boolean(errors.ownershipHorizon)}
                         helperText={
-                          errors.maintenanceHorizonMonths ||
-                          "How long should the recommendation account for likely maintenance work?"
+                          errors.ownershipHorizon ||
+                          "How long is the component expected to stay under active ownership?"
                         }
                       >
-                        {maintenanceHorizonOptions.map((option) => (
+                        {ownershipHorizonOptions.map((option) => (
                           <MenuItem key={option.value} value={option.value}>
                             {option.label}
                           </MenuItem>
                         ))}
                       </TextField>
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6 }}>
-                      <TextField
-                        fullWidth
-                        required
-                        type="number"
-                        name="engineerCostPerDay"
-                        label="Engineer cost per day"
-                        value={formValues.engineerCostPerDay}
-                        onChange={handleFieldChange}
-                        error={Boolean(errors.engineerCostPerDay)}
-                        helperText={
-                          errors.engineerCostPerDay ||
-                          "Use your fully loaded internal estimate for one engineer day."
-                        }
-                        inputProps={{ min: 1, step: 1 }}
-                        InputProps={{
-                          startAdornment: (
-                            <InputAdornment position="start">$</InputAdornment>
-                          )
-                        }}
-                      />
                     </Grid>
                   </Grid>
                 )}
@@ -1361,6 +1327,13 @@ function AssessPage() {
                     value={formatValue(
                       formValues.supportRequirement,
                       optionLabelMaps.supportRequirement
+                    )}
+                  />
+                  <SummaryRow
+                    label="Expected ownership horizon"
+                    value={formatValue(
+                      formValues.ownershipHorizon,
+                      optionLabelMaps.ownershipHorizon
                     )}
                   />
                 </Stack>

@@ -304,12 +304,12 @@ export const DERIVED_FACTOR_WEIGHTS = {
     // Unit: normalized score contribution.
     // More production-critical work increases the need for enterprise support.
     productionCriticality: 8,
-    maintenanceHorizonMonths: {
-      // Longer horizons increase enterprise readiness and long-term support relevance.
+    ownershipHorizon: {
+      // Longer ownership horizons increase enterprise readiness and long-term support relevance.
       12: 6,
-      // Longer horizons increase enterprise readiness and long-term support relevance.
+      // Longer ownership horizons increase enterprise readiness and long-term support relevance.
       24: 12,
-      // Long horizons most strongly increase enterprise readiness.
+      // Longer ownership horizons most strongly increase enterprise readiness.
       36: 18
     }
   }

@@ -29,6 +29,7 @@ import {
 } from "../data/publicSources.js";
 import { RECOMMENDATION_POLICY_VERSION } from "../model/recommendationPolicy.js";
 
+const ASSESSMENT_INPUT_SCHEMA_VERSION = 2;
 const CURRENT_MODEL_VERSION = "deterministic-fit-v1";
 const LEGACY_MODEL_VERSION = "benchmark-informed-v5";
 const CURRENT_CALIBRATION_VERSION = "heuristic-v1";
@@ -124,7 +125,7 @@ const optionLabelMaps = {
     "10-30": "10 to 30",
     "over-30": "Over 30"
   },
-  maintenanceHorizonMonths: {
+  ownershipHorizon: {
     12: "12 months",
     24: "24 months",
     36: "36 months"
@@ -181,6 +182,25 @@ function readStoredObject(key) {
   } catch {
     return null;
   }
+}
+
+function readStoredAssessmentInput() {
+  const assessmentInput = readStoredObject("assessmentInput");
+
+  if (!assessmentInput) {
+    return null;
+  }
+
+  if (assessmentInput.assessmentSchemaVersion !== ASSESSMENT_INPUT_SCHEMA_VERSION) {
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem("assessmentInput");
+      window.localStorage.removeItem("simulationResult");
+    }
+
+    return null;
+  }
+
+  return assessmentInput;
 }
 
 function clamp(value, minimum, maximum) {
@@ -692,7 +712,7 @@ function buildRiskDrivers(result, assessmentInput) {
     : 0;
   const dataHeavyScreens = Number(assessmentInput?.dataHeavyScreens) || 0;
   const supportRequirement = assessmentInput?.supportRequirement;
-  const maintenanceHorizonMonths = Number(assessmentInput?.maintenanceHorizonMonths) || 0;
+  const ownershipHorizon = Number(assessmentInput?.ownershipHorizon) || 0;
   const reactApps = Number(assessmentInput?.reactApps) || 0;
   const frontendDevelopers = Number(assessmentInput?.frontendDevelopers) || 0;
   const deadlinePressure = assessmentInput?.deadlinePressure;
@@ -791,7 +811,7 @@ function buildRiskDrivers(result, assessmentInput) {
     100
   );
   const maintenanceScore = clamp(
-    (maintenanceHorizonMonths / 36) * 42 +
+    (ownershipHorizon / 36) * 42 +
       (dependentTeams === "eight-plus"
         ? 22
         : dependentTeams === "four-seven"
@@ -844,9 +864,9 @@ function buildRiskDrivers(result, assessmentInput) {
         "Higher assurance requirements increase the value of vendor-backed behavior, fixes, and support channels."
     },
     {
-      title: "Maintenance continuity",
+      title: "Ownership continuity",
       score: maintenanceScore,
-      detail: `The model assumes a ${formatLabel("maintenanceHorizonMonths", assessmentInput?.maintenanceHorizonMonths)} horizon with ${formatLabel("dependentTeams", dependentTeams)} dependent teams, ${formatLabel("ownershipModel", ownershipModel)} ownership, and ${formatLabel("knowledgeConcentration", knowledgeConcentration)} knowledge concentration.`,
+      detail: `The model assumes a ${formatLabel("ownershipHorizon", assessmentInput?.ownershipHorizon)} ownership horizon with ${formatLabel("dependentTeams", dependentTeams)} dependent teams, ${formatLabel("ownershipModel", ownershipModel)} ownership, and ${formatLabel("knowledgeConcentration", knowledgeConcentration)} knowledge concentration.`,
       implication:
         "Longer ownership windows and staffing churn make ongoing custom maintenance more consequential."
     },
@@ -1458,8 +1478,8 @@ function EvidenceBasisGroup({ basis, items, sourceMap }) {
 }
 
 function ReportPage() {
+  const assessmentInput = readStoredAssessmentInput();
   const simulationResult = readStoredObject("simulationResult");
-  const assessmentInput = readStoredObject("assessmentInput");
   const isDeterministicFitReport =
     simulationResult?.modelVersion === CURRENT_MODEL_VERSION;
   const isLegacyReport =
@@ -2447,7 +2467,7 @@ function ReportPage() {
                         `Columns: ${formatLabel("expectedColumns", assessmentInput.expectedColumns)}`,
                         `Ownership: ${formatLabel("ownershipModel", assessmentInput.ownershipModel)}`,
                         `Advanced features: ${summarizeAdvancedFeatures(assessmentInput.advancedFeatures)}`,
-                        `Maintenance: ${formatLabel("maintenanceHorizonMonths", assessmentInput.maintenanceHorizonMonths)}`
+                        `Ownership horizon: ${formatLabel("ownershipHorizon", assessmentInput.ownershipHorizon)}`
                       ].map((chip) => (
                         <Chip key={chip} label={chip} size="small" variant="outlined" />
                       ))}

@@ -68,8 +68,7 @@ flowchart LR
     reworkFrequency["reworkFrequency"]
     deadlinePressure["deadlinePressure"]
     supportRequirement["supportRequirement"]
-    maintenanceHorizonMonths["maintenanceHorizonMonths"]
-    engineerCostPerDay["engineerCostPerDay"]
+    ownershipHorizon["ownershipHorizon"]
     performanceSensitivity["performanceSensitivity"]
     knowledgeConcentration["knowledgeConcentration"]
     designDevHandoffFriction["designDevHandoffFriction"]
@@ -302,14 +301,8 @@ flowchart LR
   supportRequirement --> buildTierScore
   supportRequirement --> enterpriseTierScore
 
-  maintenanceHorizonMonths --> horizonYears
-  maintenanceHorizonMonths --> buildMaintenance
-  maintenanceHorizonMonths --> muiMaintenance
-  maintenanceHorizonMonths --> muiTotalCost
-
-  engineerCostPerDay --> laborCostPerWeek
-  engineerCostPerDay --> buildTotalCost
-  engineerCostPerDay --> muiTotalCost
+  ownershipHorizon --> enterpriseReadiness
+  ownershipHorizon --> enterpriseNeed
 
   performanceSensitivity --> qualityBurden
   performanceSensitivity --> qualityRisk
@@ -443,7 +436,7 @@ flowchart LR
 - `existingMuiUsage` improves `adoptionBoost`, `coverageScore`, and `muiLeverage`, lowers `integrationRisk` and `muiAdoptionBurden`, and can reduce `buildReuseLeverage` when the codebase is already standardized.
 - `designSystemMaturity` improves `internalAbsorption` and `buildReuseLeverage`, lowers `ownershipBurden`, and can increase `muiAdoptionBurden` when `existingMuiUsage` is none.
 - `supportRequirement` raises `supportNeed`, increases `enterpriseReadiness`, can create `supportGap` for weaker MUI paths, and should not force Enterprise by itself.
-- `engineerCostPerDay` affects only TCO-related cost artifacts and should not affect effort, fit, velocity, or schedule.
+- `ownershipHorizon` affects enterprise readiness and vendor-backed path relevance, but should not affect effort, fit, velocity, schedule, or cost assumptions.
 - `dependentTeams` is bad for `ownershipBurden`, `internalAbsorption`, and `downsideTailRisk`, while making `enterpriseReadiness` more contextually relevant and increasing Enterprise seat exposure.
 
 ## Maintenance Rules

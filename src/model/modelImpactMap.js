@@ -1494,90 +1494,32 @@ export const MODEL_IMPACT_MAP = {
       }
     ]
   },
-  maintenanceHorizonMonths: {
-    label: "Maintenance horizon months",
-    group: "Lifecycle cost",
-    direction: "cost",
+  ownershipHorizon: {
+    label: "Ownership horizon",
+    group: "Lifecycle support",
+    direction: "contextual",
     summary:
-      "A longer horizon increases post-launch maintenance exposure and makes license cost more meaningful.",
+      "A longer ownership horizon increases support relevance and makes vendor-backed paths more attractive.",
     impacts: [
       {
-        artifact: "horizonYears",
-        stage: "simulationPrep",
-        path: "Both",
+        artifact: "enterpriseReadiness",
+        stage: "derivedFactor",
+        path: "Vendor-backed / standardized paths",
         direction: "neutral",
-        effectType: "enum-step",
+        effectType: "linear",
         effectScale: "small",
-        calculatedIn: "runSimulation",
-        reason: "The maintenance horizon is converted into years for simulation math."
+        calculatedIn: "buildDerivedFactors",
+        reason: "Longer ownership horizons reinforce long-lived support relevance."
       },
       {
-        artifact: "buildMaintenance",
-        stage: "buildEstimate",
-        path: "Build",
-        direction: "cost",
+        artifact: "enterpriseNeed",
+        stage: "scorecardRisk",
+        path: "Vendor-backed / standardized paths",
+        direction: "contextual",
         effectType: "linear",
-        effectScale: "moderate",
-        calculatedIn: "runSimulation",
-        calibrationRef: "simulation.build.maintenanceWeeks",
-        reason: "Longer horizons increase Build maintenance exposure."
-      },
-      {
-        artifact: "muiMaintenance",
-        stage: "muiEstimate",
-        path: "MUI",
-        direction: "cost",
-        effectType: "linear",
-        effectScale: "moderate",
-        calculatedIn: "runSimulation",
-        calibrationRef: "simulation.mui.maintenanceWeeks",
-        reason: "Longer horizons increase MUI maintenance exposure."
-      },
-      {
-        artifact: "muiTotalCost",
-        stage: "muiEstimate",
-        path: "Paid MUI",
-        direction: "cost",
-        effectType: "cost-only",
-        effectScale: "moderate",
-        calculatedIn: "runSimulation",
-        reason: "Longer horizons flow into the total MUI TCO."
-      }
-    ]
-  },
-  engineerCostPerDay: {
-    label: "Engineer cost per day",
-    group: "Lifecycle cost",
-    direction: "cost",
-    summary:
-      "Day rate converts effort into labor TCO and must not be treated as an effort signal.",
-    impacts: [
-      {
-        artifact: "laborCostPerWeek",
-        stage: "simulationPrep",
-        path: "Both",
-        direction: "cost",
-        effectType: "cost-only",
-        calculatedIn: "runSimulation",
-        reason: "The day rate is converted into a weekly labor rate for TCO math."
-      },
-      {
-        artifact: "buildTotalCost",
-        stage: "buildEstimate",
-        path: "Build",
-        direction: "cost",
-        effectType: "cost-only",
-        calculatedIn: "runSimulation",
-        reason: "Labor cost flows directly into Build TCO."
-      },
-      {
-        artifact: "muiTotalCost",
-        stage: "muiEstimate",
-        path: "Paid MUI",
-        direction: "cost",
-        effectType: "cost-only",
-        calculatedIn: "runSimulation",
-        reason: "Labor cost flows directly into MUI TCO."
+        effectScale: "small",
+        calculatedIn: "buildScorecard",
+        reason: "Ownership horizons help translate enterprise readiness into vendor-backed path relevance."
       }
     ]
   },

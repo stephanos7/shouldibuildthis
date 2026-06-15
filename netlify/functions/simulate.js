@@ -89,7 +89,7 @@ const SUPPORT_REQUIREMENTS = new Set([
   "priority",
   "procurement-sla"
 ]);
-const MAINTENANCE_HORIZONS = new Set([12, 24, 36]);
+const OWNERSHIP_HORIZONS = new Set([12, 24, 36]);
 const ADVANCED_FEATURES = new Set([
   "virtualization",
   "inline-editing",
@@ -400,6 +400,8 @@ function normalizeInput(payload) {
         )
       ]
     : [];
+  const ownershipHorizon =
+    payload.ownershipHorizon ?? payload.maintenanceHorizonMonths;
 
   return {
     frontendDevelopers: Number(payload.frontendDevelopers),
@@ -421,10 +423,9 @@ function normalizeInput(payload) {
     designDevHandoffFriction: payload.designDevHandoffFriction,
     componentStandardizationGoal: payload.componentStandardizationGoal,
     deadlinePressure: payload.deadlinePressure,
-    maintenanceHorizonMonths: Number(payload.maintenanceHorizonMonths),
+    ownershipHorizon: Number(ownershipHorizon),
     supportRequirement: payload.supportRequirement,
-    productionCriticality: payload.productionCriticality,
-    engineerCostPerDay: Number(payload.engineerCostPerDay)
+    productionCriticality: payload.productionCriticality
   };
 }
 
@@ -448,18 +449,6 @@ function validateInteger(
   return "";
 }
 
-function validateNumber(value, label, { minimum = 0 } = {}) {
-  if (!Number.isFinite(value)) {
-    return `${label} must be a number.`;
-  }
-
-  if (value <= minimum) {
-    return `${label} must be greater than ${minimum}.`;
-  }
-
-  return "";
-}
-
 function validateEnum(value, label, allowedValues) {
   return allowedValues.has(value) ? "" : `${label} is invalid.`;
 }
@@ -470,6 +459,8 @@ function isBlank(value) {
 
 function validatePayload(normalized, originalPayload) {
   const errors = [];
+  const ownershipHorizon =
+    originalPayload.ownershipHorizon ?? originalPayload.maintenanceHorizonMonths;
 
   if (isBlank(originalPayload.frontendDevelopers)) {
     errors.push("frontendDevelopers is required.");
@@ -696,20 +687,10 @@ function validatePayload(normalized, originalPayload) {
     );
   }
 
-  if (isBlank(originalPayload.maintenanceHorizonMonths)) {
-    errors.push("maintenanceHorizonMonths is required.");
-  } else if (!MAINTENANCE_HORIZONS.has(normalized.maintenanceHorizonMonths)) {
-    errors.push("maintenanceHorizonMonths is invalid.");
-  }
-
-  if (isBlank(originalPayload.engineerCostPerDay)) {
-    errors.push("engineerCostPerDay is required.");
-  } else {
-    errors.push(
-      validateNumber(normalized.engineerCostPerDay, "engineerCostPerDay", {
-        minimum: 0
-      })
-    );
+  if (isBlank(ownershipHorizon)) {
+    errors.push("ownershipHorizon is required.");
+  } else if (!OWNERSHIP_HORIZONS.has(normalized.ownershipHorizon)) {
+    errors.push("ownershipHorizon is invalid.");
   }
 
   if (!Array.isArray(originalPayload.advancedFeatures)) {
@@ -893,13 +874,14 @@ function buildDerivedFactors(input) {
         derivedWeights.enterpriseReadiness.standardizationGoal +
       productionCriticality *
         derivedWeights.enterpriseReadiness.productionCriticality +
-      derivedWeights.enterpriseReadiness.maintenanceHorizonMonths[
-        input.maintenanceHorizonMonths
+      derivedWeights.enterpriseReadiness.ownershipHorizon[
+        input.ownershipHorizon
       ],
     [
       `${input.supportRequirement} support expectations raise enterprise relevance.`,
       `${countLabel(input.reactApps, "React app")} and ${input.dependentTeams} dependent teams widen the rollout footprint.`,
-      `${input.componentStandardizationGoal} standardization intent and ${input.productionCriticality} criticality affect platform pressure.`
+      `${input.componentStandardizationGoal} standardization intent and ${input.productionCriticality} criticality affect platform pressure.`,
+      `${input.ownershipHorizon}-month ownership horizon reinforces long-lived support planning.`
     ]
   );
 
