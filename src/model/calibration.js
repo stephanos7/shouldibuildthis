@@ -956,6 +956,162 @@ export const SCENARIO_LEVER_WEIGHTS = {
   }
 };
 
+export const FIT_SIGNAL_SCALES = {
+  ownershipClarity: {
+    "same-product-team": 1,
+    "frontend-platform-team": 0.84,
+    "several-teams-informal": 0.48,
+    unclear: 0.24
+  },
+  teamFocus: {
+    one: 1,
+    "two-three": 0.74,
+    "four-seven": 0.42,
+    "eight-plus": 0.18
+  },
+  reworkStability: {
+    rare: 1,
+    occasional: 0.62,
+    frequent: 0.22,
+    unknown: 0.44
+  },
+  deadlineSlack: {
+    low: 1,
+    medium: 0.62,
+    high: 0.26
+  },
+  supportLightness: {
+    community: 1,
+    standard: 0.74,
+    priority: 0.46,
+    "procurement-sla": 0.18
+  },
+  maturityStrength: {
+    low: 0.3,
+    medium: 0.62,
+    high: 1
+  },
+  knowledgeSpread: {
+    shared: 1,
+    "few-owners": 0.62,
+    "single-owner": 0.22,
+    unknown: 0.44
+  },
+  handoffAlignment: {
+    low: 1,
+    medium: 0.68,
+    high: 0.32,
+    unknown: 0.52
+  },
+  muiUsageReadiness: {
+    none: 0.25,
+    some: 0.65,
+    standardized: 1
+  },
+  muiUsageLeverage: {
+    none: 0.22,
+    some: 0.58,
+    standardized: 1
+  },
+  planPowerReadiness: {
+    core: 0.45,
+    premium: 0.78,
+    enterprise: 0.95
+  },
+  packagedAffinity: {
+    "date-pickers": 0.66,
+    charts: 0.58,
+    "multi-component": 0.62,
+    "tree-view": 0.62,
+    "data-grid": 0.72,
+    scheduler: 0.78
+  }
+};
+
+export const SCENARIO_LEVER_RUNTIME = {
+  appFocus: {
+    baselineApps: 1,
+    perAdditionalAppPenalty: 0.16,
+    floor: 0.42,
+    ceiling: 1
+  },
+  scopeSimplicity: {
+    featureDenominator: 6,
+    featureWeight: 0.42,
+    rowDenominator: 3,
+    rowWeight: 0.2,
+    columnDenominator: 2,
+    columnWeight: 0.14,
+    useCasePenalties: {
+      "date-pickers": 0.08,
+      charts: 0.14,
+      "multi-component": 0.2,
+      "tree-view": 0.24,
+      "data-grid": 0.32,
+      scheduler: 0.38
+    },
+    floor: 0.12,
+    ceiling: 1
+  },
+  buildReuseBonus: {
+    existingMuiUsage: {
+      none: {
+        low: 0.04,
+        medium: 0.09,
+        high: 0.16
+      },
+      some: 0.02,
+      standardized: -0.08
+    },
+    featureCountDenominator: 7,
+    featureCountFloor: 0.18,
+    scaleProfileDenominator: 5,
+    scaleProfileFloor: 0.18
+  },
+  featurePerformanceStress: {
+    featureWeights: {
+      "custom-rendering": 0.22,
+      "drag-and-drop": 0.16,
+      "server-side-data": 0.14,
+      virtualization: 0.12,
+      "i18n-localization": 0.08,
+      "timezone-logic": 0.08
+    },
+    maximum: 0.55
+  },
+  muiLeverageFeatureCount: {
+    denominator: 6,
+    floor: 0.08,
+    ceiling: 1
+  },
+  downsideTailRisk: {
+    featureCount: {
+      denominator: 6,
+      floor: 0,
+      ceiling: 1
+    },
+    reactApps: {
+      denominator: 5,
+      floor: 0.08,
+      ceiling: 1
+    }
+  },
+  performanceReadiness: {
+    mui: {
+      deliveryStrength: 0.07,
+      planPowerReadiness: 0.05
+    },
+    build: {
+      internalAbsorption: 0.34,
+      buildReuseLeverage: 0.24,
+      knowledgeSpread: 0.16,
+      handoffAlignment: 0.12,
+      ownershipClarity: 0.08,
+      deliveryStrength: 0.06
+    }
+  }
+};
+
 /*
  * Recommendation policy weights
  * -----------------------------

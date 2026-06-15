@@ -9,6 +9,8 @@ import {
   PLAN_FIT_WEIGHTS,
   PLAN_CONFIG,
   SCORE_BANDS,
+  FIT_SIGNAL_SCALES,
+  SCENARIO_LEVER_RUNTIME,
   SCENARIO_LEVER_WEIGHTS
 } from "../../src/model/calibration.js";
 
@@ -1303,6 +1305,8 @@ function buildPlanFit(planKey, input, derivedFactors) {
 
 function buildScenarioLevers(input, scorecard) {
   const scenarioWeights = SCENARIO_LEVER_WEIGHTS;
+  const signalScales = FIT_SIGNAL_SCALES;
+  const runtime = SCENARIO_LEVER_RUNTIME;
   const planFit = scorecard.effectivePlanFit;
   const featureCount = input.advancedFeatures.length;
   const rowScale = EXPECTED_ROWS_INDEX[input.expectedRows];
@@ -1314,77 +1318,39 @@ function buildScenarioLevers(input, scorecard) {
     PERFORMANCE_SENSITIVITY_INDEX[input.performanceSensitivity] / 3;
   const productionPressure =
     PRODUCTION_CRITICALITY_INDEX[input.productionCriticality] / 3;
-  const ownershipClarity = {
-    "same-product-team": 1,
-    "frontend-platform-team": 0.84,
-    "several-teams-informal": 0.48,
-    unclear: 0.24
-  }[input.ownershipModel];
-  const teamFocus = {
-    one: 1,
-    "two-three": 0.74,
-    "four-seven": 0.42,
-    "eight-plus": 0.18
-  }[input.dependentTeams];
-  const reworkStability = {
-    rare: 1,
-    occasional: 0.62,
-    frequent: 0.22,
-    unknown: 0.44
-  }[input.reworkFrequency];
-  const deadlineSlack = {
-    low: 1,
-    medium: 0.62,
-    high: 0.26
-  }[input.deadlinePressure];
-  const supportLightness = {
-    community: 1,
-    standard: 0.74,
-    priority: 0.46,
-    "procurement-sla": 0.18
-  }[input.supportRequirement];
-  const appFocus = clamp(1 - Math.max(0, input.reactApps - 1) * 0.16, 0.42, 1);
-  const maturityStrength = {
-    low: 0.3,
-    medium: 0.62,
-    high: 1
-  }[input.designSystemMaturity];
-  const knowledgeSpread = {
-    shared: 1,
-    "few-owners": 0.62,
-    "single-owner": 0.22,
-    unknown: 0.44
-  }[input.knowledgeConcentration];
-  const handoffAlignment = {
-    low: 1,
-    medium: 0.68,
-    high: 0.32,
-    unknown: 0.52
-  }[input.designDevHandoffFriction];
+  const ownershipClarity = signalScales.ownershipClarity[input.ownershipModel];
+  const teamFocus = signalScales.teamFocus[input.dependentTeams];
+  const reworkStability = signalScales.reworkStability[input.reworkFrequency];
+  const deadlineSlack = signalScales.deadlineSlack[input.deadlinePressure];
+  const supportLightness = signalScales.supportLightness[input.supportRequirement];
+  const appFocus = clamp(
+    1 -
+      Math.max(0, input.reactApps - runtime.appFocus.baselineApps) *
+        runtime.appFocus.perAdditionalAppPenalty,
+    runtime.appFocus.floor,
+    runtime.appFocus.ceiling
+  );
+  const maturityStrength =
+    signalScales.maturityStrength[input.designSystemMaturity];
+  const knowledgeSpread = signalScales.knowledgeSpread[
+    input.knowledgeConcentration
+  ];
+  const handoffAlignment = signalScales.handoffAlignment[
+    input.designDevHandoffFriction
+  ];
   const scopeSimplicity = clamp(
     1 -
-      ((featureCount / 6) * 0.42 +
-        ((rowScale - 1) / 3) * 0.2 +
-        ((columnScale - 1) / 2) * 0.14 +
-        {
-          "date-pickers": 0.08,
-          charts: 0.14,
-          "multi-component": 0.2,
-          "tree-view": 0.24,
-          "data-grid": 0.32,
-          scheduler: 0.38
-        }[input.primaryUseCase]),
-    0.12,
-    1
+      ((featureCount / runtime.scopeSimplicity.featureDenominator) *
+        runtime.scopeSimplicity.featureWeight +
+        ((rowScale - 1) / runtime.scopeSimplicity.rowDenominator) *
+          runtime.scopeSimplicity.rowWeight +
+        ((columnScale - 1) / runtime.scopeSimplicity.columnDenominator) *
+          runtime.scopeSimplicity.columnWeight +
+        runtime.scopeSimplicity.useCasePenalties[input.primaryUseCase]),
+    runtime.scopeSimplicity.floor,
+    runtime.scopeSimplicity.ceiling
   );
-  const packagedAffinity = {
-    "date-pickers": 0.66,
-    charts: 0.58,
-    "multi-component": 0.62,
-    "tree-view": 0.62,
-    "data-grid": 0.72,
-    scheduler: 0.78
-  }[input.primaryUseCase];
+  const packagedAffinity = signalScales.packagedAffinity[input.primaryUseCase];
 
   const internalAbsorptionScore = clamp(
     scorecard.deliveryStrength *
@@ -1404,13 +1370,13 @@ function buildScenarioLevers(input, scorecard) {
   const buildReuseBonus =
     input.existingMuiUsage === "none"
       ? input.designSystemMaturity === "high"
-        ? 0.16
+        ? runtime.buildReuseBonus.existingMuiUsage.none.high
         : input.designSystemMaturity === "medium"
-          ? 0.09
-          : 0.04
+          ? runtime.buildReuseBonus.existingMuiUsage.none.medium
+          : runtime.buildReuseBonus.existingMuiUsage.none.low
       : input.existingMuiUsage === "some"
-        ? 0.02
-        : -0.08;
+        ? runtime.buildReuseBonus.existingMuiUsage.some
+        : runtime.buildReuseBonus.existingMuiUsage.standardized;
   const buildReuseLeverageScore = clamp(
     maturityStrength * scenarioWeights.buildReuse.maturityStrength +
       ownershipClarity * scenarioWeights.buildReuse.ownershipClarity +
@@ -1418,35 +1384,56 @@ function buildScenarioLevers(input, scorecard) {
       knowledgeSpread * scenarioWeights.buildReuse.knowledgeSpread +
       handoffAlignment * scenarioWeights.buildReuse.handoffAlignment +
       scopeSimplicity * scenarioWeights.buildReuse.scopeSimplicity +
-      clamp(1 - featureCount / 7, 0.18, 1) *
+      clamp(
+        1 - featureCount / runtime.buildReuseBonus.featureCountDenominator,
+        runtime.buildReuseBonus.featureCountFloor,
+        1
+      ) *
         scenarioWeights.buildReuse.featureCount +
       standardizationIntent *
         maturityStrength *
         ownershipClarity *
         scenarioWeights.buildReuse.standardizationInteraction +
-      clamp(1 - (rowScale + columnScale - 2) / 5, 0.18, 1) *
+      clamp(
+        1 - (rowScale + columnScale - 2) /
+          runtime.buildReuseBonus.scaleProfileDenominator,
+        runtime.buildReuseBonus.scaleProfileFloor,
+        1
+      ) *
         scenarioWeights.buildReuse.scaleProfile +
       buildReuseBonus,
     0,
     1
   );
   const muiUsageReadiness =
-    { none: 0.25, some: 0.65, standardized: 1 }[input.existingMuiUsage] ?? 0.25;
+    signalScales.muiUsageReadiness[input.existingMuiUsage] ??
+    signalScales.muiUsageReadiness.none;
   const planPowerReadiness =
-    scorecard.effectiveMuiPlan === "core"
-      ? 0.45
-      : scorecard.effectiveMuiPlan === "premium"
-        ? 0.78
-        : 0.95;
+    signalScales.planPowerReadiness[scorecard.effectiveMuiPlan] ??
+    signalScales.planPowerReadiness.enterprise;
   const featurePerformanceStress = clamp(
-    (input.advancedFeatures.includes("custom-rendering") ? 0.22 : 0) +
-      (input.advancedFeatures.includes("drag-and-drop") ? 0.16 : 0) +
-      (input.advancedFeatures.includes("server-side-data") ? 0.14 : 0) +
-      (input.advancedFeatures.includes("virtualization") ? 0.12 : 0) +
-      (input.advancedFeatures.includes("i18n-localization") ? 0.08 : 0) +
-      (input.advancedFeatures.includes("timezone-logic") ? 0.08 : 0),
+    (input.advancedFeatures.includes("custom-rendering")
+      ? runtime.featurePerformanceStress.featureWeights["custom-rendering"]
+      : 0) +
+      (input.advancedFeatures.includes("drag-and-drop")
+        ? runtime.featurePerformanceStress.featureWeights["drag-and-drop"]
+        : 0) +
+      (input.advancedFeatures.includes("server-side-data")
+        ? runtime.featurePerformanceStress.featureWeights["server-side-data"]
+        : 0) +
+      (input.advancedFeatures.includes("virtualization")
+        ? runtime.featurePerformanceStress.featureWeights.virtualization
+        : 0) +
+      (input.advancedFeatures.includes("i18n-localization")
+        ? runtime.featurePerformanceStress.featureWeights[
+            "i18n-localization"
+          ]
+        : 0) +
+      (input.advancedFeatures.includes("timezone-logic")
+        ? runtime.featurePerformanceStress.featureWeights["timezone-logic"]
+        : 0),
     0,
-    0.55
+    runtime.featurePerformanceStress.maximum
   );
   const muiPerformanceReadiness = clamp(
     (planFit.coverageScore / 100) * scenarioWeights.muiLeverage.coverageScore +
@@ -1454,8 +1441,9 @@ function buildScenarioLevers(input, scorecard) {
       (1 - planFit.integrationRisk) * scenarioWeights.muiLeverage.supportGap +
       muiUsageReadiness * scenarioWeights.muiLeverage.existingMuiUsage +
       handoffAlignment * scenarioWeights.muiLeverage.handoffAlignment +
-      scorecard.deliveryStrength * 0.07 +
-      planPowerReadiness * 0.05 -
+      scorecard.deliveryStrength *
+        runtime.performanceReadiness.mui.deliveryStrength +
+      planPowerReadiness * runtime.performanceReadiness.mui.planPowerReadiness -
       featurePerformanceStress,
     0,
     1
@@ -1464,12 +1452,15 @@ function buildScenarioLevers(input, scorecard) {
   const muiPerformanceBurden =
     performancePressure * (1 - muiPerformanceReadiness);
   const buildPerformanceReadiness = clamp(
-    internalAbsorptionScore * 0.34 +
-      buildReuseLeverageScore * 0.24 +
-      knowledgeSpread * 0.16 +
-      handoffAlignment * 0.12 +
-      ownershipClarity * 0.08 +
-      scorecard.deliveryStrength * 0.06,
+    internalAbsorptionScore *
+      runtime.performanceReadiness.build.internalAbsorption +
+      buildReuseLeverageScore *
+        runtime.performanceReadiness.build.buildReuseLeverage +
+      knowledgeSpread * runtime.performanceReadiness.build.knowledgeSpread +
+      handoffAlignment * runtime.performanceReadiness.build.handoffAlignment +
+      ownershipClarity * runtime.performanceReadiness.build.ownershipClarity +
+      scorecard.deliveryStrength *
+        runtime.performanceReadiness.build.deliveryStrength,
     0,
     1
   );
@@ -1490,13 +1481,17 @@ function buildScenarioLevers(input, scorecard) {
           scenarioWeights.muiLeverage.coverageGap +
         clamp(1 - planFit.supportGap, 0, 1) *
           scenarioWeights.muiLeverage.supportGap +
-        { none: 0.22, some: 0.58, standardized: 1 }[input.existingMuiUsage] *
+        signalScales.muiUsageLeverage[input.existingMuiUsage] *
           scenarioWeights.muiLeverage.existingMuiUsage +
         standardizationIntent *
           clamp(planFit.coverageScore / 100, 0, 1) *
           scenarioWeights.muiLeverage.standardizationIntent +
         packagedAffinity * scenarioWeights.muiLeverage.packagedAffinity +
-        clamp(featureCount / 6, 0.08, 1) *
+        clamp(
+          featureCount / runtime.muiLeverageFeatureCount.denominator,
+          runtime.muiLeverageFeatureCount.floor,
+          runtime.muiLeverageFeatureCount.ceiling
+        ) *
           scenarioWeights.muiLeverage.featureCount +
         muiPerformanceRelief * scenarioWeights.muiLeverage.performanceRelief,
       [
@@ -1541,17 +1536,25 @@ function buildScenarioLevers(input, scorecard) {
       scorecard.ownershipRisk * scenarioWeights.downsideTailRisk.ownershipRisk +
         scorecard.deliveryRisk * scenarioWeights.downsideTailRisk.deliveryRisk +
         scorecard.qualityRisk * scenarioWeights.downsideTailRisk.qualityRisk +
-        scorecard.functionalRisk *
+      scorecard.functionalRisk *
           scenarioWeights.downsideTailRisk.functionalRisk +
         scenarioWeights.downsideTailRisk.dependentTeams[input.dependentTeams] *
           scenarioWeights.downsideTailRisk.dependentTeamsMultiplier +
-        clamp(input.reactApps / 5, 0.08, 1) *
+        clamp(
+          input.reactApps / runtime.downsideTailRisk.reactApps.denominator,
+          runtime.downsideTailRisk.reactApps.floor,
+          runtime.downsideTailRisk.reactApps.ceiling
+        ) *
           scenarioWeights.downsideTailRisk.reactApps +
         scenarioWeights.downsideTailRisk.accessibilityTarget[
           input.accessibilityTarget
         ] *
           scenarioWeights.downsideTailRisk.accessibilityTargetMultiplier +
-        clamp(featureCount / 6, 0, 1) *
+        clamp(
+          featureCount / runtime.downsideTailRisk.featureCount.denominator,
+          runtime.downsideTailRisk.featureCount.floor,
+          runtime.downsideTailRisk.featureCount.ceiling
+        ) *
           scenarioWeights.downsideTailRisk.featureCount +
         clamp((rowScale + columnScale - 2) / 5, 0, 1) *
           scenarioWeights.downsideTailRisk.scaleProfile +
@@ -1624,18 +1627,11 @@ function buildScorecard(input, derivedFactors) {
     KNOWLEDGE_CONCENTRATION_INDEX[input.knowledgeConcentration];
   const handoffFriction =
     DESIGN_DEV_HANDOFF_FRICTION_INDEX[input.designDevHandoffFriction];
-  const knowledgeSpread = {
-    shared: 1,
-    "few-owners": 0.62,
-    "single-owner": 0.22,
-    unknown: 0.44
-  }[input.knowledgeConcentration];
-  const handoffAlignment = {
-    low: 1,
-    medium: 0.68,
-    high: 0.32,
-    unknown: 0.52
-  }[input.designDevHandoffFriction];
+  const signalScales = FIT_SIGNAL_SCALES;
+  const runtime = SCENARIO_LEVER_RUNTIME;
+  const knowledgeSpread = signalScales.knowledgeSpread[input.knowledgeConcentration];
+  const handoffAlignment =
+    signalScales.handoffAlignment[input.designDevHandoffFriction];
   const performanceSensitivity =
     PERFORMANCE_SENSITIVITY_INDEX[input.performanceSensitivity];
   const teamScale = bucket(
@@ -1654,41 +1650,20 @@ function buildScorecard(input, derivedFactors) {
     premium: buildPlanFit("premium", input, derivedFactors),
     enterprise: buildPlanFit("enterprise", input, derivedFactors)
   };
-  const ownershipClarity = {
-    "same-product-team": 1,
-    "frontend-platform-team": 0.84,
-    "several-teams-informal": 0.48,
-    unclear: 0.24
-  }[input.ownershipModel];
-  const teamFocus = {
-    one: 1,
-    "two-three": 0.74,
-    "four-seven": 0.42,
-    "eight-plus": 0.18
-  }[input.dependentTeams];
-  const reworkStability = {
-    rare: 1,
-    occasional: 0.62,
-    frequent: 0.22,
-    unknown: 0.44
-  }[input.reworkFrequency];
-  const deadlineSlack = {
-    low: 1,
-    medium: 0.62,
-    high: 0.26
-  }[input.deadlinePressure];
-  const supportLightness = {
-    community: 1,
-    standard: 0.74,
-    priority: 0.46,
-    "procurement-sla": 0.18
-  }[input.supportRequirement];
-  const appFocus = clamp(1 - Math.max(0, input.reactApps - 1) * 0.16, 0.42, 1);
-  const maturityStrength = {
-    low: 0.3,
-    medium: 0.62,
-    high: 1
-  }[input.designSystemMaturity];
+  const ownershipClarity = signalScales.ownershipClarity[input.ownershipModel];
+  const teamFocus = signalScales.teamFocus[input.dependentTeams];
+  const reworkStability = signalScales.reworkStability[input.reworkFrequency];
+  const deadlineSlack = signalScales.deadlineSlack[input.deadlinePressure];
+  const supportLightness = signalScales.supportLightness[input.supportRequirement];
+  const appFocus = clamp(
+    1 -
+      Math.max(0, input.reactApps - runtime.appFocus.baselineApps) *
+        runtime.appFocus.perAdditionalAppPenalty,
+    runtime.appFocus.floor,
+    runtime.appFocus.ceiling
+  );
+  const maturityStrength =
+    signalScales.maturityStrength[input.designSystemMaturity];
   const internalAbsorptionStrength = clamp(
     deliveryStrength * SCENARIO_LEVER_WEIGHTS.internalAbsorption.deliveryStrength +
       maturityStrength * SCENARIO_LEVER_WEIGHTS.internalAbsorption.maturityStrength +
