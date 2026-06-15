@@ -6,6 +6,17 @@ This document shows how the recommendation model moves from raw assessment input
 
 `MODEL_ARTIFACT_GLOSSARY` owns artifact meaning and lifecycle notes. `MODEL_IMPACT_MAP` owns causal relationships. `CALIBRATION` controls actual numeric behavior.
 
+## Score display semantics
+
+The report distinguishes input-profile metrics from path-fit metrics.
+
+Input-profile metrics use factor-specific labels such as Low quality burden
+or High delivery strength. Path-fit metrics use Strong fit, Mixed fit, or Low
+fit.
+
+Numeric scores remain visible because they help calibration and show movement
+within a band, but the qualitative label carries the user-facing interpretation.
+
 ## Model Stage Overview
 
 - `rawInput`: assessment answers submitted by the user.

@@ -86,7 +86,7 @@
  *    actually derived from a dataset or cited source.
  */
 
-export const CALIBRATION_VERSION = "heuristic-v1";
+export const CALIBRATION_VERSION = "heuristic-v2";
 
 /*
  * Calibration glossary
@@ -811,6 +811,27 @@ export const CALIBRATION = {
     deliveryMaturity: {},
     ownershipBurden: {},
     enterpriseReadiness: {}
+  },
+
+  deliveryMaturityCaps: {
+    changeLeadTime: {
+      "less-than-day": 100,
+      "one-day-to-one-week": 88,
+      "one-week-to-one-month": 74,
+      "more-than-month": 60,
+      unknown: 72
+    },
+    reworkFrequency: {
+      rare: 100,
+      occasional: 86,
+      frequent: 64,
+      unknown: 74
+    },
+    deadlinePressure: {
+      low: 100,
+      medium: 88,
+      high: 76
+    }
   },
 
   planFit: {

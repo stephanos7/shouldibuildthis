@@ -1,5 +1,6 @@
 import { PUBLIC_BENCHMARK_SOURCES } from "../../src/data/publicSources.js";
 import {
+  CALIBRATION,
   CALIBRATION_VERSION,
   DERIVED_FACTOR_WEIGHTS,
   PATH_SCORE_WEIGHTS,
@@ -1011,16 +1012,38 @@ function buildDerivedFactors(input) {
     ]
   );
 
-  const deliveryMaturity = buildFactor(
+  const rawDeliveryMaturity =
     derivedWeights.deliveryMaturity.base +
-      changeLeadTime * derivedWeights.deliveryMaturity.changeLeadTime +
-      reworkFrequency * derivedWeights.deliveryMaturity.reworkFrequency +
-      derivedWeights.deliveryMaturity.deadlinePressure[input.deadlinePressure],
-    [
-      `${input.changeLeadTime} lead time sets the delivery-flow baseline.`,
-      `${input.reworkFrequency} rework frequency changes how reliably work sticks.`,
-      `${input.deadlinePressure} deadline pressure adjusts delivery slack.`
-    ]
+    changeLeadTime * derivedWeights.deliveryMaturity.changeLeadTime +
+    reworkFrequency * derivedWeights.deliveryMaturity.reworkFrequency +
+    derivedWeights.deliveryMaturity.deadlinePressure[input.deadlinePressure];
+  const deliveryMaturityCaps = CALIBRATION.deliveryMaturityCaps;
+  const deliveryMaturityCap = Math.min(
+    deliveryMaturityCaps.changeLeadTime[input.changeLeadTime],
+    deliveryMaturityCaps.reworkFrequency[input.reworkFrequency],
+    deliveryMaturityCaps.deadlinePressure[input.deadlinePressure]
+  );
+  const deliveryMaturityDrivers = [
+    input.changeLeadTime === "more-than-month"
+      ? "More-than-month lead time limits delivery strength because changes move slowly through the system."
+      : `${input.changeLeadTime} lead time sets the delivery-flow baseline.`,
+    input.reworkFrequency === "rare"
+      ? "Rare rework supports delivery maturity because changes usually stick without repeated correction."
+      : `${input.reworkFrequency} rework frequency changes how reliably work sticks.`,
+    input.deadlinePressure === "low"
+      ? "Low deadline pressure preserves delivery slack."
+      : `${input.deadlinePressure} deadline pressure adjusts delivery slack.`
+  ];
+
+  if (rawDeliveryMaturity > deliveryMaturityCap) {
+    deliveryMaturityDrivers.push(
+      "The lead-time constraint caps the delivery maturity score despite favorable rework and deadline-pressure inputs."
+    );
+  }
+
+  const deliveryMaturity = buildFactor(
+    Math.min(rawDeliveryMaturity, deliveryMaturityCap),
+    deliveryMaturityDrivers
   );
 
   const ownershipBurden = buildFactor(

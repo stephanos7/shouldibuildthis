@@ -63,6 +63,17 @@ Each path fit contains:
 
 These are fit signals, not delivery or cost estimates.
 
+## Score display semantics
+
+The report distinguishes input-profile metrics from path-fit metrics.
+
+Input-profile metrics use factor-specific labels such as `Low quality burden`
+or `High delivery strength`. Path-fit metrics use `Strong fit`, `Mixed fit`,
+or `Low fit`.
+
+Numeric scores remain visible because they help calibration and show movement
+within a band, but the qualitative label carries the user-facing interpretation.
+
 ## Recommendation
 
 `buildDeterministicRecommendation(input, derivedFactors, scorecard, pathFits)`:

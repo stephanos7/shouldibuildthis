@@ -7,7 +7,6 @@ import {
   Chip,
   Divider,
   Grid,
-  LinearProgress,
   Stack,
   Table,
   TableBody,
@@ -27,7 +26,7 @@ import {
 
 const ASSESSMENT_INPUT_SCHEMA_VERSION = 2;
 const CURRENT_MODEL_VERSION = "deterministic-fit-v2";
-const CURRENT_CALIBRATION_VERSION = "heuristic-v1";
+const CURRENT_CALIBRATION_VERSION = "heuristic-v2";
 
 const optionLabelMaps = {
   existingMuiUsage: {
@@ -164,6 +163,44 @@ const pathLabels = {
   enterprise: "MUI X Enterprise fit"
 };
 
+const metricDisplayConfig = {
+  functionalComplexity: {
+    type: "burden",
+    label: "Functional complexity",
+    noun: "scope complexity",
+    helper:
+      "Higher means the UI requirement creates more custom implementation surface."
+  },
+  qualityBurden: {
+    type: "burden",
+    label: "Quality burden",
+    noun: "quality burden",
+    helper:
+      "Higher means more verification, accessibility, performance, or regression burden."
+  },
+  deliveryMaturity: {
+    type: "strength",
+    label: "Delivery maturity",
+    noun: "delivery strength",
+    helper:
+      "Higher means the team context is stronger for absorbing delivery work."
+  },
+  ownershipBurden: {
+    type: "burden",
+    label: "Ownership burden",
+    noun: "ownership burden",
+    helper:
+      "Higher means long-term coordination and maintenance are heavier."
+  },
+  enterpriseReadiness: {
+    type: "contextual",
+    label: "Enterprise readiness",
+    noun: "enterprise readiness",
+    helper:
+      "Higher means vendor-backed support, standardization, or procurement context is more relevant."
+  }
+};
+
 const sensitivityInputLabels = {
   frontendDevelopers: "Frontend developers",
   reactApps: "React apps",
@@ -260,15 +297,7 @@ function formatScore(value) {
     return "N/A";
   }
 
-  return `${formatNumber(value, 0)}/100`;
-}
-
-function formatLevel(value) {
-  if (!value) {
-    return "Unclear";
-  }
-
-  return `${value[0].toUpperCase()}${value.slice(1)} fit`;
+  return `${formatNumber(value, 1)}/100`;
 }
 
 function getFactorTitle(factorKey) {
@@ -316,12 +345,125 @@ function getDeltaChipColor(value) {
   return "default";
 }
 
-function getToneChipColor(level) {
+function getChipColorForTone(tone) {
   return {
+    success: "success",
+    warning: "warning",
+    error: "error",
+    info: "info",
+    secondary: "secondary",
+    default: "default"
+  }[tone] ?? "default";
+}
+
+function getMetricTone(metricType, level) {
+  if (metricType === "strength") {
+    return {
+      high: "success",
+      medium: "warning",
+      low: "error"
+    }[level] ?? "default";
+  }
+
+  if (metricType === "burden") {
+    return {
+      low: "success",
+      medium: "warning",
+      high: "error"
+    }[level] ?? "default";
+  }
+
+  return {
+    low: "default",
+    medium: "warning",
+    high: "info"
+  }[level] ?? "default";
+}
+
+function getMetricDisplay(metricKey, score, level) {
+  const config = metricDisplayConfig[metricKey] ?? {
+    type: "contextual",
+    label: metricKey,
+    noun: metricKey,
+    helper: ""
+  };
+
+  const levelLabel = {
+    burden: {
+      low: `Low ${config.noun}`,
+      medium: `Medium ${config.noun}`,
+      high: `High ${config.noun}`
+    },
+    strength: {
+      low: `Low ${config.noun}`,
+      medium: `Moderate ${config.noun}`,
+      high: `High ${config.noun}`
+    },
+    contextual: {
+      low: `Low ${config.noun}`,
+      medium: `Medium ${config.noun}`,
+      high: `High ${config.noun}`
+    }
+  }[config.type]?.[level] ?? `Unclear ${config.noun}`;
+
+  return {
+    key: metricKey,
+    title: config.label,
+    levelLabel,
+    helper: config.helper,
+    tone: getMetricTone(config.type, level),
+    scoreLabel: `Model score: ${formatScore(score)}`
+  };
+}
+
+function getPathFitDisplay(pathKey, score, level) {
+  const levelLabel = {
+    high: "Strong fit",
+    medium: "Mixed fit",
+    low: "Low fit"
+  }[level] ?? "Unclear fit";
+
+  const tone = {
     high: "success",
     medium: "warning",
     low: "default"
   }[level] ?? "default";
+
+  return {
+    key: pathKey,
+    title: pathLabels[pathKey] ?? pathKey,
+    levelLabel,
+    tone,
+    scoreLabel: formatScore(score)
+  };
+}
+
+function getMarginLabel(scoreGap) {
+  if (scoreGap < 5) {
+    return "Close fit";
+  }
+
+  if (scoreGap < 10) {
+    return "Moderate margin";
+  }
+
+  if (scoreGap < 20) {
+    return "Clear margin";
+  }
+
+  return "Strong margin";
+}
+
+function getMarginDisplay(scoreGap, runnerUpLabel) {
+  const gapValue = Number.isFinite(scoreGap) ? scoreGap : 0;
+  const label = getMarginLabel(gapValue);
+
+  return {
+    label,
+    tone:
+      gapValue < 5 ? "default" : gapValue < 10 ? "warning" : gapValue < 20 ? "info" : "success",
+    scoreLabel: `Margin: +${formatNumber(gapValue, 1)} over ${runnerUpLabel ?? "the runner-up"}`
+  };
 }
 
 function buildInputChips(assessmentInput) {
@@ -351,17 +493,23 @@ function buildWinnerSignals(recommendation, winner, runnerUp) {
   const tradeoff = Array.isArray(recommendation.tradeoffs)
     ? recommendation.tradeoffs[0]
     : null;
+  const winnerStrengths = Array.isArray(winner.strengths) ? winner.strengths.slice(0, 2) : [];
+  const runnerUpCounterweights = Array.isArray(runnerUp.strengths)
+    ? runnerUp.strengths.slice(0, 2)
+    : [];
 
   return {
     topReasons,
     tradeoff,
+    winnerStrengths,
+    runnerUpCounterweights,
     decidingSignals: [
       ...topReasons,
       ...(Array.isArray(winner.drags) && winner.drags.length > 0
         ? [`${winner.label} still carries: ${winner.drags[0]}`]
         : []),
-      ...(Array.isArray(runnerUp.strengths) && runnerUp.strengths.length > 0
-        ? [`Runner-up counterweight: ${runnerUp.strengths[0]}`]
+      ...(runnerUpCounterweights.length > 0
+        ? [`Runner-up counterweight: ${runnerUpCounterweights[0]}`]
         : [])
     ].slice(0, 4)
   };
@@ -454,108 +602,284 @@ function SectionCard({ title, description, children, action }) {
   );
 }
 
-function ScoreCard({
-  title,
-  score,
-  level,
-  highlighted = false,
-  levelLabel,
-  showLevelChip = true,
-  children
-}) {
+function ScoreMeter({ value, tone, ariaLabel, ariaValueText }) {
+  const normalizedValue = clamp(Number(value) || 0, 0, 100);
+
   return (
-    <Card
-      elevation={0}
-      sx={{
-        height: "100%",
-        border: 1,
-        borderColor: highlighted ? "secondary.main" : "divider",
-        bgcolor: highlighted ? "rgba(244,114,182,0.04)" : "background.paper"
-      }}
+    <Box
+      role="meter"
+      aria-label={ariaLabel}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(normalizedValue)}
+      aria-valuetext={ariaValueText}
+      sx={{ width: "100%" }}
     >
-      <CardContent sx={{ p: 2.5 }}>
-        <Stack spacing={2}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
-            <Typography variant="subtitle1" component="h3">
-              {title}
-            </Typography>
-            <Chip size="small" label={formatScore(score)} color={highlighted ? "secondary" : "default"} />
-          </Stack>
-          <LinearProgress
-            variant="determinate"
-            value={clamp(Number(score) || 0, 0, 100)}
-            sx={{ height: 10, borderRadius: 999, bgcolor: "action.hover" }}
+      <Box
+        sx={{
+          position: "relative",
+          height: 14,
+          borderRadius: 999,
+          bgcolor: "action.hover",
+          overflow: "hidden",
+          border: 1,
+          borderColor: "divider"
+        }}
+      >
+        <Box
+          sx={(theme) => ({
+            position: "absolute",
+            inset: 0,
+            width: `${normalizedValue}%`,
+            borderRadius: 999,
+            background: {
+              success: `linear-gradient(90deg, ${theme.palette.success.light}, ${theme.palette.success.main})`,
+              warning: `linear-gradient(90deg, ${theme.palette.warning.light}, ${theme.palette.warning.main})`,
+              error: `linear-gradient(90deg, ${theme.palette.error.light}, ${theme.palette.error.main})`,
+              info: `linear-gradient(90deg, ${theme.palette.info.light}, ${theme.palette.info.main})`,
+              secondary: `linear-gradient(90deg, ${theme.palette.secondary.light}, ${theme.palette.secondary.main})`,
+              default: `linear-gradient(90deg, ${theme.palette.text.secondary}, ${theme.palette.text.primary})`
+            }[tone] ?? theme.palette.text.secondary
+          })}
+        />
+        {[33, 66].map((marker) => (
+          <Box
+            key={marker}
+            aria-hidden="true"
+            sx={{
+              position: "absolute",
+              top: -4,
+              left: `${marker}%`,
+              width: 1,
+              height: 22,
+              bgcolor: "divider",
+              opacity: 0.8
+            }}
           />
-          {showLevelChip ? (
-            <Stack direction="row" spacing={1} alignItems="center">
-              <Chip
-                size="small"
-                label={levelLabel ?? formatLevel(level)}
-                color={getToneChipColor(level)}
-                variant="outlined"
-              />
-            </Stack>
-          ) : null}
-          {children}
+        ))}
+      </Box>
+      <Stack direction="row" justifyContent="space-between" sx={{ mt: 0.5 }}>
+        <Typography variant="caption" color="text.secondary">
+          0
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          33
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          66
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          100
+        </Typography>
+      </Stack>
+    </Box>
+  );
+}
+
+function MetricCard({ metricKey, factor }) {
+  const display = getMetricDisplay(metricKey, factor.score, factor.level);
+
+  return (
+    <Card elevation={0} sx={{ height: "100%", border: 1, borderColor: "divider" }}>
+      <CardContent sx={{ p: 2.5 }}>
+        <Stack spacing={1.5}>
+          <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2}>
+            <Box>
+              <Typography variant="subtitle1" component="h3">
+                {display.title}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {display.helper}
+              </Typography>
+            </Box>
+            <Chip
+              size="small"
+              label={formatScore(factor.score)}
+              color={getChipColorForTone(display.tone)}
+            />
+          </Stack>
+          <ScoreMeter
+            value={factor.score}
+            tone={display.tone}
+            ariaLabel={`${display.title} model score`}
+            ariaValueText={`${display.levelLabel}, ${formatScore(factor.score)}`}
+          />
+          <Stack spacing={0.5}>
+            <Chip
+              size="small"
+              label={display.levelLabel}
+              color={getChipColorForTone(display.tone)}
+              variant="outlined"
+              sx={{ alignSelf: "flex-start" }}
+            />
+            <Typography variant="body2" color="text.secondary">
+              {display.scoreLabel}
+            </Typography>
+          </Stack>
+          {(Array.isArray(factor.drivers) ? factor.drivers : []).slice(0, 3).map((driver) => (
+            <Typography key={driver} variant="body2" color="text.secondary">
+              {driver}
+            </Typography>
+          ))}
         </Stack>
       </CardContent>
     </Card>
   );
 }
 
-function FactorCard({ factor }) {
+function PathFitCard({ path, rank, winnerKey, runnerUpKey, marginFromWinner }) {
+  const display = getPathFitDisplay(path.key, path.score, path.level);
+
   return (
-    <ScoreCard title={getFactorTitle(factor.key)} score={factor.score} level={factor.level}>
-      <Stack spacing={1}>
-        {(Array.isArray(factor.drivers) ? factor.drivers : []).slice(0, 3).map((driver) => (
-          <Typography key={driver} variant="body2" color="text.secondary">
-            {driver}
-          </Typography>
-        ))}
-      </Stack>
-    </ScoreCard>
+    <Card
+      elevation={0}
+      sx={{
+        height: "100%",
+        border: 1,
+        borderColor: path.key === winnerKey ? "secondary.main" : "divider",
+        bgcolor: path.key === winnerKey ? "rgba(124,58,237,0.04)" : "background.paper"
+      }}
+    >
+      <CardContent sx={{ p: 2.5 }}>
+        <Stack spacing={1.5}>
+          <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2}>
+            <Box>
+              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 0.5 }}>
+                <Chip size="small" label={`#${rank}`} variant="outlined" />
+                {path.key === winnerKey ? (
+                  <Chip size="small" label="Recommended" color="secondary" />
+                ) : null}
+                {path.key === runnerUpKey ? <Chip size="small" label="Runner-up" variant="outlined" /> : null}
+                {path.eligible === false ? <Chip size="small" label="Not eligible" variant="outlined" /> : null}
+              </Stack>
+              <Typography variant="subtitle1" component="h3">
+                {display.title}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {path.eligible === false
+                  ? "This path is not eligible under the current input set."
+                  : path.key === winnerKey
+                    ? "This is the selected path."
+                    : path.key === runnerUpKey
+                      ? "This is the closest alternative."
+                      : "This path remains in the comparison set."}
+              </Typography>
+            </Box>
+            <Chip size="small" label={formatScore(path.score)} color={getChipColorForTone(display.tone)} />
+          </Stack>
+          <ScoreMeter
+            value={path.score}
+            tone={display.tone}
+            ariaLabel={`${display.title} fit score`}
+            ariaValueText={`${display.levelLabel}, ${formatScore(path.score)}`}
+          />
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            <Chip size="small" label={display.levelLabel} color={getChipColorForTone(display.tone)} variant="outlined" />
+            <Chip
+              size="small"
+              label={marginFromWinner === null ? "Margin: —" : `Margin: ${marginFromWinner}`}
+              variant="outlined"
+            />
+          </Stack>
+          <Box>
+            <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+              Main strengths
+            </Typography>
+            <Stack spacing={0.5}>
+              {(Array.isArray(path.strengths) ? path.strengths : []).slice(0, 2).map((item) => (
+                <Typography key={item} variant="body2" color="text.secondary">
+                  {item}
+                </Typography>
+              ))}
+            </Stack>
+          </Box>
+          <Box>
+            <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+              Main drags
+            </Typography>
+            <Stack spacing={0.5}>
+              {(Array.isArray(path.drags) ? path.drags : []).slice(0, 2).map((item) => (
+                <Typography key={item} variant="body2" color="text.secondary">
+                  {item}
+                </Typography>
+              ))}
+            </Stack>
+          </Box>
+        </Stack>
+      </CardContent>
+    </Card>
   );
 }
 
-function PathCard({ path, winnerKey }) {
+function RecommendationSignalCard({ recommendation, confidence, winner, runnerUp }) {
+  const scoreGap = recommendation?.runnerUp?.scoreGap ?? 0;
+  const marginDisplay = getMarginDisplay(scoreGap, runnerUp?.label);
+  const confidenceLevel = confidence?.level ?? recommendation?.confidence?.level;
+  const confidenceScore = confidence?.score ?? recommendation?.confidence?.score;
+  const confidenceLabel = confidenceLevel
+    ? `${confidenceLevel[0].toUpperCase()}${confidenceLevel.slice(1)}`
+    : "Unknown";
+  const confidenceRationale =
+    confidence?.rationale ??
+    recommendation?.confidence?.rationale ??
+    "Confidence reflects the score gap and whether the main factor signals point in the same direction.";
+
   return (
-    <ScoreCard
-      title={pathLabels[path.key] ?? path.label}
-      score={path.score}
-      level={path.level}
-      highlighted={path.key === winnerKey}
-    >
-      <Stack spacing={1.25}>
-        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-          <Chip size="small" label={path.level === "high" ? "Strong fit" : path.level === "medium" ? "Mixed fit" : "Low fit"} />
-          {path.eligible === false ? <Chip size="small" label="Not eligible" variant="outlined" /> : null}
+    <Card elevation={0} sx={{ height: "100%", border: 1, borderColor: "divider", bgcolor: "rgba(255,255,255,0.78)" }}>
+      <CardContent sx={{ p: { xs: 2.5, md: 3 } }}>
+        <Stack spacing={2}>
+          <Typography variant="overline" color="secondary.main">
+            Recommendation signal
+          </Typography>
+          <Stack spacing={0.75}>
+            <Typography variant="subtitle2" color="text.secondary">
+              Recommendation
+            </Typography>
+            <Typography variant="h5" component="div">
+              {recommendation?.option ?? "Not available"}
+            </Typography>
+          </Stack>
+          <Stack spacing={0.75}>
+            <Typography variant="subtitle2" color="text.secondary">
+              Runner-up
+            </Typography>
+            <Typography variant="h6" component="div">
+              {runnerUp?.label ?? "Not available"}
+            </Typography>
+          </Stack>
+          <Stack spacing={0.75}>
+            <Typography variant="subtitle2" color="text.secondary">
+              Margin
+            </Typography>
+            <Typography variant="h6" component="div">
+              {marginDisplay.scoreLabel}
+            </Typography>
+            <Chip
+              size="small"
+              label={marginDisplay.label}
+              color={getChipColorForTone(marginDisplay.tone)}
+              variant="outlined"
+              sx={{ alignSelf: "flex-start" }}
+            />
+          </Stack>
+          <Divider />
+          <Stack spacing={0.75}>
+            <Typography variant="subtitle2" color="text.secondary">
+              Confidence
+            </Typography>
+            <Typography variant="body1">{confidenceLabel}</Typography>
+            {Number.isFinite(confidenceScore) ? (
+              <Typography variant="body2" color="text.secondary">
+                Score: {formatNumber(confidenceScore, 0)}/100
+              </Typography>
+            ) : null}
+            <Typography variant="body2" color="text.secondary">
+              {confidenceRationale}
+            </Typography>
+          </Stack>
         </Stack>
-        <Box>
-          <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
-            Strengths
-          </Typography>
-          <Stack spacing={0.5}>
-            {(Array.isArray(path.strengths) ? path.strengths : []).slice(0, 3).map((item) => (
-              <Typography key={item} variant="body2" color="text.secondary">
-                {item}
-              </Typography>
-            ))}
-          </Stack>
-        </Box>
-        <Box>
-          <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
-            Drags
-          </Typography>
-          <Stack spacing={0.5}>
-            {(Array.isArray(path.drags) ? path.drags : []).slice(0, 3).map((item) => (
-              <Typography key={item} variant="body2" color="text.secondary">
-                {item}
-              </Typography>
-            ))}
-          </Stack>
-        </Box>
-      </Stack>
-    </ScoreCard>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -784,12 +1108,7 @@ function ReportPage() {
     ownershipBurden: derivedFactors.ownershipBurden,
     enterpriseReadiness: derivedFactors.enterpriseReadiness
   }).filter(([, factor]) => factor);
-  const pathEntries = [
-    ["build", pathFits.build],
-    ["core", pathFits.core],
-    ["premium", pathFits.premium],
-    ["enterprise", pathFits.enterprise]
-  ].filter(([, path]) => path);
+  const rankedPathEntries = rankedPaths.map((path) => [path.key, path]);
   const topModelDrivers = Array.isArray(sensitivity.topDrivers) ? sensitivity.topDrivers : [];
   const buildFitDrivers = Array.isArray(sensitivity.buildFitDrivers) ? sensitivity.buildFitDrivers : [];
   const coreFitDrivers = Array.isArray(sensitivity.coreFitDrivers) ? sensitivity.coreFitDrivers : [];
@@ -798,6 +1117,13 @@ function ReportPage() {
   const recommendationDrivers = Array.isArray(sensitivity.recommendationDrivers)
     ? sensitivity.recommendationDrivers
     : [];
+  const winnerScore = winner?.score ?? 0;
+  const runnerUpScore = runnerUp?.score ?? 0;
+  const winnerGap = Number.isFinite(recommendation.runnerUp?.scoreGap)
+    ? recommendation.runnerUp.scoreGap
+    : clamp(winnerScore - runnerUpScore, 0, 100);
+  const topWinnerStrengths = winnerSignals.winnerStrengths.slice(0, 2);
+  const topRunnerUpCounterweights = winnerSignals.runnerUpCounterweights.slice(0, 2);
 
   return (
     <Stack spacing={4}>
@@ -835,102 +1161,103 @@ function ReportPage() {
           </Grid>
 
           <Grid size={{ xs: 12, md: 5 }}>
-            <Card elevation={0} sx={{ height: "100%", border: 1, borderColor: "divider", bgcolor: "rgba(255,255,255,0.78)" }}>
-              <CardContent sx={{ p: { xs: 2.5, md: 3 } }}>
-                <Stack spacing={2.25}>
-                  <Typography variant="overline" color="secondary.main">
-                    Decision signal
-                  </Typography>
-                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                    <Chip
-                      label={`Margin: ${formatNumber(recommendation.runnerUp?.scoreGap ?? 0, 0)} points`}
-                      color="secondary"
-                    />
-                    <Chip label={`Runner-up: ${runnerUp?.label ?? "Not set"}`} variant="outlined" />
-                    <Chip label={recommendation.option ?? "Recommendation unavailable"} variant="outlined" />
-                  </Stack>
-                  <Divider />
-                  <Box>
-                    <Typography variant="h4" component="div">
-                      {formatNumber(recommendation.runnerUp?.scoreGap ?? 0, 0)}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      points between the winner and the runner-up
-                    </Typography>
-                  </Box>
-                </Stack>
-              </CardContent>
-            </Card>
+            <RecommendationSignalCard
+              recommendation={recommendation}
+              confidence={fitResult.confidence ?? {}}
+              winner={winner ?? {}}
+              runnerUp={runnerUp ?? {}}
+            />
           </Grid>
         </Grid>
       </Box>
 
       <SectionCard
-        title="Recommendation"
-        description="The report is recommendation-first. The headline answer comes before the supporting diagnostics."
+        title="Path fit comparison"
+        description="The paths are ranked by deterministic fit score so the winner and nearest alternative are obvious."
       >
-        <Grid container spacing={2.5}>
-          <Grid size={{ xs: 12, md: 6 }}>
-            <Stack spacing={1.5}>
-              <Typography variant="subtitle2" color="text.secondary">
-                Recommended path
-              </Typography>
-              <Typography variant="h4" component="div">
-                {recommendation.option ?? "Not available"}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {recommendation.summary ?? "No summary is available for this result."}
-              </Typography>
-            </Stack>
-          </Grid>
+        <Box sx={{ display: { xs: "block", md: "none" } }}>
+          <Stack spacing={2.25}>
+            {rankedPathEntries.map(([key, path], index) => (
+              <PathFitCard
+                key={key}
+                path={{ ...path, key }}
+                rank={index + 1}
+                winnerKey={winner?.key}
+                runnerUpKey={runnerUp?.key}
+                marginFromWinner={index === 0 ? null : formatSignedDelta((path?.score ?? 0) - winnerScore)}
+              />
+            ))}
+          </Stack>
+        </Box>
+        <Box sx={{ display: { xs: "none", md: "block" } }}>
+          <TableContainer sx={{ border: 1, borderColor: "divider", borderRadius: 3 }}>
+            <Table>
+              <TableHead>
+                <TableRow sx={{ bgcolor: "background.default" }}>
+                  <TableCell>Rank</TableCell>
+                  <TableCell>Path</TableCell>
+                  <TableCell align="right">Fit score</TableCell>
+                  <TableCell align="right">Margin from winner</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Main strengths</TableCell>
+                  <TableCell>Main drags</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {rankedPathEntries.map(([key, path], index) => {
+                  const isWinner = path?.key === winner?.key;
+                  const isRunnerUp = path?.key === runnerUp?.key;
+                  const margin = index === 0 ? "—" : formatSignedDelta((path?.score ?? 0) - winnerScore);
 
-          <Grid size={{ xs: 12, md: 6 }}>
-            <Stack spacing={1.5}>
-              <Typography variant="subtitle2" color="text.secondary">
-                Runner-up
-              </Typography>
-              <Typography variant="h4" component="div">
-                {runnerUp?.label ?? "Not available"}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Margin: {formatNumber(recommendation.runnerUp?.scoreGap ?? 0, 0)} points.
-              </Typography>
-            </Stack>
-          </Grid>
-
-          <Grid size={{ xs: 12 }}>
-            <Divider />
-          </Grid>
-
-          <Grid size={{ xs: 12, md: 8 }}>
-            <Stack spacing={1.5}>
-              <Typography variant="subtitle2" color="text.secondary">
-                Top reasons
-              </Typography>
-              {(Array.isArray(recommendation.primaryReasons) ? recommendation.primaryReasons : []).slice(0, 3).map((reason) => (
-                <Typography key={reason} variant="body2" color="text.secondary">
-                  {reason}
-                </Typography>
-              ))}
-              {winnerSignals.topReasons.length === 0 ? (
-                <Typography variant="body2" color="text.secondary">
-                  The backend did not provide a reason list for this result.
-                </Typography>
-              ) : null}
-            </Stack>
-          </Grid>
-
-          <Grid size={{ xs: 12, md: 4 }}>
-            <Stack spacing={1.5}>
-              <Typography variant="subtitle2" color="text.secondary">
-                Tradeoff note
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {winnerSignals.tradeoff ?? "No tradeoff note is available for this result."}
-              </Typography>
-            </Stack>
-          </Grid>
-        </Grid>
+                  return (
+                    <TableRow
+                      key={key}
+                      hover
+                      sx={{
+                        bgcolor: isWinner ? "rgba(124,58,237,0.04)" : "inherit"
+                      }}
+                    >
+                      <TableCell sx={{ fontWeight: isWinner ? 700 : 400 }}>{index + 1}</TableCell>
+                      <TableCell sx={{ fontWeight: isWinner ? 700 : 400 }}>
+                        {pathLabels[key] ?? path.label}
+                      </TableCell>
+                      <TableCell align="right">{formatScore(path.score)}</TableCell>
+                      <TableCell align="right">{margin}</TableCell>
+                      <TableCell>
+                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                          {isWinner ? <Chip size="small" label="Recommended" color="secondary" /> : null}
+                          {isRunnerUp ? <Chip size="small" label="Runner-up" variant="outlined" /> : null}
+                          {path.eligible === false ? <Chip size="small" label="Not eligible" variant="outlined" /> : null}
+                          {!isWinner && !isRunnerUp && path.eligible !== false ? (
+                            <Chip size="small" label="Eligible" variant="outlined" />
+                          ) : null}
+                        </Stack>
+                      </TableCell>
+                      <TableCell>
+                        <Stack spacing={0.5}>
+                          {(Array.isArray(path.strengths) ? path.strengths : []).slice(0, 2).map((item) => (
+                            <Typography key={item} variant="body2" color="text.secondary">
+                              {item}
+                            </Typography>
+                          ))}
+                        </Stack>
+                      </TableCell>
+                      <TableCell>
+                        <Stack spacing={0.5}>
+                          {(Array.isArray(path.drags) ? path.drags : []).slice(0, 2).map((item) => (
+                            <Typography key={item} variant="body2" color="text.secondary">
+                              {item}
+                            </Typography>
+                          ))}
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Box>
       </SectionCard>
 
       <SectionCard
@@ -940,20 +1267,7 @@ function ReportPage() {
         <Grid container spacing={2.5}>
           {factorEntries.map(([key, factor]) => (
             <Grid key={key} size={{ xs: 12, md: 6 }}>
-              <FactorCard factor={{ ...factor, key }} />
-            </Grid>
-          ))}
-        </Grid>
-      </SectionCard>
-
-      <SectionCard
-        title="Path fit comparison"
-        description="Each path is scored on the same input set. These are fit signals, not delivery or cost forecasts."
-      >
-        <Grid container spacing={2.5}>
-          {pathEntries.map(([key, path]) => (
-            <Grid key={key} size={{ xs: 12, md: 6 }}>
-              <PathCard path={{ ...path, key }} winnerKey={winner?.key} />
+              <MetricCard metricKey={key} factor={{ ...factor, key }} />
             </Grid>
           ))}
         </Grid>
@@ -964,54 +1278,61 @@ function ReportPage() {
         description="This compares the winner with the runner-up and spells out the signals that decide the margin."
       >
         <Grid container spacing={2.5}>
-          <Grid size={{ xs: 12, md: 4 }}>
-            <ScoreCard title={winner?.label ?? "Winner"} score={winner?.score} level={winner?.level} highlighted>
-              <Stack spacing={0.75}>
-                <Typography variant="body2" color="text.secondary">
-                  Winner score
-                </Typography>
-                <Typography variant="h6">{formatScore(winner?.score)}</Typography>
-              </Stack>
-            </ScoreCard>
+          <Grid size={{ xs: 12, md: 6 }}>
+            <Stack spacing={1.5}>
+              <Typography variant="subtitle2" color="text.secondary">
+                Winner vs runner-up
+              </Typography>
+              <Typography variant="h5" component="div">
+                {winner?.label ?? "Not available"} leads {runnerUp?.label ?? "the runner-up"} by{" "}
+                {formatNumber(winnerGap, 1)} points.
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {winner?.label ?? "The selected path"} wins because the strongest signals point in the same
+                direction and the runner-up still leaves some of the same work unresolved.
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {winnerSignals.tradeoff ?? "No tradeoff note is available for this result."}
+              </Typography>
+            </Stack>
           </Grid>
-          <Grid size={{ xs: 12, md: 4 }}>
-            <ScoreCard title={runnerUp?.label ?? "Runner-up"} score={runnerUp?.score} level={runnerUp?.level}>
-              <Stack spacing={0.75}>
-                <Typography variant="body2" color="text.secondary">
-                  Runner-up score
-                </Typography>
-                <Typography variant="h6">{formatScore(runnerUp?.score)}</Typography>
-              </Stack>
-            </ScoreCard>
-          </Grid>
-          <Grid size={{ xs: 12, md: 4 }}>
-            <ScoreCard
-              title="Margin"
-              score={recommendation.runnerUp?.scoreGap ?? 0}
-              level={winner?.level}
-              showLevelChip={false}
-            >
-              <Stack spacing={0.75}>
-                <Typography variant="body2" color="text.secondary">
-                  Score gap
-                </Typography>
-                <Typography variant="h6">
-                  {formatNumber(recommendation.runnerUp?.scoreGap ?? 0, 0)}
-                </Typography>
-              </Stack>
-            </ScoreCard>
-          </Grid>
-          <Grid size={{ xs: 12 }}>
+          <Grid size={{ xs: 12, md: 3 }}>
             <Box>
               <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-                Deciding signals
+                Winner strengths
               </Typography>
               <Stack spacing={0.75}>
-                {winnerSignals.decidingSignals.map((signal) => (
-                  <Typography key={signal} variant="body2" color="text.secondary">
-                    {signal}
+                {topWinnerStrengths.length > 0 ? (
+                  topWinnerStrengths.map((item) => (
+                    <Typography key={item} variant="body2" color="text.secondary">
+                      {item}
+                    </Typography>
+                  ))
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    No winner strength list is available.
                   </Typography>
-                ))}
+                )}
+              </Stack>
+            </Box>
+          </Grid>
+          <Grid size={{ xs: 12, md: 3 }}>
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                Runner-up counterweights
+              </Typography>
+              <Stack spacing={0.75}>
+                {topRunnerUpCounterweights.length > 0 ? (
+                  topRunnerUpCounterweights.map((item) => (
+                    <Typography key={item} variant="body2" color="text.secondary">
+                      {item}
+                    </Typography>
+                  ))
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    No runner-up counterweights are available.
+                  </Typography>
+                )}
               </Stack>
             </Box>
           </Grid>
@@ -1020,7 +1341,7 @@ function ReportPage() {
 
       {topModelDrivers.length > 0 || buildFitDrivers.length > 0 || coreFitDrivers.length > 0 || premiumFitDrivers.length > 0 || enterpriseFitDrivers.length > 0 || recommendationDrivers.length > 0 ? (
         <SectionCard
-          title="Sensitivity diagnostics"
+          title="Key model drivers"
           description="Nearby input changes show how the deterministic path-fit scores and recommendation margin move."
         >
           <Stack spacing={3}>
@@ -1074,22 +1395,30 @@ function ReportPage() {
       ) : null}
 
       <SectionCard
-        title="Benchmark-informed assumptions"
-        description="Public sources inform which variables matter and how the risk direction is interpreted."
+        title="Assumptions"
+        description="These guardrails make the report explicit about what the model does and does not do."
+        action={
+          <Button component={NavLink} to="/assess" variant="contained">
+            Rerun assessment
+          </Button>
+        }
       >
-        <Stack spacing={2.5}>
-          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-            {sourceChips.map((chip) => (
-              <Chip key={chip} label={chip} size="small" variant="outlined" />
-            ))}
-          </Stack>
-          <Grid container spacing={2.5}>
-            {evidenceBasis.map((item) => (
-              <Grid key={item.factor} size={{ xs: 12, md: 6 }}>
-                <EvidenceCard item={item} sourceMap={sourceMap} />
-              </Grid>
-            ))}
-          </Grid>
+        <Stack spacing={1.25}>
+          <Typography variant="body2" color="text.secondary">
+            This is a deterministic fit model.
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Scores are heuristic decision-support signals.
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            A score of 100 means the model reached the top of its configured scale, not a guarantee or perfect real-world condition.
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Path-fit scores are relative signals for this input set.
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Public sources inform variable selection and risk direction.
+          </Typography>
         </Stack>
       </SectionCard>
 
@@ -1107,72 +1436,30 @@ function ReportPage() {
       </SectionCard>
 
       <SectionCard
-        title="Assumptions"
-        description="These guardrails make the report explicit about what the model does and does not do."
-        action={
-          <Button component={NavLink} to="/assess" variant="contained">
-            Rerun assessment
-          </Button>
-        }
-      >
-        <Stack spacing={1.25}>
-          <Typography variant="body2" color="text.secondary">
-            Deterministic fit model.
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            No delivery-date estimate.
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            No cost estimate.
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Scores are heuristic decision-support signals, not guarantees.
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Public sources inform variable selection and risk direction.
-          </Typography>
-        </Stack>
-      </SectionCard>
-
-      <SectionCard
         title="Selected public sources"
         description="The report links the main evidence families used to steer variable choice and direction."
       >
-        <Grid container spacing={2.5}>
-          {PUBLIC_BENCHMARK_SOURCES.map((source) => (
-            <Grid key={source.key} size={{ xs: 12, md: 6 }}>
-              <SourceCard source={source} />
-            </Grid>
-          ))}
-        </Grid>
-      </SectionCard>
-
-      <SectionCard
-        title="Path scores"
-        description="A compact view of all four path-fit scores."
-      >
-        <TableContainer sx={{ border: 1, borderColor: "divider", borderRadius: 3 }}>
-          <Table>
-            <TableHead>
-              <TableRow sx={{ bgcolor: "background.default" }}>
-                <TableCell>Path</TableCell>
-                <TableCell align="right">Score</TableCell>
-                <TableCell align="right">Level</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {pathEntries.map(([key, path]) => (
-                <TableRow key={key} hover>
-                  <TableCell sx={{ fontWeight: key === winner?.key ? 700 : 400 }}>
-                    {pathLabels[key] ?? path.label}
-                  </TableCell>
-                  <TableCell align="right">{formatScore(path.score)}</TableCell>
-                  <TableCell align="right">{formatLevel(path.level)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+        <Stack spacing={2.5}>
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            {sourceChips.map((chip) => (
+              <Chip key={chip} label={chip} size="small" variant="outlined" />
+            ))}
+          </Stack>
+          <Grid container spacing={2.5}>
+            {evidenceBasis.map((item) => (
+              <Grid key={item.factor} size={{ xs: 12, md: 6 }}>
+                <EvidenceCard item={item} sourceMap={sourceMap} />
+              </Grid>
+            ))}
+          </Grid>
+          <Grid container spacing={2.5}>
+            {PUBLIC_BENCHMARK_SOURCES.map((source) => (
+              <Grid key={source.key} size={{ xs: 12, md: 6 }}>
+                <SourceCard source={source} />
+              </Grid>
+            ))}
+          </Grid>
+        </Stack>
       </SectionCard>
     </Stack>
   );
