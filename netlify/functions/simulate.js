@@ -2158,7 +2158,7 @@ function estimateLicensedDevelopers(input, effectiveMuiPlan) {
   return estimatedSeats;
 }
 
-function buildDeterministicEstimate(input, scorecard) {
+function unusedBuildDeterministicEstimate(input, scorecard) {
   const buildCalibration = SIMULATION_CALIBRATION.build;
   const muiCalibration = SIMULATION_CALIBRATION.mui;
   const simulationPrepCalibration = CALIBRATION.simulation.prep;
