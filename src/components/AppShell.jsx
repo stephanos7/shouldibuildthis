@@ -6,7 +6,7 @@ const navigationItems = [
   { label: 'Assess', to: '/assess' },
   { label: 'Report', to: '/report' },
   { label: 'Methodology', to: '/methodology' },
-  { label: 'Admin', to: '/admin/calibration' },
+  { label: 'Calibration', to: '/admin/calibration' },
 ];
 
 function AppShell() {

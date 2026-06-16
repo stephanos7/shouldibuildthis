@@ -1174,8 +1174,8 @@ function ReportPage() {
       </Box>
 
       {hasCustomCalibration ? (
-        <Alert severity="warning" variant="outlined">
-          Custom calibration active. This report used local override values from the admin calibration page.
+        <Alert severity="info" variant="outlined">
+          Custom calibration active
         </Alert>
       ) : null}
 

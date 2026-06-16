@@ -25,7 +25,7 @@ import {
 } from "@mui/material";
 import { NavLink, useNavigate } from "react-router-dom";
 import PageHero from "../components/PageHero.jsx";
-import { readCalibrationOverrides } from "../model/calibrationStorage.js";
+import { readCompiledCalibrationOverrides } from "../model/businessCalibrationStorage.js";
 
 const ASSESSMENT_INPUT_SCHEMA_VERSION = 2;
 
@@ -637,7 +637,19 @@ function AssessPage() {
     }
 
     const normalizedInput = normalizeAssessmentInput(formValues);
-    const calibrationOverrides = readCalibrationOverrides();
+    const compiledCalibration = readCompiledCalibrationOverrides();
+
+    if (!compiledCalibration.valid) {
+      setSubmitError(
+        compiledCalibration.diagnostics
+          .map((diagnostic) => diagnostic.message)
+          .join(" ")
+      );
+      setIsSubmitting(false);
+      return;
+    }
+
+    const calibrationOverrides = compiledCalibration.calibrationOverrides;
     const payload = calibrationOverrides
       ? {
           ...normalizedInput,

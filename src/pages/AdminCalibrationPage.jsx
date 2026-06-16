@@ -1,1052 +1,238 @@
 import { useState } from "react";
-import {
-  Alert,
-  Checkbox,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Chip,
-  Divider,
-  FormControlLabel,
-  Grid,
-  List,
-  ListItem,
-  ListItemText,
-  Stack,
-  TextField,
-  Typography
-} from "@mui/material";
+import { Alert, Button, Chip, Grid, Stack, TextField, Typography } from "@mui/material";
 import PageHero from "../components/PageHero.jsx";
-import CalibrationPreview from "../components/admin/CalibrationPreview.jsx";
 import CalibrationSectionCard from "../components/admin/CalibrationSectionCard.jsx";
-import CalibrationNumberField from "../components/admin/CalibrationNumberField.jsx";
-import PathFitSignalTable from "../components/admin/PathFitSignalTable.jsx";
+import InputScaleEditor from "../components/admin/InputScaleEditor.jsx";
 import {
-  clearCalibrationOverrides,
-  exportCalibrationOverrides,
-  importCalibrationOverrides,
-  mergeCalibrationDraft,
-  readCalibrationOverrides,
-  writeCalibrationOverrides
-} from "../model/calibrationStorage.js";
+  clearBusinessCalibrationProfile,
+  exportBusinessCalibrationProfile,
+  importBusinessCalibrationProfile,
+  mergeBusinessCalibrationProfile,
+  readBusinessCalibrationProfile,
+  writeBusinessCalibrationProfile
+} from "../model/businessCalibrationStorage.js";
+import { DEFAULT_BUSINESS_CALIBRATION_PROFILE } from "../model/businessCalibrationDefaults.js";
 import { DEFAULT_CALIBRATION } from "../model/calibration.js";
-import { getCalibrationOverridePaths } from "../model/calibrationOverrides.js";
-import { validateCalibrationModel } from "../model/calibrationValidation.js";
+import {
+  INPUT_CALIBRATION_REGISTRY,
+  INPUT_SCALE_TYPES
+} from "../model/inputCalibrationRegistry.js";
+import { validateBusinessCalibrationProfile } from "../model/businessCalibrationCompiler.js";
 
-const PATH_KEYS = ["build", "core", "premium", "enterprise"];
-
-const inputScaleSections = [
-  {
-    title: "Support requirement",
-    description: "Vendor support pressure mapped into normalized signal scales.",
-    path: ["fitSignalScales", "supportLightness"],
-    helper: "Normalized scale used by support-related signals."
-  },
-  {
-    title: "Ownership model",
-    description: "Ownership clarity mapped into normalized signal scales.",
-    path: ["fitSignalScales", "ownershipClarity"],
-    helper: "Higher values mean clearer ownership."
-  },
-  {
-    title: "Knowledge concentration",
-    description: "How shared the implementation knowledge is across the team.",
-    path: ["fitSignalScales", "knowledgeSpread"],
-    helper: "Higher values mean knowledge is more distributed."
-  },
-  {
-    title: "Delivery maturity",
-    description: "Maturity scale used by the scenario levers.",
-    path: ["fitSignalScales", "maturityStrength"],
-    helper: "Higher values mean stronger delivery maturity."
-  },
-  {
-    title: "Handoff alignment",
-    description: "Design-dev handoff quality mapped into the normalized scale.",
-    path: ["fitSignalScales", "handoffAlignment"],
-    helper: "Higher values mean better handoff alignment."
-  },
-  {
-    title: "MUI usage readiness",
-    description: "Existing MUI usage readiness for adoption and leverage.",
-    path: ["fitSignalScales", "muiUsageReadiness"],
-    helper: "Higher values mean the codebase is more ready for MUI."
-  },
-  {
-    title: "MUI usage leverage",
-    description: "Leverage scale used by the scenario levers.",
-    path: ["fitSignalScales", "muiUsageLeverage"],
-    helper: "Higher values mean existing usage is more reusable."
-  }
-];
-
-const derivedFactorSections = [
-  {
-    key: "functionalComplexity",
-    title: "Functional complexity",
-    description: "Inputs that shape the functional complexity derived factor."
-  },
-  {
-    key: "qualityBurden",
-    title: "Quality burden",
-    description: "Inputs that shape the verification and regression burden."
-  },
-  {
-    key: "deliveryMaturity",
-    title: "Delivery maturity",
-    description: "Inputs that shape the team's maturity and delivery slack."
-  },
-  {
-    key: "ownershipBurden",
-    title: "Ownership burden",
-    description: "Inputs that shape long-term ownership and continuity burden."
-  },
-  {
-    key: "enterpriseReadiness",
-    title: "Enterprise readiness",
-    description: "Inputs that shape support and standardization readiness."
-  }
-];
-
-const policyGroups = [
-  {
-    title: "Score bands",
-    path: ["scoreBands"],
-    fields: [
-      { path: ["scoreBands", "low", "min"], label: "Low min", step: 0.1 },
-      { path: ["scoreBands", "low", "maxExclusive"], label: "Low max (exclusive)", step: 0.1 },
-      { path: ["scoreBands", "medium", "min"], label: "Medium min", step: 0.1 },
-      { path: ["scoreBands", "medium", "maxExclusive"], label: "Medium max (exclusive)", step: 0.1 },
-      { path: ["scoreBands", "high", "min"], label: "High min", step: 0.1 },
-      { path: ["scoreBands", "high", "maxInclusive"], label: "High max (inclusive)", step: 0.1 }
-    ]
-  },
-  {
-    title: "Contained scope",
-    path: ["deterministicPolicy", "containedScope"],
-    fields: [
-      { path: ["deterministicPolicy", "containedScope", "maxFunctionalRisk"], label: "Max functional risk", step: 0.01, min: 0, max: 1 },
-      { path: ["deterministicPolicy", "containedScope", "maxQualityRisk"], label: "Max quality risk", step: 0.01, min: 0, max: 1 },
-      { path: ["deterministicPolicy", "containedScope", "maxAdvancedFeatures"], label: "Max advanced features", step: 1, min: 0 },
-      { path: ["deterministicPolicy", "containedScope", "maxDataHeavyScreens"], label: "Max data-heavy screens", step: 1, min: 0 },
-      { path: ["deterministicPolicy", "containedScope", "maxRowScale"], label: "Max row scale", step: 1, min: 0 },
-      { path: ["deterministicPolicy", "containedScope", "maxColumnScale"], label: "Max column scale", step: 1, min: 0 }
-    ]
-  },
-  {
-    title: "Premium / Enterprise eligibility",
-    path: ["pathScores"],
-    fields: [
-      { path: ["pathScores", "premiumEligibility", "minCoverageScore"], label: "Premium min coverage", step: 0.1 },
-      { path: ["pathScores", "premiumEligibility", "disallowForSimpleLowSupportScope"], label: "Premium disallow flag", readOnly: true },
-      { path: ["pathScores", "premiumEligibility", "minFunctionalRisk"], label: "Premium min functional risk", step: 0.01, min: 0, max: 1 },
-      { path: ["pathScores", "premiumEligibility", "minQualityRisk"], label: "Premium min quality risk", step: 0.01, min: 0, max: 1 },
-      { path: ["pathScores", "premiumEligibility", "minRowScale"], label: "Premium min row scale", step: 1, min: 0 },
-      { path: ["pathScores", "premiumEligibility", "minColumnScale"], label: "Premium min column scale", step: 1, min: 0 },
-      { path: ["pathScores", "premiumEligibility", "minAdvancedFeatureCount"], label: "Premium min features", step: 1, min: 0 },
-      { path: ["pathScores", "enterpriseEligibility", "minEnterpriseNeed"], label: "Enterprise min need", step: 0.01, min: 0, max: 1 },
-      { path: ["pathScores", "enterpriseEligibility", "minSupportNeed"], label: "Enterprise min support need", step: 1, min: 0 },
-      { path: ["pathScores", "enterpriseEligibility", "minEnterpriseTierScore"], label: "Enterprise min tier score", step: 0.1 },
-      { path: ["pathScores", "enterpriseEligibility", "minCoverageScore"], label: "Enterprise min coverage", step: 0.1 },
-      { path: ["pathScores", "enterpriseEligibility", "maxSupportGap"], label: "Enterprise max support gap", step: 0.01, min: 0, max: 1 }
-    ]
-  },
-  {
-    title: "Build-friendly context",
-    path: ["deterministicPolicy", "buildFriendlyContext"],
-    fields: [
-      { path: ["deterministicPolicy", "buildFriendlyContext", "maxSupportNeed"], label: "Max support need", step: 1, min: 0 },
-      { path: ["deterministicPolicy", "buildFriendlyContext", "maxRowScale"], label: "Max row scale", step: 1, min: 0 },
-      { path: ["deterministicPolicy", "buildFriendlyContext", "maxColumnScale"], label: "Max column scale", step: 1, min: 0 },
-      { path: ["deterministicPolicy", "buildFriendlyContext", "maxAdvancedFeatures"], label: "Max advanced features", step: 1, min: 0 },
-      { path: ["recommendationPolicy", "buildFriendlyCoreCoverageScore"], label: "Friendly Core coverage", step: 0.1 },
-      { path: ["recommendationPolicy", "buildFriendlyBuildCompetitiveIndex"], label: "Friendly Build index", step: 0.1 },
-      { path: ["recommendationPolicy", "buildFriendlyContextCoverageThreshold"], label: "Friendly Build coverage", step: 0.1 }
-    ]
-  },
-  {
-    title: "Confidence thresholds",
-    path: ["confidencePolicy"],
-    fields: [
-      { path: ["confidencePolicy", "levels", "high"], label: "High confidence", step: 1 },
-      { path: ["confidencePolicy", "levels", "moderate"], label: "Moderate confidence", step: 1 },
-      { path: ["confidencePolicy", "score", "base"], label: "Confidence base", step: 1 },
-      { path: ["confidencePolicy", "score", "scoreGapMultiplier"], label: "Score gap multiplier", step: 0.1 },
-      { path: ["confidencePolicy", "score", "min"], label: "Confidence min", step: 1 },
-      { path: ["confidencePolicy", "score", "max"], label: "Confidence max", step: 1 }
-    ]
-  }
-];
-
-function isPlainObject(value) {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    return false;
-  }
-
-  const prototype = Object.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
+function loadInitialDraft() {
+  const storedProfile = readBusinessCalibrationProfile();
+  return mergeBusinessCalibrationProfile(storedProfile ?? DEFAULT_BUSINESS_CALIBRATION_PROFILE);
 }
 
-function cloneValue(value) {
-  if (Array.isArray(value)) {
-    return value.map((item) => cloneValue(item));
-  }
-
-  if (isPlainObject(value)) {
-    return Object.fromEntries(
-      Object.entries(value).map(([key, child]) => [key, cloneValue(child)])
-    );
-  }
-
-  return value;
-}
-
-function getValueAtPath(value, path) {
-  return path.reduce((current, key) => current?.[key], value);
-}
-
-function setValueAtPath(value, path, nextValue) {
-  const next = cloneValue(value);
-  let cursor = next;
-
-  for (let index = 0; index < path.length - 1; index += 1) {
-    cursor = cursor[path[index]];
-  }
-
-  cursor[path[path.length - 1]] = nextValue;
-  return next;
-}
-
-function buildOverrideDiff(baseValue, currentValue) {
-  if (Array.isArray(baseValue) || Array.isArray(currentValue)) {
-    const baseJson = JSON.stringify(baseValue);
-    const currentJson = JSON.stringify(currentValue);
-    return baseJson === currentJson ? undefined : cloneValue(currentValue);
-  }
-
-  if (isPlainObject(baseValue) && isPlainObject(currentValue)) {
-    const result = {};
-    const keys = new Set([...Object.keys(baseValue), ...Object.keys(currentValue)]);
-
-    for (const key of keys) {
-      const child = buildOverrideDiff(baseValue[key], currentValue[key]);
-      if (child !== undefined) {
-        result[key] = child;
-      }
-    }
-
-    return Object.keys(result).length > 0 ? result : undefined;
-  }
-
-  if (Object.is(baseValue, currentValue)) {
-    return undefined;
-  }
-
-  return cloneValue(currentValue);
-}
-
-function normalizePathFitShares(calibration) {
-  const next = cloneValue(calibration);
-  const pathFit = next.pathFitComponentWeights ?? {};
-
-  for (const pathKey of PATH_KEYS) {
-    const pathGroup = pathFit[pathKey];
-
-    if (!isPlainObject(pathGroup)) {
-      continue;
-    }
-
-    for (const groupKey of ["positiveSignals", "dragSignals"]) {
-      const group = pathGroup[groupKey];
-
-      if (!isPlainObject(group)) {
-        continue;
-      }
-
-      const entries = Object.entries(group);
-      const total = entries.reduce((sum, [, config]) => sum + (Number(config?.share) || 0), 0);
-
-      if (!(total > 0)) {
-        continue;
-      }
-
-      for (const [signalKey, config] of entries) {
-        if (!isPlainObject(config)) {
-          continue;
-        }
-
-        group[signalKey] = {
-          ...config,
-          share: (Number(config.share) || 0) / total
-        };
-      }
-    }
-  }
-
-  next.pathFitComponentWeights = pathFit;
-  return next;
-}
-
-function sanitizeCalibrationDraft(calibration) {
-  let next = cloneValue(calibration);
-
-  for (const section of inputScaleSections) {
-    const mapValue = getValueAtPath(next, section.path);
-
-    if (!isPlainObject(mapValue)) {
-      continue;
-    }
-
-    for (const key of Object.keys(mapValue)) {
-      mapValue[key] = toFiniteNumber(mapValue[key]);
-    }
-  }
-
-  for (const section of derivedFactorSections) {
-    const weights = next.derivedFactorWeights?.[section.key];
-
-    if (!isPlainObject(weights)) {
-      continue;
-    }
-
-    for (const key of Object.keys(weights)) {
-      weights[key] = toFiniteNumber(weights[key]);
-    }
-  }
-
-  for (const group of policyGroups) {
-    for (const field of group.fields) {
-      if (field.readOnly) {
-        continue;
-      }
-
-      const value = getValueAtPath(next, field.path);
-      next = setValueAtPath(next, field.path, toFiniteNumber(value));
-    }
-  }
-
-  for (const pathKey of PATH_KEYS) {
-    const pathConfig = next.pathFitComponentWeights?.[pathKey];
-
-    if (!isPlainObject(pathConfig)) {
-      continue;
-    }
-
-    pathConfig.baseScore = toFiniteNumber(pathConfig.baseScore);
-    pathConfig.positiveBudget = toFiniteNumber(pathConfig.positiveBudget);
-    pathConfig.dragBudget = toFiniteNumber(pathConfig.dragBudget);
-
-    for (const groupKey of ["positiveSignals", "dragSignals"]) {
-      const group = pathConfig[groupKey];
-
-      if (!isPlainObject(group)) {
-        continue;
-      }
-
-      for (const signalKey of Object.keys(group)) {
-        const signal = group[signalKey];
-
-        if (!isPlainObject(signal)) {
-          continue;
-        }
-
-        signal.share = toFiniteNumber(signal.share);
-      }
-    }
-  }
-
-  return next;
-}
-
-function formatPercent(value) {
-  if (!Number.isFinite(value)) {
-    return "N/A";
-  }
-
-  return `${(value * 100).toFixed(1)}%`;
-}
-
-function toFiniteNumber(rawValue, fallback = 0) {
-  const parsed = Number(rawValue);
-  return Number.isFinite(parsed) ? parsed : fallback;
-}
-
-function FieldGroup({ title, description, fields, draft, onChange }) {
-  return (
-    <Card elevation={0} sx={{ border: 1, borderColor: "divider", height: "100%" }}>
-      <CardContent>
-        <Stack spacing={2}>
-          <Stack spacing={0.5}>
-            <Typography variant="h6" component="h3">
-              {title}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {description}
-            </Typography>
-          </Stack>
-          <Grid container spacing={1.5}>
-            {fields.map((field) => {
-              const value = getValueAtPath(draft, field.path);
-
-              return (
-                <Grid key={field.path.join(".")} size={{ xs: 12, sm: 6 }}>
-                  <CalibrationNumberField
-                    label={field.label}
-                    value={typeof value === "boolean" ? (value ? 1 : 0) : value ?? ""}
-                    helperText={field.readOnly ? "Read-only numeric policy flag." : field.helperText}
-                    step={field.step}
-                    min={field.min}
-                    max={field.max}
-                    readOnly={Boolean(field.readOnly)}
-                    onChange={
-                      field.readOnly
-                        ? undefined
-                        : (event) => {
-                            const raw = event.target.value;
-                            const nextValue = raw === "" ? 0 : toFiniteNumber(raw);
-                            onChange(field.path, nextValue);
-                          }
-                    }
-                  />
-                </Grid>
-              );
-            })}
-          </Grid>
-        </Stack>
-      </CardContent>
-    </Card>
-  );
-}
-
-function MapEditor({ title, description, value, onChange, helper }) {
-  const entries = Object.entries(value ?? {});
-
-  return (
-    <Card elevation={0} sx={{ border: 1, borderColor: "divider", height: "100%" }}>
-      <CardContent>
-        <Stack spacing={2}>
-          <Stack spacing={0.5}>
-            <Typography variant="h6" component="h3">
-              {title}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {description}
-            </Typography>
-          </Stack>
-          <Grid container spacing={1.5}>
-            {entries.map(([key, mapValue]) => (
-              <Grid key={key} size={{ xs: 12, sm: 6 }}>
-                <CalibrationNumberField
-                  label={key}
-                  value={Number.isFinite(mapValue) ? mapValue : ""}
-                  helperText={helper}
-                  step={0.01}
-                  min={0}
-                  max={1}
-                  onChange={(event) => {
-                    const raw = event.target.value;
-                    const nextValue = raw === "" ? 0 : toFiniteNumber(raw);
-                    onChange(key, nextValue);
-                  }}
-                />
-              </Grid>
-            ))}
-          </Grid>
-        </Stack>
-      </CardContent>
-    </Card>
-  );
+function formatDiagnostics(diagnostics) {
+  return diagnostics.map((diagnostic) => diagnostic.message).join(" ");
 }
 
 function AdminCalibrationPage() {
-  const [persistedOverrides, setPersistedOverrides] = useState(() => readCalibrationOverrides());
-  const [draft, setDraft] = useState(() => mergeCalibrationDraft(persistedOverrides));
+  const [draft, setDraft] = useState(() => loadInitialDraft());
   const [jsonValue, setJsonValue] = useState(() =>
-    persistedOverrides ? exportCalibrationOverrides(persistedOverrides) : ""
+    exportBusinessCalibrationProfile(loadInitialDraft())
   );
   const [status, setStatus] = useState(null);
-  const [statusDetails, setStatusDetails] = useState("");
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [warningsAcknowledged, setWarningsAcknowledged] = useState(false);
 
-  const currentOverrideDiff = buildOverrideDiff(DEFAULT_CALIBRATION, draft) ?? {};
-  const previewDraft = normalizePathFitShares(draft);
-  const previewOverrideDiff = buildOverrideDiff(DEFAULT_CALIBRATION, previewDraft) ?? {};
-  const activeOverridePaths = getCalibrationOverridePaths(persistedOverrides);
-  const activeOverrideCount = activeOverridePaths.length;
-  const validation = validateCalibrationModel(draft);
-  const canProceed =
-    validation.errors.length === 0 &&
-    (validation.warnings.length === 0 || warningsAcknowledged);
-  const validationSummaryLabel = validation.errors.length > 0
-    ? "Errors"
-    : validation.warnings.length > 0
-      ? "Warnings"
-      : "Valid";
+  const validation = validateBusinessCalibrationProfile(draft, DEFAULT_CALIBRATION);
+  const registryEntries = Object.entries(INPUT_CALIBRATION_REGISTRY);
+  const orderedInputCount = registryEntries.filter(([, config]) => config.scaleType === INPUT_SCALE_TYPES.ordered).length;
+  const placeholderCount = registryEntries.length - orderedInputCount;
+  const canSave = validation.valid;
 
-  const setNestedValue = (path, nextValue) => {
-    setDraft((current) => setValueAtPath(current, path, nextValue));
-    setHasUnsavedChanges(true);
-    setWarningsAcknowledged(false);
+  const setStatusMessage = (severity, message) => {
+    setStatus({ severity, message });
   };
 
-  const setMapEntry = (path, key, nextValue) => {
-    setDraft((current) => {
-      const currentMap = getValueAtPath(current, path) ?? {};
-      return setValueAtPath(current, path, {
-        ...currentMap,
-        [key]: nextValue
-      });
-    });
-    setHasUnsavedChanges(true);
-    setWarningsAcknowledged(false);
-  };
-
-  const setPathShare = (pathKey, groupKey, signalKey, rawValue) => {
-    setDraft((current) => {
-      const next = cloneValue(current);
-      const signalGroup = next.pathFitComponentWeights?.[pathKey]?.[groupKey];
-
-      if (!isPlainObject(signalGroup) || !isPlainObject(signalGroup[signalKey])) {
-        return current;
-      }
-
-      signalGroup[signalKey] = {
-        ...signalGroup[signalKey],
-        share: rawValue === "" ? 0 : toFiniteNumber(rawValue) / 100
+  const handleInputScaleChange = (inputKey, nextScale) => {
+    setDraft((currentDraft) => {
+      const nextDraft = {
+        ...currentDraft,
+        inputScales: {
+          ...(currentDraft.inputScales ?? {}),
+          [inputKey]: {
+            ...(currentDraft.inputScales?.[inputKey] ?? {}),
+            ...nextScale
+          }
+        }
       };
 
-      return next;
+      setJsonValue(exportBusinessCalibrationProfile(nextDraft));
+      return nextDraft;
     });
-    setHasUnsavedChanges(true);
-    setWarningsAcknowledged(false);
+    setStatus(null);
   };
 
   const handleSave = () => {
-    if (validation.errors.length > 0) {
-      setStatus("error");
-      setStatusDetails(validation.errors.join(" "));
+    if (!validation.valid) {
+      setStatusMessage("error", validation.errors.join(" "));
       return;
     }
 
-    if (validation.warnings.length > 0 && !warningsAcknowledged) {
-      setStatus("warning");
-      setStatusDetails("Acknowledge the validation warnings before saving or previewing.");
+    const result = writeBusinessCalibrationProfile(draft);
+
+    if (!result.valid) {
+      setStatusMessage("error", formatDiagnostics(result.diagnostics));
       return;
     }
 
-    const normalized = normalizePathFitShares(draft);
-    const overrides = buildOverrideDiff(DEFAULT_CALIBRATION, normalized) ?? {};
-
-    if (Object.keys(overrides).length === 0) {
-      clearCalibrationOverrides();
-      setPersistedOverrides(null);
-      setDraft(cloneValue(DEFAULT_CALIBRATION));
-      setJsonValue("");
-      setHasUnsavedChanges(false);
-      setWarningsAcknowledged(false);
-      setStatus("success");
-      setStatusDetails("Local calibration overrides cleared because the draft matches defaults.");
-      return;
-    }
-
-    writeCalibrationOverrides(overrides);
-    setPersistedOverrides(overrides);
-    setDraft(mergeCalibrationDraft(overrides));
-    setJsonValue(exportCalibrationOverrides(overrides));
-    setHasUnsavedChanges(false);
-    setWarningsAcknowledged(false);
-    setStatus("success");
-    setStatusDetails(
-      `Saved locally. ${getCalibrationOverridePaths(overrides).length} override path(s) are active.`
+    setJsonValue(exportBusinessCalibrationProfile(draft));
+    setStatusMessage(
+      "success",
+      result.calibrationOverrides
+        ? "Saved locally. Compiled calibration overrides are active."
+        : "Saved locally. No compiled overrides were needed."
     );
   };
 
-  const handleReset = () => {
-    setDraft(cloneValue(DEFAULT_CALIBRATION));
-    setJsonValue("");
-    setHasUnsavedChanges(false);
-    setWarningsAcknowledged(false);
-    setStatus("info");
-    setStatusDetails("Draft reset to the built-in defaults.");
+  const handleResetInputScales = () => {
+    const nextDraft = mergeBusinessCalibrationProfile({
+      ...draft,
+      inputScales: DEFAULT_BUSINESS_CALIBRATION_PROFILE.inputScales
+    });
+
+    setDraft(nextDraft);
+    setJsonValue(exportBusinessCalibrationProfile(nextDraft));
+    setStatusMessage("info", "Input scales reset to the built-in defaults.");
   };
 
-  const handleClear = () => {
-    clearCalibrationOverrides();
-    setPersistedOverrides(null);
-    setDraft(cloneValue(DEFAULT_CALIBRATION));
-    setJsonValue("");
-    setHasUnsavedChanges(false);
-    setWarningsAcknowledged(false);
-    setStatus("info");
-    setStatusDetails("Local overrides cleared from storage.");
+  const handleResetAllCalibration = () => {
+    clearBusinessCalibrationProfile();
+
+    const nextDraft = mergeBusinessCalibrationProfile(DEFAULT_BUSINESS_CALIBRATION_PROFILE);
+    setDraft(nextDraft);
+    setJsonValue(exportBusinessCalibrationProfile(nextDraft));
+    setStatusMessage("info", "All calibration state reset to the built-in defaults.");
   };
 
-  const handleExport = () => {
-    const exported = exportCalibrationOverrides(currentOverrideDiff);
+  const handleExportProfile = () => {
+    const exported = exportBusinessCalibrationProfile(draft);
     setJsonValue(exported);
-    setStatus("info");
-    setStatusDetails("Exported the current draft overrides into the JSON panel.");
+    setStatusMessage("info", "Exported the current profile JSON into the editor.");
 
     if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
       void navigator.clipboard.writeText(exported);
     }
   };
 
-  const handleImport = () => {
-    try {
-      const imported = importCalibrationOverrides(jsonValue);
+  const handleImportProfile = () => {
+    const imported = importBusinessCalibrationProfile(jsonValue);
 
-      if (!imported.valid) {
-        setStatus("error");
-        setStatusDetails(imported.errors.join(" "));
-        return;
-      }
-
-      const mergedDraft = sanitizeCalibrationDraft(mergeCalibrationDraft(imported.overrides));
-      setDraft(mergedDraft);
-      setHasUnsavedChanges(true);
-      setWarningsAcknowledged(false);
-      setStatus("success");
-      setStatusDetails("Imported overrides into the draft. Save locally to persist them.");
-    } catch {
-      setStatus("error");
-      setStatusDetails("Import failed because the JSON could not be parsed.");
+    if (!imported.valid) {
+      setStatusMessage("error", imported.errors.join(" "));
+      return;
     }
+
+    if (!imported.profile) {
+      setStatusMessage("error", "The imported profile could not be loaded.");
+      return;
+    }
+
+    setDraft(imported.profile);
+    setJsonValue(exportBusinessCalibrationProfile(imported.profile));
+    setStatusMessage("success", "Imported profile JSON into the draft.");
   };
 
   return (
     <Stack spacing={4}>
       <PageHero
         eyebrow="Admin"
-        title="Edit local calibration overrides"
-        description="This interface edits deterministic calibration values only in your local browser storage. No auth is required, and nothing is persisted server-side."
+        title="Calibration admin"
+        description="Edit local business calibration profile data with ordered input scales. No auth is required, and changes stay in browser storage."
         chips={[
-          "LocalStorage overrides",
-          "Deterministic fit calibration",
-          `Active override paths: ${activeOverrideCount}`
+          "LocalStorage profile",
+          "Compiled overrides on save",
+          `Ordered inputs: ${orderedInputCount}`
         ]}
       />
 
       {status ? (
-        <Alert severity={status} variant="outlined">
-          {statusDetails}
+        <Alert severity={status.severity} variant="outlined">
+          {status.message}
         </Alert>
       ) : null}
 
       <CalibrationSectionCard
-        title="Validation"
-        description="Review blocking schema issues, normalization warnings, and monotonicity checks before saving or previewing."
+        title="Calibration admin"
+        description="Use the JSON editor for import/export and save the local business calibration profile back into browser storage."
+        action={
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ flexWrap: "wrap" }}>
+            <Button variant="outlined" onClick={handleExportProfile}>
+              Export profile JSON
+            </Button>
+            <Button variant="outlined" onClick={handleImportProfile}>
+              Import profile JSON
+            </Button>
+            <Button variant="outlined" onClick={handleResetInputScales}>
+              Reset input scales
+            </Button>
+            <Button variant="outlined" onClick={handleResetAllCalibration}>
+              Reset all calibration
+            </Button>
+            <Button variant="contained" onClick={handleSave} disabled={!canSave}>
+              Save
+            </Button>
+          </Stack>
+        }
       >
-        <Stack spacing={2}>
+        <Stack spacing={2.5}>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
             <Chip
-              color={validation.errors.length > 0 ? "error" : "success"}
-              label={validationSummaryLabel}
+              label={`Ordered inputs: ${orderedInputCount}`}
+              variant="outlined"
             />
             <Chip
+              label={`Placeholders: ${placeholderCount}`}
               variant="outlined"
-              label={`Warnings: ${validation.warnings.length}`}
-              color={validation.warnings.length > 0 ? "warning" : "default"}
             />
             <Chip
-              variant="outlined"
-              label={`Errors: ${validation.errors.length}`}
-              color={validation.errors.length > 0 ? "error" : "default"}
+              label={validation.valid ? "Draft valid" : "Draft has blocking errors"}
+              color={validation.valid ? "success" : "error"}
             />
           </Stack>
 
           {validation.errors.length > 0 ? (
             <Alert severity="error" variant="outlined">
-              Resolve the blocking schema issues before saving or previewing.
-            </Alert>
-          ) : validation.warnings.length > 0 ? (
-            <Alert severity="warning" variant="outlined">
-              Warnings are visible but do not block experimentation. Acknowledge them to continue.
+              Resolve the blocking profile issues before saving.
             </Alert>
           ) : (
             <Alert severity="success" variant="outlined">
-              The current calibration draft is valid.
+              The current business calibration profile is valid.
             </Alert>
           )}
 
-          {validation.warnings.length > 0 ? (
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={warningsAcknowledged}
-                  onChange={(event) => setWarningsAcknowledged(event.target.checked)}
-                />
-              }
-              label="I understand the warnings and want to continue."
-            />
-          ) : null}
-
-          <Grid container spacing={2}>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Card elevation={0} sx={{ border: 1, borderColor: "divider", height: "100%" }}>
-                <CardContent>
-                  <Stack spacing={1.5}>
-                    <Typography variant="h6" component="h3">
-                      Valid
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Blocks only if this draft contains invalid numeric or schema data.
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {validation.errors.length === 0
-                        ? "No blocking validation errors are present."
-                        : "Blocking errors are present and must be fixed."}
-                    </Typography>
-                  </Stack>
-                </CardContent>
-              </Card>
-            </Grid>
-
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Card elevation={0} sx={{ border: 1, borderColor: "divider", height: "100%" }}>
-                <CardContent>
-                  <Stack spacing={1.5}>
-                    <Typography variant="h6" component="h3">
-                      Warnings
-                    </Typography>
-                    {validation.warnings.length > 0 ? (
-                      <List dense disablePadding>
-                        {validation.warnings.map((warning) => (
-                          <ListItem key={warning} disableGutters sx={{ alignItems: "flex-start" }}>
-                            <ListItemText primary={warning} />
-                          </ListItem>
-                        ))}
-                      </List>
-                    ) : (
-                      <Typography variant="body2" color="text.secondary">
-                        No warnings are currently detected.
-                      </Typography>
-                    )}
-                  </Stack>
-                </CardContent>
-              </Card>
-            </Grid>
-
-            <Grid size={{ xs: 12 }}>
-              <Card elevation={0} sx={{ border: 1, borderColor: "divider" }}>
-                <CardContent>
-                  <Stack spacing={1.5}>
-                    <Typography variant="h6" component="h3">
-                      Errors
-                    </Typography>
-                    {validation.errors.length > 0 ? (
-                      <List dense disablePadding>
-                        {validation.errors.map((error) => (
-                          <ListItem key={error} disableGutters sx={{ alignItems: "flex-start" }}>
-                            <ListItemText primary={error} />
-                          </ListItem>
-                        ))}
-                      </List>
-                    ) : (
-                      <Typography variant="body2" color="text.secondary">
-                        No errors are currently detected.
-                      </Typography>
-                    )}
-                  </Stack>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-        </Stack>
-      </CalibrationSectionCard>
-
-      <CalibrationSectionCard
-        title="Calibration preview"
-        description="Compare the built-in defaults with the current draft overrides against deterministic golden scenarios."
-      >
-        <CalibrationPreview
-          calibrationOverrides={
-            Object.keys(previewOverrideDiff).length > 0 ? previewOverrideDiff : null
-          }
-          canRun={canProceed}
-          canRunMessage={
-            validation.errors.length > 0
-              ? "Resolve validation errors before running the preview."
-              : validation.warnings.length > 0 && !warningsAcknowledged
-                ? "Acknowledge the warnings before running the preview."
-                : ""
-          }
-        />
-      </CalibrationSectionCard>
-
-      <CalibrationSectionCard
-        title="Overview"
-        description="Check the current local state before editing or exporting calibration changes."
-        action={
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
-            <Button variant="outlined" onClick={handleExport}>
-              Export JSON
-            </Button>
-            <Button variant="outlined" onClick={handleImport}>
-              Import JSON
-            </Button>
-            <Button variant="outlined" onClick={handleReset}>
-              Reset to defaults
-            </Button>
-            <Button variant="contained" onClick={handleSave} disabled={!canProceed}>
-              Save locally
-            </Button>
-          </Stack>
-        }
-      >
-        <Stack spacing={1.5}>
-          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-            <Chip
-              color={persistedOverrides ? "warning" : "default"}
-              label={persistedOverrides ? "Custom calibration stored" : "Using defaults"}
-            />
-            <Chip label={`Override paths: ${activeOverrideCount}`} variant="outlined" />
-            <Chip label={hasUnsavedChanges ? "Unsaved draft changes" : "Draft matches saved state"} variant="outlined" />
-          </Stack>
-          <Typography variant="body2" color="text.secondary">
-            Storage key: <Box component="span" sx={{ fontFamily: "monospace" }}>calibrationOverrides</Box>
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            When shares are saved, they are normalized so each positive and drag group sums to 100%.
-          </Typography>
+          <TextField
+            label="Profile JSON"
+            value={jsonValue}
+            onChange={(event) => setJsonValue(event.target.value)}
+            multiline
+            minRows={10}
+            fullWidth
+            helperText="Paste exported profile JSON here, then import it or save the current draft."
+          />
         </Stack>
       </CalibrationSectionCard>
 
       <CalibrationSectionCard
         title="Input scales"
-        description="Edit the normalized maps that feed the deterministic factor calculations."
+        description="Ordered inputs use marked sliders. Categorical and numeric inputs are shown as placeholders for a later PR."
       >
         <Grid container spacing={2.5}>
-          {inputScaleSections.map((section) => {
-            const mapValue = getValueAtPath(draft, section.path);
-
-            return (
-              <Grid key={section.title} size={{ xs: 12, md: 6 }}>
-                <MapEditor
-                  title={section.title}
-                  description={section.description}
-                  value={mapValue}
-                  helper={section.helper}
-                  onChange={(key, nextValue) => setMapEntry(section.path, key, nextValue)}
-                />
-              </Grid>
-            );
-          })}
-        </Grid>
-      </CalibrationSectionCard>
-
-      <CalibrationSectionCard
-        title="Derived factor weights"
-        description="Edit the numeric weights that shape the derived factors used by the simulator."
-      >
-        <Grid container spacing={2.5}>
-          {derivedFactorSections.map((section) => {
-            const weights = draft.derivedFactorWeights?.[section.key] ?? {};
-            const fieldEntries = Object.entries(weights);
-
-            return (
-              <Grid key={section.key} size={{ xs: 12, md: 6 }}>
-                <Card elevation={0} sx={{ border: 1, borderColor: "divider", height: "100%" }}>
-                  <CardContent>
-                    <Stack spacing={2}>
-                      <Stack spacing={0.5}>
-                        <Typography variant="h6" component="h3">
-                          {section.title}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {section.description}
-                        </Typography>
-                      </Stack>
-                      <Grid container spacing={1.5}>
-                        {fieldEntries.map(([fieldKey, fieldValue]) => (
-                          <Grid key={fieldKey} size={{ xs: 12, sm: 6 }}>
-                            <CalibrationNumberField
-                              label={fieldKey}
-                              value={fieldValue ?? ""}
-                              step={0.1}
-                              onChange={(event) => {
-                                const raw = event.target.value;
-                                const nextValue = raw === "" ? 0 : toFiniteNumber(raw);
-                                setDraft((current) =>
-                                  setValueAtPath(
-                                    current,
-                                    ["derivedFactorWeights", section.key, fieldKey],
-                                    nextValue
-                                  )
-                                );
-                                setHasUnsavedChanges(true);
-                                setWarningsAcknowledged(false);
-                              }}
-                            />
-                          </Grid>
-                        ))}
-                      </Grid>
-                    </Stack>
-                  </CardContent>
-                </Card>
-              </Grid>
-            );
-          })}
-        </Grid>
-      </CalibrationSectionCard>
-
-      <CalibrationSectionCard
-        title="Plan fit budgets and shares"
-        description="Tune the budgets and signal shares for each path. Shares are stored as decimals and shown as percentages."
-      >
-        <Grid container spacing={2.5}>
-          {PATH_KEYS.map((pathKey) => {
-            const pathConfig = draft.pathFitComponentWeights?.[pathKey];
-
-            if (!pathConfig) {
-              return null;
-            }
-
-            return (
-              <Grid key={pathKey} size={{ xs: 12 }}>
-                <Card elevation={0} sx={{ border: 1, borderColor: "divider" }}>
-                  <CardContent>
-                    <Stack spacing={2.5}>
-                      <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-                        <Box sx={{ flex: 1 }}>
-                          <Typography variant="h6" component="h3">
-                            {pathKey === "build"
-                              ? "Build"
-                              : pathKey === "core"
-                                ? "Core"
-                                : pathKey === "premium"
-                                  ? "Premium"
-                                  : "Enterprise"}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            Base score and budget controls for this path.
-                          </Typography>
-                        </Box>
-                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                          <CalibrationNumberField
-                            label="Base score"
-                            value={pathConfig.baseScore ?? ""}
-                            step={0.1}
-                            onChange={(event) => {
-                              const raw = event.target.value;
-                              const nextValue = raw === "" ? 0 : toFiniteNumber(raw);
-                              setNestedValue(["pathFitComponentWeights", pathKey, "baseScore"], nextValue);
-                            }}
-                          />
-                          <CalibrationNumberField
-                            label="Positive budget"
-                            value={pathConfig.positiveBudget ?? ""}
-                            step={0.1}
-                            onChange={(event) => {
-                              const raw = event.target.value;
-                              const nextValue = raw === "" ? 0 : toFiniteNumber(raw);
-                              setNestedValue(["pathFitComponentWeights", pathKey, "positiveBudget"], nextValue);
-                            }}
-                          />
-                          <CalibrationNumberField
-                            label="Drag budget"
-                            value={pathConfig.dragBudget ?? ""}
-                            step={0.1}
-                            onChange={(event) => {
-                              const raw = event.target.value;
-                              const nextValue = raw === "" ? 0 : toFiniteNumber(raw);
-                              setNestedValue(["pathFitComponentWeights", pathKey, "dragBudget"], nextValue);
-                            }}
-                          />
-                        </Stack>
-                      </Stack>
-
-                      <PathFitSignalTable
-                        pathLabel={
-                          pathKey === "build"
-                            ? "Build"
-                            : pathKey === "core"
-                              ? "Core"
-                              : pathKey === "premium"
-                                ? "Premium"
-                                : "Enterprise"
-                        }
-                        pathKey={pathKey}
-                        pathConfig={pathConfig}
-                        value={pathConfig}
-                        onShareChange={setPathShare}
-                      />
-                    </Stack>
-                  </CardContent>
-                </Card>
-              </Grid>
-            );
-          })}
-        </Grid>
-      </CalibrationSectionCard>
-
-      <CalibrationSectionCard
-        title="Policies and thresholds"
-        description="Adjust the deterministic thresholds that gate fit scoring and recommendation confidence."
-      >
-        <Stack spacing={2.5}>
-          {policyGroups.map((group) => (
-            <FieldGroup
-              key={group.title}
-              title={group.title}
-              description="Threshold values used by the recommendation engine."
-              fields={group.fields}
-              draft={draft}
-              onChange={setNestedValue}
-            />
+          {registryEntries.map(([inputKey, config]) => (
+            <Grid key={inputKey} size={{ xs: 12, md: 6 }}>
+              <InputScaleEditor
+                inputKey={inputKey}
+                config={config}
+                value={draft.inputScales?.[inputKey]}
+                onChange={handleInputScaleChange}
+              />
+            </Grid>
           ))}
-          <Typography variant="body2" color="text.secondary">
-            The remaining contextual labels in these policies stay fixed in the editor because they are categorical guardrails rather than calibrated thresholds.
-          </Typography>
-        </Stack>
-      </CalibrationSectionCard>
-
-      <CalibrationSectionCard
-        title="Import / export"
-        description="Use this box to move the current override JSON in and out of local storage."
-        action={
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
-            <Button variant="outlined" onClick={handleExport}>
-              Export JSON
-            </Button>
-            <Button variant="outlined" onClick={handleImport}>
-              Import JSON
-            </Button>
-            <Button variant="outlined" onClick={handleClear}>
-              Clear local overrides
-            </Button>
-          </Stack>
-        }
-      >
-        <Stack spacing={2}>
-          <TextField
-            label="Overrides JSON"
-            value={jsonValue}
-            onChange={(event) => {
-              setJsonValue(event.target.value);
-              setHasUnsavedChanges(true);
-              setWarningsAcknowledged(false);
-            }}
-            multiline
-            minRows={12}
-            fullWidth
-            helperText="Paste override JSON here, then import or save locally."
-          />
-          <Divider />
-          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-            <Button variant="contained" onClick={handleSave} disabled={!canProceed}>
-              Save locally
-            </Button>
-            <Button variant="outlined" onClick={handleReset}>
-              Reset to defaults
-            </Button>
-            <Button variant="outlined" onClick={handleClear}>
-              Clear local overrides
-            </Button>
-          </Stack>
-        </Stack>
+        </Grid>
+        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 2 }}>
+          Ordered input editor count: {orderedInputCount}. Non-ordered placeholders: {placeholderCount}.
+        </Typography>
       </CalibrationSectionCard>
     </Stack>
   );
