@@ -86,6 +86,8 @@
  *    actually derived from a dataset or cited source.
  */
 
+import { INPUT_CALIBRATION_REGISTRY, INPUT_SCALE_TYPES } from "./inputCalibrationRegistry.js";
+
 export const CALIBRATION_VERSION = "heuristic-v2";
 
 export const INPUT_SCALES = {
@@ -1444,6 +1446,31 @@ export const FIT_SIGNAL_SCALES = {
   }
 };
 
+function buildInputIndexDefaults() {
+  const inputIndexes = {};
+
+  for (const [inputKey, config] of Object.entries(INPUT_CALIBRATION_REGISTRY)) {
+    if (config.scaleType !== INPUT_SCALE_TYPES.ordered) {
+      continue;
+    }
+
+    const positions = config.defaultOptionPositions ?? {};
+    const inputIndexGroup = {};
+
+    for (const option of config.options ?? []) {
+      const optionKey = String(option.key);
+      const rawPosition = positions[optionKey];
+      inputIndexGroup[optionKey] = Number.isFinite(rawPosition) ? rawPosition / 100 : 0;
+    }
+
+    inputIndexes[inputKey] = inputIndexGroup;
+  }
+
+  return inputIndexes;
+}
+
+const INPUT_INDEX_DEFAULTS = buildInputIndexDefaults();
+
 export const SCENARIO_LEVER_RUNTIME = {
   appFocus: {
     baselineApps: 1,
@@ -1603,7 +1630,7 @@ export const DEFAULT_CALIBRATION = {
   scenarioLeverRuntime: SCENARIO_LEVER_RUNTIME,
   recommendationPolicy: RECOMMENDATION_POLICY_WEIGHTS,
 
-  inputIndexes: {},
+  inputIndexes: INPUT_INDEX_DEFAULTS,
 
   derivedFactors: {
     functionalComplexity: {},

@@ -5,11 +5,19 @@ import {
   hashCalibrationOverrides,
   normalizeCalibrationShares
 } from "./calibrationOverrides.js";
+import { compileBusinessCalibrationProfile } from "./businessCalibrationCompiler.js";
 import { validateCalibrationModel } from "./calibrationValidation.js";
 
 export const CALIBRATION_REGISTRY = Object.freeze({
   [CALIBRATION_VERSION]: DEFAULT_CALIBRATION
 });
+
+export function resolveBusinessCalibrationProfile(
+  profile,
+  baseCalibration = DEFAULT_CALIBRATION
+) {
+  return compileBusinessCalibrationProfile(profile, baseCalibration);
+}
 
 export function resolveActiveCalibration(calibrationOverrides) {
   const normalizedOverrides =
