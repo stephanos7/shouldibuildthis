@@ -3,9 +3,9 @@ import {
   deepMergeCalibration,
   getCalibrationOverridePaths,
   hashCalibrationOverrides,
-  normalizeCalibrationShares,
-  validateCalibrationOverrides
+  normalizeCalibrationShares
 } from "./calibrationOverrides.js";
+import { validateCalibrationModel } from "./calibrationValidation.js";
 
 export const CALIBRATION_REGISTRY = Object.freeze({
   [CALIBRATION_VERSION]: DEFAULT_CALIBRATION
@@ -19,7 +19,11 @@ export function resolveActiveCalibration(calibrationOverrides) {
           pathFitComponentWeights: calibrationOverrides.pathFit
         }
       : calibrationOverrides;
-  const validation = validateCalibrationOverrides(normalizedOverrides, DEFAULT_CALIBRATION);
+  const mergedCalibration = deepMergeCalibration(
+    CALIBRATION_REGISTRY[CALIBRATION_VERSION],
+    normalizedOverrides
+  );
+  const validation = validateCalibrationModel(mergedCalibration);
 
   if (!validation.valid) {
     return {
@@ -34,10 +38,6 @@ export function resolveActiveCalibration(calibrationOverrides) {
     };
   }
 
-  const mergedCalibration = deepMergeCalibration(
-    CALIBRATION_REGISTRY[CALIBRATION_VERSION],
-    normalizedOverrides
-  );
   const overriddenPaths = getCalibrationOverridePaths(normalizedOverrides);
   let activeCalibration;
 

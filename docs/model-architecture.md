@@ -32,6 +32,67 @@ The active runtime primarily uses:
 
 `MODEL_IMPACT_MAP` owns causal relationships and calibration traceability. New behavior should be documented against the deterministic path-fit model.
 
+`INPUT_CALIBRATION_REGISTRY` is sales-facing metadata for assessment inputs.
+It describes editable defaults such as option ordering, business-language
+impact direction, impact strength, and which stable artifacts each input
+matters to.
+
+`INPUT_CALIBRATION_REGISTRY` does not replace `MODEL_IMPACT_MAP`.
+`MODEL_IMPACT_MAP` remains the model-facing relationship map for the active
+deterministic runtime.
+
+The intended future split is:
+
+- `INPUT_CALIBRATION_REGISTRY` feeds the admin UI and future compiler.
+- `MODEL_IMPACT_MAP` continues to explain runtime relationships and calibration traceability.
+- `CALIBRATION` continues to own live numeric scoring behavior until a compiler replaces direct runtime wiring.
+
+## Calibration admin
+
+The calibration editor lives at `/admin/calibration`.
+
+It edits local browser overrides only:
+
+- overrides are stored in `localStorage`
+- overrides are included in assessment requests
+- overrides are not persisted server-side
+- overrides are for demo and admin calibration only
+
+The admin editor validates the draft before save or preview and shows:
+
+- `Valid`
+- `Warnings`
+- `Errors`
+
+Warnings can be acknowledged so admins can keep experimenting without hiding the model issues.
+
+## Calibration levels
+
+Calibration is tuned in three layers:
+
+1. Input scales
+2. Budgets and shares
+3. Policies and thresholds
+
+Budget means the maximum score influence of a local group.
+
+Share means the relative split inside that local group.
+
+Policy means a decision boundary or eligibility rule.
+
+Guidance for tuning:
+
+- change shares to reorder importance within a path
+- change budgets to alter total influence
+- change thresholds to move decision gates
+- validate changes against the golden scenarios before saving
+
+Avoid these mistakes:
+
+- comparing shares across unrelated groups
+- assuming weights are benchmark-derived
+- tuning from one scenario only
+
 ## Flow
 
 The backend model now follows this sequence:

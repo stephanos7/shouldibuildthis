@@ -1,13 +1,18 @@
 import { useState } from "react";
 import {
   Alert,
+  Checkbox,
   Box,
   Button,
   Card,
   CardContent,
   Chip,
   Divider,
+  FormControlLabel,
   Grid,
+  List,
+  ListItem,
+  ListItemText,
   Stack,
   TextField,
   Typography
@@ -26,7 +31,8 @@ import {
   writeCalibrationOverrides
 } from "../model/calibrationStorage.js";
 import { DEFAULT_CALIBRATION } from "../model/calibration.js";
-import { getCalibrationOverridePaths, validateCalibrationOverrides } from "../model/calibrationOverrides.js";
+import { getCalibrationOverridePaths } from "../model/calibrationOverrides.js";
+import { validateCalibrationModel } from "../model/calibrationValidation.js";
 
 const PATH_KEYS = ["build", "core", "premium", "enterprise"];
 
@@ -210,10 +216,6 @@ function setValueAtPath(value, path, nextValue) {
 
   cursor[path[path.length - 1]] = nextValue;
   return next;
-}
-
-function normalizeCalibrationDraftForPreview(draft) {
-  return sanitizeCalibrationDraft(normalizePathFitShares(draft));
 }
 
 function buildOverrideDiff(baseValue, currentValue) {
@@ -466,16 +468,27 @@ function AdminCalibrationPage() {
   const [status, setStatus] = useState(null);
   const [statusDetails, setStatusDetails] = useState("");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [warningsAcknowledged, setWarningsAcknowledged] = useState(false);
 
   const currentOverrideDiff = buildOverrideDiff(DEFAULT_CALIBRATION, draft) ?? {};
-  const previewOverrideDiff =
-    buildOverrideDiff(DEFAULT_CALIBRATION, normalizeCalibrationDraftForPreview(draft)) ?? {};
+  const previewDraft = normalizePathFitShares(draft);
+  const previewOverrideDiff = buildOverrideDiff(DEFAULT_CALIBRATION, previewDraft) ?? {};
   const activeOverridePaths = getCalibrationOverridePaths(persistedOverrides);
   const activeOverrideCount = activeOverridePaths.length;
+  const validation = validateCalibrationModel(draft);
+  const canProceed =
+    validation.errors.length === 0 &&
+    (validation.warnings.length === 0 || warningsAcknowledged);
+  const validationSummaryLabel = validation.errors.length > 0
+    ? "Errors"
+    : validation.warnings.length > 0
+      ? "Warnings"
+      : "Valid";
 
   const setNestedValue = (path, nextValue) => {
     setDraft((current) => setValueAtPath(current, path, nextValue));
     setHasUnsavedChanges(true);
+    setWarningsAcknowledged(false);
   };
 
   const setMapEntry = (path, key, nextValue) => {
@@ -487,6 +500,7 @@ function AdminCalibrationPage() {
       });
     });
     setHasUnsavedChanges(true);
+    setWarningsAcknowledged(false);
   };
 
   const setPathShare = (pathKey, groupKey, signalKey, rawValue) => {
@@ -506,18 +520,24 @@ function AdminCalibrationPage() {
       return next;
     });
     setHasUnsavedChanges(true);
+    setWarningsAcknowledged(false);
   };
 
   const handleSave = () => {
-    const normalized = sanitizeCalibrationDraft(normalizePathFitShares(draft));
-    const overrides = buildOverrideDiff(DEFAULT_CALIBRATION, normalized) ?? {};
-    const validation = validateCalibrationOverrides(overrides, DEFAULT_CALIBRATION);
-
-    if (!validation.valid) {
+    if (validation.errors.length > 0) {
       setStatus("error");
       setStatusDetails(validation.errors.join(" "));
       return;
     }
+
+    if (validation.warnings.length > 0 && !warningsAcknowledged) {
+      setStatus("warning");
+      setStatusDetails("Acknowledge the validation warnings before saving or previewing.");
+      return;
+    }
+
+    const normalized = normalizePathFitShares(draft);
+    const overrides = buildOverrideDiff(DEFAULT_CALIBRATION, normalized) ?? {};
 
     if (Object.keys(overrides).length === 0) {
       clearCalibrationOverrides();
@@ -525,6 +545,7 @@ function AdminCalibrationPage() {
       setDraft(cloneValue(DEFAULT_CALIBRATION));
       setJsonValue("");
       setHasUnsavedChanges(false);
+      setWarningsAcknowledged(false);
       setStatus("success");
       setStatusDetails("Local calibration overrides cleared because the draft matches defaults.");
       return;
@@ -535,6 +556,7 @@ function AdminCalibrationPage() {
     setDraft(mergeCalibrationDraft(overrides));
     setJsonValue(exportCalibrationOverrides(overrides));
     setHasUnsavedChanges(false);
+    setWarningsAcknowledged(false);
     setStatus("success");
     setStatusDetails(
       `Saved locally. ${getCalibrationOverridePaths(overrides).length} override path(s) are active.`
@@ -545,6 +567,7 @@ function AdminCalibrationPage() {
     setDraft(cloneValue(DEFAULT_CALIBRATION));
     setJsonValue("");
     setHasUnsavedChanges(false);
+    setWarningsAcknowledged(false);
     setStatus("info");
     setStatusDetails("Draft reset to the built-in defaults.");
   };
@@ -555,6 +578,7 @@ function AdminCalibrationPage() {
     setDraft(cloneValue(DEFAULT_CALIBRATION));
     setJsonValue("");
     setHasUnsavedChanges(false);
+    setWarningsAcknowledged(false);
     setStatus("info");
     setStatusDetails("Local overrides cleared from storage.");
   };
@@ -583,6 +607,7 @@ function AdminCalibrationPage() {
       const mergedDraft = sanitizeCalibrationDraft(mergeCalibrationDraft(imported.overrides));
       setDraft(mergedDraft);
       setHasUnsavedChanges(true);
+      setWarningsAcknowledged(false);
       setStatus("success");
       setStatusDetails("Imported overrides into the draft. Save locally to persist them.");
     } catch {
@@ -611,12 +636,142 @@ function AdminCalibrationPage() {
       ) : null}
 
       <CalibrationSectionCard
+        title="Validation"
+        description="Review blocking schema issues, normalization warnings, and monotonicity checks before saving or previewing."
+      >
+        <Stack spacing={2}>
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            <Chip
+              color={validation.errors.length > 0 ? "error" : "success"}
+              label={validationSummaryLabel}
+            />
+            <Chip
+              variant="outlined"
+              label={`Warnings: ${validation.warnings.length}`}
+              color={validation.warnings.length > 0 ? "warning" : "default"}
+            />
+            <Chip
+              variant="outlined"
+              label={`Errors: ${validation.errors.length}`}
+              color={validation.errors.length > 0 ? "error" : "default"}
+            />
+          </Stack>
+
+          {validation.errors.length > 0 ? (
+            <Alert severity="error" variant="outlined">
+              Resolve the blocking schema issues before saving or previewing.
+            </Alert>
+          ) : validation.warnings.length > 0 ? (
+            <Alert severity="warning" variant="outlined">
+              Warnings are visible but do not block experimentation. Acknowledge them to continue.
+            </Alert>
+          ) : (
+            <Alert severity="success" variant="outlined">
+              The current calibration draft is valid.
+            </Alert>
+          )}
+
+          {validation.warnings.length > 0 ? (
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={warningsAcknowledged}
+                  onChange={(event) => setWarningsAcknowledged(event.target.checked)}
+                />
+              }
+              label="I understand the warnings and want to continue."
+            />
+          ) : null}
+
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Card elevation={0} sx={{ border: 1, borderColor: "divider", height: "100%" }}>
+                <CardContent>
+                  <Stack spacing={1.5}>
+                    <Typography variant="h6" component="h3">
+                      Valid
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Blocks only if this draft contains invalid numeric or schema data.
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {validation.errors.length === 0
+                        ? "No blocking validation errors are present."
+                        : "Blocking errors are present and must be fixed."}
+                    </Typography>
+                  </Stack>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Card elevation={0} sx={{ border: 1, borderColor: "divider", height: "100%" }}>
+                <CardContent>
+                  <Stack spacing={1.5}>
+                    <Typography variant="h6" component="h3">
+                      Warnings
+                    </Typography>
+                    {validation.warnings.length > 0 ? (
+                      <List dense disablePadding>
+                        {validation.warnings.map((warning) => (
+                          <ListItem key={warning} disableGutters sx={{ alignItems: "flex-start" }}>
+                            <ListItemText primary={warning} />
+                          </ListItem>
+                        ))}
+                      </List>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">
+                        No warnings are currently detected.
+                      </Typography>
+                    )}
+                  </Stack>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            <Grid size={{ xs: 12 }}>
+              <Card elevation={0} sx={{ border: 1, borderColor: "divider" }}>
+                <CardContent>
+                  <Stack spacing={1.5}>
+                    <Typography variant="h6" component="h3">
+                      Errors
+                    </Typography>
+                    {validation.errors.length > 0 ? (
+                      <List dense disablePadding>
+                        {validation.errors.map((error) => (
+                          <ListItem key={error} disableGutters sx={{ alignItems: "flex-start" }}>
+                            <ListItemText primary={error} />
+                          </ListItem>
+                        ))}
+                      </List>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">
+                        No errors are currently detected.
+                      </Typography>
+                    )}
+                  </Stack>
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
+        </Stack>
+      </CalibrationSectionCard>
+
+      <CalibrationSectionCard
         title="Calibration preview"
         description="Compare the built-in defaults with the current draft overrides against deterministic golden scenarios."
       >
         <CalibrationPreview
           calibrationOverrides={
             Object.keys(previewOverrideDiff).length > 0 ? previewOverrideDiff : null
+          }
+          canRun={canProceed}
+          canRunMessage={
+            validation.errors.length > 0
+              ? "Resolve validation errors before running the preview."
+              : validation.warnings.length > 0 && !warningsAcknowledged
+                ? "Acknowledge the warnings before running the preview."
+                : ""
           }
         />
       </CalibrationSectionCard>
@@ -635,7 +790,7 @@ function AdminCalibrationPage() {
             <Button variant="outlined" onClick={handleReset}>
               Reset to defaults
             </Button>
-            <Button variant="contained" onClick={handleSave}>
+            <Button variant="contained" onClick={handleSave} disabled={!canProceed}>
               Save locally
             </Button>
           </Stack>
@@ -722,6 +877,7 @@ function AdminCalibrationPage() {
                                   )
                                 );
                                 setHasUnsavedChanges(true);
+                                setWarningsAcknowledged(false);
                               }}
                             />
                           </Grid>
@@ -871,6 +1027,7 @@ function AdminCalibrationPage() {
             onChange={(event) => {
               setJsonValue(event.target.value);
               setHasUnsavedChanges(true);
+              setWarningsAcknowledged(false);
             }}
             multiline
             minRows={12}
@@ -879,7 +1036,7 @@ function AdminCalibrationPage() {
           />
           <Divider />
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-            <Button variant="contained" onClick={handleSave}>
+            <Button variant="contained" onClick={handleSave} disabled={!canProceed}>
               Save locally
             </Button>
             <Button variant="outlined" onClick={handleReset}>

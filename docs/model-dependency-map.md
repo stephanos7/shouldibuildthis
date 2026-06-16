@@ -29,6 +29,43 @@ within a band, but the qualitative label carries the user-facing interpretation.
 - `output`: displayed path-fit metrics and recommendation outputs.
 - `recommendation`: final recommendation option, summary, and confidence.
 
+## Calibration Admin Flow
+
+The admin route `/admin/calibration` edits `calibrationOverrides` in the browser.
+
+- overrides live in `localStorage`
+- overrides are merged into assessment requests before simulation
+- overrides are not stored on the server
+- validation runs locally before save or preview
+- warnings can be acknowledged so the admin can keep experimenting
+
+## Calibration Tuning
+
+The deterministic calibration is tuned in three layers:
+
+1. Input scales
+2. Budgets and shares
+3. Policies and thresholds
+
+Budget is the maximum score influence of a local group.
+
+Share is the relative split inside that group.
+
+Policy is a decision boundary or eligibility rule.
+
+Recommended edits:
+
+- change shares to reorder importance within a path
+- change budgets to alter total influence
+- change thresholds to move decision gates
+- validate against the golden scenarios before saving
+
+Avoid these edits:
+
+- comparing shares across unrelated groups
+- assuming weights are benchmark-derived
+- tuning from one scenario only
+
 ## Direction Legend
 
 - `good`: pushes the downstream artifact in a favorable direction.

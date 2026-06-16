@@ -91,8 +91,8 @@ function validateNode(node, baseNode, path, errors) {
   }
 
   if (path[path.length - 1] === "share") {
-    if (typeof node !== "number" || !Number.isFinite(node) || node <= 0) {
-      errors.push(`${path.join(".")} must be a positive finite number.`);
+    if (typeof node !== "number" || !Number.isFinite(node) || node < 0) {
+      errors.push(`${path.join(".")} must be a non-negative finite number.`);
     }
     return;
   }
@@ -100,6 +100,38 @@ function validateNode(node, baseNode, path, errors) {
   const valueType = typeof node;
   if (!["string", "number", "boolean"].includes(valueType) && node !== null) {
     errors.push(`${path.join(".")} must be a JSON-serializable primitive, object, or array.`);
+  }
+}
+
+function validateShareGroups(node, path, errors) {
+  if (!isPlainObject(node)) {
+    return;
+  }
+
+  for (const [key, value] of Object.entries(node)) {
+    const nextPath = [...path, key];
+
+    if (!isPlainObject(value)) {
+      validateShareGroups(value, nextPath, errors);
+      continue;
+    }
+
+    const entries = Object.entries(value);
+    const shares = entries
+      .filter(([, child]) => isPlainObject(child) && "share" in child)
+      .map(([, child]) => Number(child.share));
+
+    if (shares.length > 0) {
+      const totalShare = shares.reduce((sum, entry) => sum + entry.share, 0);
+
+      if (!(totalShare > 0)) {
+        errors.push(
+          `${nextPath.join(".")} share values must sum to more than 0.`
+        );
+      }
+    }
+
+    validateShareGroups(value, nextPath, errors);
   }
 }
 
@@ -230,6 +262,7 @@ export function validateCalibrationOverrides(overrides, base = DEFAULT_CALIBRATI
   }
 
   validateNode(overrides, base, ["calibrationOverrides"], errors);
+  validateShareGroups(overrides, ["calibrationOverrides"], errors);
 
   return {
     valid: errors.length === 0,

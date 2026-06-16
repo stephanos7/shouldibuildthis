@@ -1,5 +1,6 @@
 import { DEFAULT_CALIBRATION } from "./calibration.js";
-import { deepMergeCalibration, validateCalibrationOverrides } from "./calibrationOverrides.js";
+import { deepMergeCalibration } from "./calibrationOverrides.js";
+import { validateCalibrationModel } from "./calibrationValidation.js";
 
 export const CALIBRATION_STORAGE_KEY = "calibrationOverrides";
 
@@ -60,7 +61,7 @@ export function readCalibrationOverrides() {
       return null;
     }
 
-    const validation = validateCalibrationOverrides(parsed, DEFAULT_CALIBRATION);
+    const validation = validateCalibrationModel(deepMergeCalibration(DEFAULT_CALIBRATION, parsed));
 
     if (!validation.valid) {
       window.localStorage.removeItem(CALIBRATION_STORAGE_KEY);
@@ -104,7 +105,9 @@ export function exportCalibrationOverrides(overrides) {
 
 export function importCalibrationOverrides(jsonText) {
   const parsed = normalizeStoredOverrides(JSON.parse(jsonText));
-  const validation = validateCalibrationOverrides(parsed, DEFAULT_CALIBRATION);
+  const validation = validateCalibrationModel(
+    deepMergeCalibration(DEFAULT_CALIBRATION, parsed ?? {})
+  );
 
   if (!validation.valid) {
     return {

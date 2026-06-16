@@ -415,34 +415,40 @@ function roundTo(value, decimals = 1) {
   return Math.round(value * factor) / factor;
 }
 
-function levelFromScore(score) {
-  if (score >= SCORE_BANDS.high.min) {
+function levelFromScore(score, scoreBands) {
+  const bands = scoreBands ?? {
+    low: { min: 0, maxExclusive: 34 },
+    medium: { min: 34, maxExclusive: 67 },
+    high: { min: 67, maxInclusive: 100 }
+  };
+
+  if (score >= bands.high.min) {
     return "high";
   }
 
-  if (score >= SCORE_BANDS.medium.min) {
+  if (score >= bands.medium.min) {
     return "medium";
   }
 
   return "low";
 }
 
-function buildFactor(score, drivers) {
+function buildFactor(score, drivers, calibration) {
   const normalizedScore = roundTo(clamp(score, 0, 100));
 
   return {
     score: normalizedScore,
-    level: levelFromScore(normalizedScore),
+    level: levelFromScore(normalizedScore, calibration.scoreBands),
     drivers
   };
 }
 
-function buildLever(score, drivers) {
+function buildLever(score, drivers, calibration) {
   const normalizedScore = clamp(score, 0, 1);
 
   return {
     score: roundTo(normalizedScore, 2),
-    level: levelFromScore(normalizedScore * 100),
+    level: levelFromScore(normalizedScore * 100, calibration.scoreBands),
     drivers
   };
 }
@@ -1038,7 +1044,8 @@ function buildDerivedFactors(input, calibration) {
       (input.primaryUseCase === "scheduler"
         ? columnScale * derivedWeights.functionalComplexity.schedulerColumnScale
         : 0),
-    functionalDrivers
+    functionalDrivers,
+    calibration
   );
 
   const qualityBurden = buildFactor(
@@ -1077,7 +1084,8 @@ function buildDerivedFactors(input, calibration) {
       noAdvancedBehaviors
         ? "No advanced feature-specific QA burden was selected."
         : `Advanced behaviors (${selectedAdvancedBehaviors}) add extra QA coverage.`
-    ]
+    ],
+    calibration
   );
 
   const rawDeliveryMaturity =
@@ -1111,7 +1119,8 @@ function buildDerivedFactors(input, calibration) {
 
   const deliveryMaturity = buildFactor(
     Math.min(rawDeliveryMaturity, deliveryMaturityCap),
-    deliveryMaturityDrivers
+    deliveryMaturityDrivers,
+    calibration
   );
 
   const ownershipBurden = buildFactor(
@@ -1129,7 +1138,8 @@ function buildDerivedFactors(input, calibration) {
       `${input.dependentTeams} dependent teams and ${countLabel(input.reactApps, "React app")} define coordination load.`,
       `${input.ownershipModel} ownership and ${input.knowledgeConcentration} knowledge concentration shape continuity risk.`,
       `${input.designSystemMaturity} design-system maturity changes how much groundwork already exists.`
-    ]
+    ],
+    calibration
   );
 
   const enterpriseReadiness = buildFactor(
@@ -1150,7 +1160,8 @@ function buildDerivedFactors(input, calibration) {
       `${input.supportRequirement} support expectations raise enterprise relevance.`,
       `${countLabel(input.reactApps, "React app")} and ${input.dependentTeams} dependent teams widen the rollout footprint.`,
       `${input.componentStandardizationGoal} standardization intent and ${input.productionCriticality} criticality affect platform pressure.`
-    ]
+    ],
+    calibration
   );
 
   return {
@@ -1460,10 +1471,10 @@ function buildScenarioLevers(input, scorecard, calibration) {
   return {
     internalAbsorption: buildLever(internalAbsorptionScore, [
       "Delivery flow, ownership clarity, knowledge spread, and handoff quality define how cleanly the team can absorb custom work."
-    ]),
+    ], calibration),
     buildReuseLeverage: buildLever(buildReuseLeverageScore, [
       "Design-system maturity, ownership clarity, and scope simplicity determine how much internal reuse the build path can capture."
-    ]),
+    ], calibration),
     muiLeverage: buildLever(
       clamp(planFit.coverageScore / 100, 0, 1) *
         scenarioWeights.muiLeverage.coverageScore +
@@ -1486,7 +1497,8 @@ function buildScenarioLevers(input, scorecard, calibration) {
         muiPerformanceRelief * scenarioWeights.muiLeverage.performanceRelief,
       [
         "Coverage fit, support fit, existing MUI usage, and packaged affinity determine how much leverage a packaged path can realistically deliver."
-      ]
+      ],
+      calibration
     ),
     muiAdoptionBurden: buildLever(
       scenarioWeights.muiAdoptionBurden.existingMuiUsage[input.existingMuiUsage] +
@@ -1520,7 +1532,8 @@ function buildScenarioLevers(input, scorecard, calibration) {
         planFit.coverageGap * scenarioWeights.muiAdoptionBurden.coverageGap,
       [
         "Existing MUI usage, ownership clarity, customization demand, and coverage gaps define adoption drag."
-      ]
+      ],
+      calibration
     ),
     downsideTailRisk: buildLever(
       scorecard.ownershipRisk * scenarioWeights.downsideTailRisk.ownershipRisk +
@@ -1570,28 +1583,30 @@ function buildScenarioLevers(input, scorecard, calibration) {
             : scenarioWeights.downsideTailRisk.standardizationIntent),
       [
         "Delivery, ownership, quality, and scale still define the downside-risk floor even in a deterministic fit model."
-      ]
+      ],
+      calibration
     ),
     performancePressure: buildLever(performancePressure, [
       "Normalized pressure from the selected performance-sensitivity requirement."
-    ]),
+    ], calibration),
     muiPerformanceReadiness: buildLever(muiPerformanceReadiness, [
       "Coverage, integration fit, and adoption conditions determine how ready the packaged path is for performance-sensitive work."
-    ]),
+    ], calibration),
     muiPerformanceBurden: buildLever(muiPerformanceBurden, [
       "Remaining performance-sensitive burden on the packaged path after fit conditions are considered."
-    ]),
+    ], calibration),
     buildPerformanceReadiness: buildLever(buildPerformanceReadiness, [
       "Internal absorption, reuse, knowledge spread, and handoff quality determine build-side readiness for performance-sensitive work."
-    ]),
+    ], calibration),
     buildPerformanceBurden: buildLever(buildPerformanceBurden, [
       "Remaining performance-sensitive burden on the build path after internal readiness is considered."
-    ])
+    ], calibration)
   };
 }
 
 function buildScorecard(input, derivedFactors, calibration) {
   const pathScoreWeights = calibration.pathScoreWeights;
+  const scenarioWeights = calibration.scenarioLeverWeights;
   const policy = calibration.deterministicPolicy;
   const buildFitWeights = pathScoreWeights.buildFit;
   const coreFitWeights = pathScoreWeights.coreFit;
@@ -1999,7 +2014,7 @@ function buildPathFitEntry(
     key,
     label,
     score: normalizedScore,
-    level: levelFromScore(normalizedScore),
+    level: levelFromScore(normalizedScore, calibration.scoreBands),
     eligible,
     components,
     calibration: metadata,

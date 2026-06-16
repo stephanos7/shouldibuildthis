@@ -93,13 +93,20 @@ async function runScenario(input, calibrationOverrides) {
   return body;
 }
 
-function CalibrationPreview({ calibrationOverrides }) {
+function CalibrationPreview({ calibrationOverrides, canRun = true, canRunMessage = "" }) {
   const [rows, setRows] = useState([]);
   const [isRunning, setIsRunning] = useState(false);
   const [error, setError] = useState("");
   const [lastRunLabel, setLastRunLabel] = useState("");
 
   const handleRun = async () => {
+    if (!canRun) {
+      setRows([]);
+      setLastRunLabel("");
+      setError(canRunMessage || "Resolve validation issues before running the preview.");
+      return;
+    }
+
     setIsRunning(true);
     setError("");
 
@@ -143,8 +150,15 @@ function CalibrationPreview({ calibrationOverrides }) {
   };
 
   useEffect(() => {
+    if (!canRun) {
+      setRows([]);
+      setLastRunLabel("");
+      setError(canRunMessage || "Resolve validation issues before running the preview.");
+      return;
+    }
+
     void handleRun();
-  }, []);
+  }, [canRun, canRunMessage]);
 
   const changedCount = rows.filter((row) => row.changed).length;
 
@@ -164,7 +178,7 @@ function CalibrationPreview({ calibrationOverrides }) {
             Compare the built-in defaults with the current draft overrides before saving them locally.
           </Typography>
         </Stack>
-        <Button variant="contained" onClick={handleRun} disabled={isRunning}>
+        <Button variant="contained" onClick={handleRun} disabled={isRunning || !canRun}>
           {isRunning ? "Running preview..." : "Run preview"}
         </Button>
       </Stack>
@@ -182,7 +196,7 @@ function CalibrationPreview({ calibrationOverrides }) {
         />
       </Stack>
 
-      {error ? <Alert severity="error" variant="outlined">{error}</Alert> : null}
+      {error ? <Alert severity={canRun ? "error" : "warning"} variant="outlined">{error}</Alert> : null}
 
       {isRunning ? <LinearProgress /> : null}
 
