@@ -14,6 +14,8 @@
  * calibration systems.
  */
 
+import { DERIVED_FACTOR_CONTRIBUTIONS } from "./derivedFactorContributions.js";
+
 export const MODEL_IMPACT_MAP = {
   frontendDevelopers: {
     label: "Frontend developers",
@@ -1311,3 +1313,58 @@ export const MODEL_IMPACT_MAP = {
     ]
   }
 };
+
+function humanizeKey(value) {
+  return String(value)
+    .replace(/-/g, " ")
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function effectScaleFromStrength(strength) {
+  if (strength >= 80) {
+    return "large";
+  }
+
+  if (strength >= 45) {
+    return "moderate";
+  }
+
+  if (strength > 0) {
+    return "small";
+  }
+
+  return "none";
+}
+
+export function buildDerivedFactorContributionImpactMap(
+  contributionRegistry = DERIVED_FACTOR_CONTRIBUTIONS
+) {
+  return Object.fromEntries(
+    Object.entries(contributionRegistry ?? {}).map(([inputKey, factorRoutes]) => [
+      inputKey,
+      {
+        label: humanizeKey(inputKey),
+        group: "Executable derived-factor routing",
+        direction: "mixed",
+        summary: `Executable routing from ${humanizeKey(inputKey)} into supported derived factors.`,
+        impacts: Object.entries(factorRoutes ?? {}).map(([factorKey, routeConfig]) => ({
+          artifact: factorKey,
+          stage: "derivedFactor",
+          path: humanizeKey(factorKey),
+          direction:
+            routeConfig?.direction === "negative"
+              ? "negative"
+              : routeConfig?.direction === "positive"
+                ? "positive"
+                : "neutral",
+          effectType: "conditional",
+          effectScale: effectScaleFromStrength(Number(routeConfig?.defaultStrength) || 0),
+          calculatedIn: "applyDerivedFactorContributions",
+          calibrationRef: `derivedFactorContributions.${inputKey}.${factorKey}.defaultStrength`,
+          reason: routeConfig?.explanation ?? "Executable derived-factor routing."
+        }))
+      }
+    ])
+  );
+}

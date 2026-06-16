@@ -4,7 +4,7 @@
 
 This document shows how the recommendation model moves from raw assessment inputs to derived factors, scorecards, plan fit, path fit, outputs, and final recommendation.
 
-`MODEL_ARTIFACT_GLOSSARY` owns artifact meaning and lifecycle notes. `MODEL_IMPACT_MAP` owns causal relationships. `CALIBRATION` controls actual numeric behavior.
+`MODEL_ARTIFACT_GLOSSARY` owns artifact meaning and lifecycle notes. `DERIVED_FACTOR_CONTRIBUTIONS` controls executable derived-factor routing. `MODEL_IMPACT_MAP` owns causal relationships and audit/explanation detail. `CALIBRATION` controls actual numeric behavior.
 
 ## Score display semantics
 

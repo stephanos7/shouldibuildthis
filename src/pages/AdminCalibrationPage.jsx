@@ -1,8 +1,12 @@
-import { useState } from "react";
-import { Alert, Button, Chip, Grid, Stack, TextField, Typography } from "@mui/material";
+import { useMemo, useState } from "react";
+import { Alert, Button, Chip, Grid, Stack, TextField } from "@mui/material";
 import PageHero from "../components/PageHero.jsx";
 import CalibrationSectionCard from "../components/admin/CalibrationSectionCard.jsx";
+import CalibrationScenarioPreview from "../components/admin/CalibrationScenarioPreview.jsx";
+import CalibrationValidationPanel from "../components/admin/CalibrationValidationPanel.jsx";
+import PathPriorityEditor from "../components/admin/PathPriorityEditor.jsx";
 import InputScaleEditor from "../components/admin/InputScaleEditor.jsx";
+import InputImpactEditor from "../components/admin/InputImpactEditor.jsx";
 import {
   clearBusinessCalibrationProfile,
   exportBusinessCalibrationProfile,
@@ -13,11 +17,11 @@ import {
 } from "../model/businessCalibrationStorage.js";
 import { DEFAULT_BUSINESS_CALIBRATION_PROFILE } from "../model/businessCalibrationDefaults.js";
 import { DEFAULT_CALIBRATION } from "../model/calibration.js";
+import { validateBusinessCalibrationPreview } from "../model/businessCalibrationValidation.js";
 import {
   INPUT_CALIBRATION_REGISTRY,
   INPUT_SCALE_TYPES
 } from "../model/inputCalibrationRegistry.js";
-import { validateBusinessCalibrationProfile } from "../model/businessCalibrationCompiler.js";
 
 function loadInitialDraft() {
   const storedProfile = readBusinessCalibrationProfile();
@@ -35,14 +39,24 @@ function AdminCalibrationPage() {
   );
   const [status, setStatus] = useState(null);
 
-  const validation = validateBusinessCalibrationProfile(draft, DEFAULT_CALIBRATION);
+  const validation = useMemo(
+    () => validateBusinessCalibrationPreview(draft, { baseCalibration: DEFAULT_CALIBRATION }),
+    [draft]
+  );
   const registryEntries = Object.entries(INPUT_CALIBRATION_REGISTRY);
-  const orderedInputCount = registryEntries.filter(([, config]) => config.scaleType === INPUT_SCALE_TYPES.ordered).length;
+  const orderedInputCount = registryEntries.filter(
+    ([, config]) => config.scaleType === INPUT_SCALE_TYPES.ordered
+  ).length;
   const placeholderCount = registryEntries.length - orderedInputCount;
   const canSave = validation.valid;
 
   const setStatusMessage = (severity, message) => {
     setStatus({ severity, message });
+  };
+
+  const syncDraft = (nextDraft) => {
+    setDraft(nextDraft);
+    setJsonValue(exportBusinessCalibrationProfile(nextDraft));
   };
 
   const handleInputScaleChange = (inputKey, nextScale) => {
@@ -54,6 +68,61 @@ function AdminCalibrationPage() {
           [inputKey]: {
             ...(currentDraft.inputScales?.[inputKey] ?? {}),
             ...nextScale
+          }
+        }
+      };
+
+      setJsonValue(exportBusinessCalibrationProfile(nextDraft));
+      return nextDraft;
+    });
+    setStatus(null);
+  };
+
+  const handleInputImpactChange = (inputKey, outcomeKey, nextRoutePatch) => {
+    setDraft((currentDraft) => {
+      const currentRoute = currentDraft.inputImpacts?.[inputKey]?.[outcomeKey] ?? {
+        direction: "none",
+        strength: 0
+      };
+      const nextDirection = nextRoutePatch.direction ?? currentRoute.direction;
+      const rawStrength = nextRoutePatch.strength ?? currentRoute.strength;
+      const nextStrength = nextDirection === "none" ? 0 : Math.min(100, Math.max(0, Number(rawStrength) || 0));
+      const resolvedDirection =
+        nextRoutePatch.direction
+          ? nextDirection
+          : nextStrength > 0 && currentRoute.direction === "none"
+            ? "positive"
+            : currentRoute.direction;
+
+      const nextDraft = {
+        ...currentDraft,
+        inputImpacts: {
+          ...(currentDraft.inputImpacts ?? {}),
+          [inputKey]: {
+            ...(currentDraft.inputImpacts?.[inputKey] ?? {}),
+            [outcomeKey]: {
+              direction: resolvedDirection === "none" ? "none" : resolvedDirection,
+              strength: resolvedDirection === "none" ? 0 : nextStrength
+            }
+          }
+        }
+      };
+
+      setJsonValue(exportBusinessCalibrationProfile(nextDraft));
+      return nextDraft;
+    });
+    setStatus(null);
+  };
+
+  const handlePathPriorityChange = (pathKey, groupKey, nextOrder) => {
+    setDraft((currentDraft) => {
+      const nextDraft = {
+        ...currentDraft,
+        pathPriorities: {
+          ...(currentDraft.pathPriorities ?? {}),
+          [pathKey]: {
+            ...(currentDraft.pathPriorities?.[pathKey] ?? {}),
+            [groupKey]: nextOrder
           }
         }
       };
@@ -81,7 +150,7 @@ function AdminCalibrationPage() {
     setStatusMessage(
       "success",
       result.calibrationOverrides
-        ? "Saved locally. Compiled calibration overrides are active."
+        ? "Saved locally. Compiled calibration overrides are active for assessment submission."
         : "Saved locally. No compiled overrides were needed."
     );
   };
@@ -92,17 +161,38 @@ function AdminCalibrationPage() {
       inputScales: DEFAULT_BUSINESS_CALIBRATION_PROFILE.inputScales
     });
 
-    setDraft(nextDraft);
-    setJsonValue(exportBusinessCalibrationProfile(nextDraft));
+    syncDraft(nextDraft);
     setStatusMessage("info", "Input scales reset to the built-in defaults.");
+  };
+
+  const handleResetInputImpacts = (inputKey) => {
+    const nextDraft = mergeBusinessCalibrationProfile({
+      ...draft,
+      inputImpacts: {
+        ...(draft.inputImpacts ?? {}),
+        [inputKey]: DEFAULT_BUSINESS_CALIBRATION_PROFILE.inputImpacts[inputKey]
+      }
+    });
+
+    syncDraft(nextDraft);
+    setStatusMessage("info", `Reset ${INPUT_CALIBRATION_REGISTRY[inputKey]?.label ?? inputKey} to the built-in defaults.`);
+  };
+
+  const handleResetAllInputImpacts = () => {
+    const nextDraft = mergeBusinessCalibrationProfile({
+      ...draft,
+      inputImpacts: DEFAULT_BUSINESS_CALIBRATION_PROFILE.inputImpacts
+    });
+
+    syncDraft(nextDraft);
+    setStatusMessage("info", "All input impacts reset to the built-in defaults.");
   };
 
   const handleResetAllCalibration = () => {
     clearBusinessCalibrationProfile();
 
     const nextDraft = mergeBusinessCalibrationProfile(DEFAULT_BUSINESS_CALIBRATION_PROFILE);
-    setDraft(nextDraft);
-    setJsonValue(exportBusinessCalibrationProfile(nextDraft));
+    syncDraft(nextDraft);
     setStatusMessage("info", "All calibration state reset to the built-in defaults.");
   };
 
@@ -129,8 +219,7 @@ function AdminCalibrationPage() {
       return;
     }
 
-    setDraft(imported.profile);
-    setJsonValue(exportBusinessCalibrationProfile(imported.profile));
+    syncDraft(imported.profile);
     setStatusMessage("success", "Imported profile JSON into the draft.");
   };
 
@@ -139,7 +228,7 @@ function AdminCalibrationPage() {
       <PageHero
         eyebrow="Admin"
         title="Calibration admin"
-        description="Edit local business calibration profile data with ordered input scales. No auth is required, and changes stay in browser storage."
+        description="Edit local business calibration profile data in browser storage. Input impact routing stays business-facing and compiles into runtime calibration overrides when supported."
         chips={[
           "LocalStorage profile",
           "Compiled overrides on save",
@@ -154,8 +243,8 @@ function AdminCalibrationPage() {
       ) : null}
 
       <CalibrationSectionCard
-        title="Calibration admin"
-        description="Use the JSON editor for import/export and save the local business calibration profile back into browser storage."
+        title="Profile tools"
+        description="Save, reset, export, and import the local business calibration profile. JSON stays available for portability, but the primary editor uses business-facing controls."
         action={
           <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ flexWrap: "wrap" }}>
             <Button variant="outlined" onClick={handleExportProfile}>
@@ -164,28 +253,19 @@ function AdminCalibrationPage() {
             <Button variant="outlined" onClick={handleImportProfile}>
               Import profile JSON
             </Button>
-            <Button variant="outlined" onClick={handleResetInputScales}>
-              Reset input scales
-            </Button>
             <Button variant="outlined" onClick={handleResetAllCalibration}>
               Reset all calibration
             </Button>
             <Button variant="contained" onClick={handleSave} disabled={!canSave}>
-              Save
+              Save changes
             </Button>
           </Stack>
         }
       >
         <Stack spacing={2.5}>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-            <Chip
-              label={`Ordered inputs: ${orderedInputCount}`}
-              variant="outlined"
-            />
-            <Chip
-              label={`Placeholders: ${placeholderCount}`}
-              variant="outlined"
-            />
+            <Chip label={`Ordered inputs: ${orderedInputCount}`} variant="outlined" />
+            <Chip label={`Placeholders: ${placeholderCount}`} variant="outlined" />
             <Chip
               label={validation.valid ? "Draft valid" : "Draft has blocking errors"}
               color={validation.valid ? "success" : "error"}
@@ -214,9 +294,43 @@ function AdminCalibrationPage() {
         </Stack>
       </CalibrationSectionCard>
 
+      <CalibrationValidationPanel validation={validation} />
+
+      <CalibrationScenarioPreview
+        calibrationOverrides={validation.compiledOverrides}
+        validation={validation}
+      />
+
+      <CalibrationSectionCard>
+        <InputImpactEditor
+          draft={draft}
+          defaultProfile={DEFAULT_BUSINESS_CALIBRATION_PROFILE}
+          diagnostics={validation.diagnostics}
+          routeStatuses={validation.routeStatuses}
+          onImpactChange={handleInputImpactChange}
+          onResetInput={handleResetInputImpacts}
+          onResetAll={handleResetAllInputImpacts}
+        />
+      </CalibrationSectionCard>
+
+      <CalibrationSectionCard>
+        <PathPriorityEditor
+          draft={draft}
+          defaultProfile={DEFAULT_BUSINESS_CALIBRATION_PROFILE}
+          calibration={DEFAULT_CALIBRATION}
+          validationErrors={validation.errors}
+          onOrderChange={handlePathPriorityChange}
+        />
+      </CalibrationSectionCard>
+
       <CalibrationSectionCard
         title="Input scales"
-        description="Ordered inputs use marked sliders. Categorical and numeric inputs are shown as placeholders for a later PR."
+        description="Ordered inputs use marked sliders. Categorical, numeric, and multi-select inputs keep placeholder scale cards for now."
+        action={
+          <Button variant="outlined" onClick={handleResetInputScales}>
+            Reset input scales
+          </Button>
+        }
       >
         <Grid container spacing={2.5}>
           {registryEntries.map(([inputKey, config]) => (
@@ -230,9 +344,6 @@ function AdminCalibrationPage() {
             </Grid>
           ))}
         </Grid>
-        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 2 }}>
-          Ordered input editor count: {orderedInputCount}. Non-ordered placeholders: {placeholderCount}.
-        </Typography>
       </CalibrationSectionCard>
     </Stack>
   );

@@ -12,6 +12,95 @@ export const INPUT_SCALE_TYPES = {
   multiSelect: "multiSelect"
 };
 
+export const CALIBRATION_OUTCOMES = {
+  functionalComplexity: {
+    label: "Functional complexity",
+    description:
+      "How much feature breadth, interaction depth, and implementation complexity this input tends to add."
+  },
+  qualityBurden: {
+    label: "Quality burden",
+    description:
+      "How much verification, testing, accessibility, and regression effort this input tends to increase."
+  },
+  deliveryMaturity: {
+    label: "Delivery maturity",
+    description:
+      "How strongly this input helps or hurts the team’s ability to deliver this capability predictably."
+  },
+  ownershipBurden: {
+    label: "Ownership / maintainability burden",
+    description:
+      "How much long-term maintenance, coordination, and continuity load this input creates."
+  },
+  enterpriseReadiness: {
+    label: "Enterprise readiness",
+    description:
+      "How much this input increases the need for supportability, governance, and operational assurance."
+  },
+  confidence: {
+    label: "Confidence",
+    description:
+      "How much this input makes the recommendation feel clearer, or more ambiguous, to the decision-maker."
+  },
+  buildFit: {
+    label: "Build fit",
+    description:
+      "How much this input helps or hurts the case for building the capability in-house."
+  },
+  coreFit: {
+    label: "MUI Core fit",
+    description:
+      "How much this input helps or hurts the case for using MUI Core."
+  },
+  premiumFit: {
+    label: "MUI X Premium fit",
+    description:
+      "How much this input helps or hurts the case for using MUI X Premium."
+  },
+  enterpriseFit: {
+    label: "MUI X Enterprise fit",
+    description:
+      "How much this input helps or hurts the case for using MUI X Enterprise."
+  }
+};
+
+export const CALIBRATION_OUTCOME_KEYS = Object.keys(CALIBRATION_OUTCOMES);
+
+export const INPUT_CALIBRATION_CATEGORY_LABELS = {
+  productContext: "Product context",
+  teamAndOwnership: "Team and ownership",
+  deliveryMaturity: "Delivery maturity",
+  supportAndOperations: "Support and operations",
+  scaleAndComplexity: "Scale and complexity",
+  qualityRequirements: "Quality requirements"
+};
+
+export const INPUT_CALIBRATION_CATEGORIES_BY_INPUT = {
+  existingMuiUsage: "productContext",
+  primaryUseCase: "productContext",
+  componentStandardizationGoal: "productContext",
+  designSystemMaturity: "teamAndOwnership",
+  dependentTeams: "teamAndOwnership",
+  ownershipModel: "teamAndOwnership",
+  knowledgeConcentration: "teamAndOwnership",
+  ownershipHorizon: "teamAndOwnership",
+  frontendDevelopers: "teamAndOwnership",
+  reactApps: "teamAndOwnership",
+  changeLeadTime: "deliveryMaturity",
+  reworkFrequency: "deliveryMaturity",
+  designDevHandoffFriction: "deliveryMaturity",
+  deadlinePressure: "deliveryMaturity",
+  supportRequirement: "supportAndOperations",
+  productionCriticality: "supportAndOperations",
+  performanceSensitivity: "scaleAndComplexity",
+  dataHeavyScreens: "scaleAndComplexity",
+  expectedRows: "scaleAndComplexity",
+  expectedColumns: "scaleAndComplexity",
+  advancedFeatures: "scaleAndComplexity",
+  accessibilityTarget: "qualityRequirements"
+};
+
 export const INPUT_CALIBRATION_REGISTRY = {
   existingMuiUsage: {
     label: "Existing MUI usage",

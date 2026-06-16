@@ -202,6 +202,31 @@ const MATURITY_INDEX = {
   high: 3
 };
 
+const OWNERSHIP_HORIZON_INDEX = {
+  12: 0,
+  24: 0.5,
+  36: 1
+};
+
+const DERIVED_FACTOR_CONTRIBUTION_SCALE = 0.25;
+
+const DERIVED_FACTOR_CONTRIBUTION_SOURCE_NORMALIZERS = {
+  supportRequirement: (input) => (SUPPORT_INDEX[input.supportRequirement] ?? 0) / 3,
+  productionCriticality: (input) =>
+    (PRODUCTION_CRITICALITY_INDEX[input.productionCriticality] ?? 0) / 3,
+  ownershipHorizon: (input) => OWNERSHIP_HORIZON_INDEX[input.ownershipHorizon] ?? 0,
+  designSystemMaturity: (input) => Math.max(0, (MATURITY_INDEX[input.designSystemMaturity] ?? 0) - 1) / 2,
+  ownershipModel: (input) => Math.max(0, (OWNERSHIP_MODEL_INDEX[input.ownershipModel] ?? 0) - 1) / 3,
+  knowledgeConcentration: (input) =>
+    (KNOWLEDGE_CONCENTRATION_INDEX[input.knowledgeConcentration] ?? 0) / 2,
+  componentStandardizationGoal: (input) =>
+    (COMPONENT_STANDARDIZATION_GOAL_INDEX[input.componentStandardizationGoal] ?? 0) / 3,
+  performanceSensitivity: (input) =>
+    (PERFORMANCE_SENSITIVITY_INDEX[input.performanceSensitivity] ?? 0) / 3,
+  accessibilityTarget: (input) =>
+    (ACCESSIBILITY_TARGET_INDEX[input.accessibilityTarget] ?? 0) / 3
+};
+
 const PATH_LABELS = {
   build: "Build in-house",
   core: "MUI Core",
@@ -441,6 +466,109 @@ function buildFactor(score, drivers, calibration) {
     level: levelFromScore(normalizedScore, calibration.scoreBands),
     drivers
   };
+}
+
+function formatContributionLabel(value) {
+  return String(value)
+    .replace(/-/g, " ")
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function formatContributionDelta(value) {
+  const rounded = roundTo(value, 1);
+  return `${rounded > 0 ? "+" : ""}${rounded}`;
+}
+
+function getDerivedFactorContributionSourceValue(input, sourceScale) {
+  const normalizer = DERIVED_FACTOR_CONTRIBUTION_SOURCE_NORMALIZERS[sourceScale];
+
+  if (!normalizer) {
+    return null;
+  }
+
+  const normalizedValue = normalizer(input);
+
+  if (!Number.isFinite(normalizedValue)) {
+    return null;
+  }
+
+  return clamp(normalizedValue, 0, 1);
+}
+
+function applyDerivedFactorContributions({
+  input,
+  baseScores,
+  calibration,
+  contributionRegistry
+}) {
+  const nextScores = Object.fromEntries(
+    Object.entries(baseScores).map(([factorKey, factor]) => [
+      factorKey,
+      {
+        ...factor,
+        drivers: Array.isArray(factor.drivers) ? [...factor.drivers] : []
+      }
+    ])
+  );
+  const contributionTotals = {};
+  const routeConfigs = contributionRegistry ?? {};
+
+  for (const [inputKey, factorRoutes] of Object.entries(routeConfigs)) {
+    if (!factorRoutes || typeof factorRoutes !== "object") {
+      continue;
+    }
+
+    for (const [factorKey, routeConfig] of Object.entries(factorRoutes)) {
+      const sourceValue = getDerivedFactorContributionSourceValue(
+        input,
+        routeConfig?.sourceScale
+      );
+
+      if (sourceValue === null || sourceValue <= 0) {
+        continue;
+      }
+
+      const strength = Number(routeConfig?.defaultStrength);
+
+      if (!Number.isFinite(strength) || strength <= 0) {
+        continue;
+      }
+
+      if (routeConfig?.direction === "none") {
+        continue;
+      }
+
+      const directionMultiplier = routeConfig?.direction === "negative" ? -1 : 1;
+      const contribution = sourceValue * strength * DERIVED_FACTOR_CONTRIBUTION_SCALE * directionMultiplier;
+
+      if (!contributionTotals[factorKey]) {
+        contributionTotals[factorKey] = {
+          total: 0,
+          drivers: []
+        };
+      }
+
+      contributionTotals[factorKey].total += contribution;
+      contributionTotals[factorKey].drivers.push(
+        `${formatContributionLabel(inputKey)} -> ${formatContributionLabel(factorKey)} ${formatContributionDelta(contribution)} via ${formatContributionLabel(routeConfig.sourceScale)} routing.`
+      );
+    }
+  }
+
+  for (const [factorKey, adjustment] of Object.entries(contributionTotals)) {
+    if (!nextScores[factorKey]) {
+      continue;
+    }
+
+    nextScores[factorKey] = buildFactor(
+      nextScores[factorKey].score + adjustment.total,
+      [...nextScores[factorKey].drivers, ...adjustment.drivers],
+      calibration
+    );
+  }
+
+  return nextScores;
 }
 
 function buildLever(score, drivers, calibration) {
@@ -1164,7 +1292,7 @@ function buildDerivedFactors(input, calibration) {
     calibration
   );
 
-  return {
+  const baseDerivedFactors = {
     functionalComplexity,
     qualityBurden,
     deliveryMaturity,
@@ -1176,6 +1304,13 @@ function buildDerivedFactors(input, calibration) {
     standardizationGoal,
     productionCriticality
   };
+
+  return applyDerivedFactorContributions({
+    input,
+    baseScores: baseDerivedFactors,
+    calibration,
+    contributionRegistry: calibration.derivedFactorContributions
+  });
 }
 
 function buildPlanFit(planKey, input, derivedFactors, calibration) {

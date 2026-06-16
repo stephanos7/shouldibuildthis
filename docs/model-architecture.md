@@ -37,13 +37,22 @@ It describes editable defaults such as option ordering, business-language
 impact direction, impact strength, and which stable artifacts each input
 matters to.
 
+`businessCalibrationProfile.inputImpacts` is the sales-facing routing layer.
+Admins edit impact direction and strength in business terms, then the compiler
+translates supported routes into `calibrationOverrides`.
+
 `INPUT_CALIBRATION_REGISTRY` does not replace `MODEL_IMPACT_MAP`.
 `MODEL_IMPACT_MAP` remains the model-facing relationship map for the active
 deterministic runtime.
 
+`DERIVED_FACTOR_CONTRIBUTIONS` controls executable derived-factor routing.
+`MODEL_IMPACT_MAP` remains the audit and explanation map.
+
 The intended future split is:
 
 - `INPUT_CALIBRATION_REGISTRY` feeds the admin UI and future compiler.
+- `businessCalibrationProfile.inputImpacts` stores business-facing routing decisions.
+- `businessCalibrationCompiler` converts supported business routes into runtime derived-factor contribution overrides and diagnostics.
 - `MODEL_IMPACT_MAP` continues to explain runtime relationships and calibration traceability.
 - `CALIBRATION` continues to own live numeric scoring behavior until a compiler replaces direct runtime wiring.
 
@@ -53,6 +62,8 @@ The calibration editor lives at `/admin/calibration`.
 
 It edits local browser overrides only:
 
+- admin changes update `businessCalibrationProfile`
+- supported business routes compile into `calibrationOverrides`
 - overrides are stored in `localStorage`
 - overrides are included in assessment requests
 - overrides are not persisted server-side

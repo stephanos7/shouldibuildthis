@@ -1,6 +1,17 @@
 import { DEFAULT_BUSINESS_CALIBRATION_PROFILE } from "./businessCalibrationDefaults.js";
 import { DEFAULT_CALIBRATION } from "./calibration.js";
-import { INPUT_CALIBRATION_REGISTRY, INPUT_SCALE_TYPES } from "./inputCalibrationRegistry.js";
+import {
+  CALIBRATION_OUTCOME_KEYS,
+  IMPACT_DIRECTIONS,
+  INPUT_CALIBRATION_REGISTRY,
+  INPUT_SCALE_TYPES
+} from "./inputCalibrationRegistry.js";
+
+export const INPUT_IMPACT_ROUTE_STATUS = {
+  active: "active",
+  savedOnly: "savedOnly",
+  unsupported: "unsupported"
+};
 
 function isPlainObject(value) {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
@@ -29,40 +40,63 @@ function formatPath(path) {
   return path.length > 0 ? path.join(".") : "<root>";
 }
 
-function createDiagnostic(level, path, message) {
+function createDiagnostic(level, path, message, details = {}) {
   return {
     level,
     path: formatPath(path),
-    message
+    message,
+    ...details
   };
 }
 
-function normalizeStrength(strength) {
-  return Number(strength) / 100;
+function normalizeImpactDirection(direction) {
+  return direction === IMPACT_DIRECTIONS.none ||
+    direction === IMPACT_DIRECTIONS.positive ||
+    direction === IMPACT_DIRECTIONS.negative ||
+    direction === IMPACT_DIRECTIONS.contextual
+    ? direction
+    : null;
 }
 
-function rankOrderToShares(order) {
-  const uniqueOrder = [];
-  const seen = new Set();
+function normalizeImpactStrength(strength) {
+  const numericStrength = Number(strength);
 
-  for (const signalKey of order ?? []) {
-    if (seen.has(signalKey)) {
-      continue;
-    }
-
-    seen.add(signalKey);
-    uniqueOrder.push(signalKey);
+  if (!Number.isFinite(numericStrength)) {
+    return null;
   }
 
-  const weights = uniqueOrder.map((_, index) => uniqueOrder.length - index);
-  const totalWeight = weights.reduce((sum, value) => sum + value, 0);
+  return Math.min(100, Math.max(0, numericStrength));
+}
 
-  if (!(totalWeight > 0)) {
+function setRouteStatus(routeStatuses, inputKey, outcomeKey, status, diagnostic = null) {
+  if (!routeStatuses[inputKey]) {
+    routeStatuses[inputKey] = {};
+  }
+
+  routeStatuses[inputKey][outcomeKey] = {
+    status,
+    level: diagnostic?.level ?? null,
+    message: diagnostic?.message ?? ""
+  };
+}
+
+function routesEqual(leftRoute, rightRoute) {
+  return (
+    normalizeImpactDirection(leftRoute?.direction) === normalizeImpactDirection(rightRoute?.direction) &&
+    normalizeImpactStrength(leftRoute?.strength) === normalizeImpactStrength(rightRoute?.strength)
+  );
+}
+
+export function rankOrderToShares(order = []) {
+  const rawWeights = order.map((_, index) => order.length - index);
+  const total = rawWeights.reduce((sum, value) => sum + value, 0);
+
+  if (!(total > 0)) {
     return {};
   }
 
   return Object.fromEntries(
-    uniqueOrder.map((signalKey, index) => [signalKey, weights[index] / totalWeight])
+    order.map((signalKey, index) => [signalKey, rawWeights[index] / total])
   );
 }
 
@@ -234,15 +268,16 @@ function compileInputScales(profile, baseCalibration, diagnostics, overrides) {
   }
 }
 
-function compileInputImpacts(profile, baseCalibration, diagnostics, overrides) {
+function compileInputImpacts(profile, baseCalibration, diagnostics, overrides, routeStatuses) {
   const inputImpacts = profile?.inputImpacts;
 
   if (!isPlainObject(inputImpacts)) {
     return;
   }
 
-  const nextDerivedFactorWeights = {};
-  const supportedTargets = baseCalibration?.derivedFactorWeights;
+  const nextDerivedFactorContributions = {};
+  const supportedTargets = baseCalibration?.derivedFactorContributions;
+  const allowedOutcomeKeys = new Set(CALIBRATION_OUTCOME_KEYS);
 
   for (const [inputKey, impactMap] of Object.entries(inputImpacts)) {
     const registryEntry = INPUT_CALIBRATION_REGISTRY[inputKey];
@@ -262,86 +297,178 @@ function compileInputImpacts(profile, baseCalibration, diagnostics, overrides) {
     }
 
     for (const [targetKey, impactProfile] of Object.entries(impactMap)) {
-      const supportedTarget = supportedTargets?.[targetKey];
-      const registryImpact = registryEntry.impacts?.[targetKey];
-      const direction = impactProfile?.direction;
-      const strength = Number(impactProfile?.strength);
+      const supportedTarget = supportedTargets?.[inputKey]?.[targetKey];
+      const isSupportedRoute = isPlainObject(supportedTarget);
+      const isExplicitBusinessRoute = Boolean(registryEntry.impacts && targetKey in registryEntry.impacts);
+      const defaultRoute = DEFAULT_BUSINESS_CALIBRATION_PROFILE.inputImpacts?.[inputKey]?.[targetKey] ?? {
+        direction: IMPACT_DIRECTIONS.none,
+        strength: 0
+      };
+      const routeMatchesDefault = routesEqual(impactProfile, defaultRoute);
+      const shouldReportDiagnostic = isExplicitBusinessRoute || !routeMatchesDefault;
+      const direction = normalizeImpactDirection(impactProfile?.direction);
+      const strength = normalizeImpactStrength(impactProfile?.strength);
+      const routePath = ["inputImpacts", inputKey, targetKey];
 
-      if (!registryImpact) {
-        diagnostics.push(
-          createDiagnostic(
-            "warning",
-            ["inputImpacts", inputKey, targetKey],
-            `Unknown impact target "${targetKey}" will be ignored.`
-          )
+      if (!allowedOutcomeKeys.has(targetKey)) {
+        const diagnostic = createDiagnostic(
+          "warning",
+          routePath,
+          `Outcome "${targetKey}" is not recognized and will not be compiled.`,
+          {
+            inputKey,
+            outcomeKey: targetKey,
+            routeStatus: INPUT_IMPACT_ROUTE_STATUS.unsupported
+          }
+        );
+
+        if (shouldReportDiagnostic) {
+          diagnostics.push(diagnostic);
+        }
+        setRouteStatus(
+          routeStatuses,
+          inputKey,
+          targetKey,
+          INPUT_IMPACT_ROUTE_STATUS.unsupported,
+          diagnostic
         );
         continue;
       }
 
-      if (!supportedTarget || !isPlainObject(supportedTarget)) {
-        diagnostics.push(
-          createDiagnostic(
-            "warning",
-            ["inputImpacts", inputKey, targetKey],
-            `Target "${targetKey}" is not directly supported by the runtime calibration targets.`
-          )
+      if (direction === null) {
+        const diagnostic = createDiagnostic(
+          "error",
+          [...routePath, "direction"],
+          `Direction "${impactProfile?.direction}" is not valid.`,
+          {
+            inputKey,
+            outcomeKey: targetKey,
+            routeStatus: INPUT_IMPACT_ROUTE_STATUS.unsupported
+          }
+        );
+
+        if (shouldReportDiagnostic) {
+          diagnostics.push(diagnostic);
+        }
+        setRouteStatus(
+          routeStatuses,
+          inputKey,
+          targetKey,
+          INPUT_IMPACT_ROUTE_STATUS.unsupported,
+          diagnostic
         );
         continue;
       }
 
-      if (direction === "contextual") {
-        diagnostics.push(
-          createDiagnostic(
-            "warning",
-            ["inputImpacts", inputKey, targetKey],
-            `Contextual routing for "${targetKey}" is not supported yet, so no numeric override was generated.`
-          )
+      if (strength === null) {
+        const diagnostic = createDiagnostic(
+          "error",
+          [...routePath, "strength"],
+          "Impact strength must be a finite number between 0 and 100.",
+          {
+            inputKey,
+            outcomeKey: targetKey,
+            routeStatus: INPUT_IMPACT_ROUTE_STATUS.unsupported
+          }
+        );
+
+        if (shouldReportDiagnostic) {
+          diagnostics.push(diagnostic);
+        }
+        setRouteStatus(
+          routeStatuses,
+          inputKey,
+          targetKey,
+          INPUT_IMPACT_ROUTE_STATUS.unsupported,
+          diagnostic
         );
         continue;
       }
 
-      if (direction === "none") {
-        if (!nextDerivedFactorWeights[targetKey]) {
-          nextDerivedFactorWeights[targetKey] = {};
+      if (!isSupportedRoute) {
+        const diagnostic = createDiagnostic(
+          "warning",
+          routePath,
+          "This impact is saved in the business profile but is not yet wired into runtime scoring.",
+          {
+            inputKey,
+            outcomeKey: targetKey,
+            routeStatus: INPUT_IMPACT_ROUTE_STATUS.savedOnly
+          }
+        );
+
+        if (shouldReportDiagnostic) {
+          diagnostics.push(diagnostic);
+        }
+        setRouteStatus(
+          routeStatuses,
+          inputKey,
+          targetKey,
+          INPUT_IMPACT_ROUTE_STATUS.savedOnly,
+          diagnostic
+        );
+        continue;
+      }
+
+      if (direction === IMPACT_DIRECTIONS.contextual) {
+        const diagnostic = createDiagnostic(
+          "warning",
+          routePath,
+          "Contextual routing is saved in the business profile but is not compiled into runtime scoring yet.",
+          {
+            inputKey,
+            outcomeKey: targetKey,
+            routeStatus: INPUT_IMPACT_ROUTE_STATUS.savedOnly
+          }
+        );
+
+        if (shouldReportDiagnostic) {
+          diagnostics.push(diagnostic);
+        }
+        setRouteStatus(
+          routeStatuses,
+          inputKey,
+          targetKey,
+          INPUT_IMPACT_ROUTE_STATUS.savedOnly,
+          diagnostic
+        );
+        continue;
+      }
+
+      const diagnostic = createDiagnostic(
+        "info",
+        routePath,
+        "This route is compiled into derived factor contribution overrides.",
+        {
+          inputKey,
+          outcomeKey: targetKey,
+          routeStatus: INPUT_IMPACT_ROUTE_STATUS.active
+        }
+      );
+
+      setRouteStatus(routeStatuses, inputKey, targetKey, INPUT_IMPACT_ROUTE_STATUS.active, diagnostic);
+
+      if (isExplicitBusinessRoute || !routeMatchesDefault) {
+        if (!nextDerivedFactorContributions[inputKey]) {
+          nextDerivedFactorContributions[inputKey] = {};
         }
 
-        nextDerivedFactorWeights[targetKey][inputKey] = 0;
-        continue;
+        const compiledStrength = direction === IMPACT_DIRECTIONS.none || strength === 0 ? 0 : strength;
+
+        nextDerivedFactorContributions[inputKey][targetKey] = {
+          direction,
+          defaultStrength: compiledStrength
+        };
       }
 
-      if (!Number.isFinite(strength) || strength < 0 || strength > 100) {
-        diagnostics.push(
-          createDiagnostic(
-            "error",
-            ["inputImpacts", inputKey, targetKey, "strength"],
-            "Impact strength must be a finite number between 0 and 100."
-          )
-        );
-        continue;
+      if (shouldReportDiagnostic) {
+        diagnostics.push(diagnostic);
       }
-
-      if (direction !== "positive" && direction !== "negative") {
-        diagnostics.push(
-          createDiagnostic(
-            "error",
-            ["inputImpacts", inputKey, targetKey, "direction"],
-            `Direction "${direction}" is not valid.`
-          )
-        );
-        continue;
-      }
-
-      if (!nextDerivedFactorWeights[targetKey]) {
-        nextDerivedFactorWeights[targetKey] = {};
-      }
-
-      nextDerivedFactorWeights[targetKey][inputKey] =
-        (direction === "negative" ? -1 : 1) * normalizeStrength(strength);
     }
   }
 
-  if (Object.keys(nextDerivedFactorWeights).length > 0) {
-    overrides.derivedFactorWeights = nextDerivedFactorWeights;
+  if (Object.keys(nextDerivedFactorContributions).length > 0) {
+    overrides.derivedFactorContributions = nextDerivedFactorContributions;
   }
 }
 
@@ -496,6 +623,8 @@ export function validateBusinessCalibrationProfile(
   }
 
   if (isPlainObject(candidate.inputImpacts)) {
+    const allowedOutcomeKeys = new Set(CALIBRATION_OUTCOME_KEYS);
+
     for (const [inputKey, impactMap] of Object.entries(candidate.inputImpacts)) {
       const registryEntry = INPUT_CALIBRATION_REGISTRY[inputKey];
 
@@ -510,24 +639,17 @@ export function validateBusinessCalibrationProfile(
       }
 
       for (const [targetKey, impactProfile] of Object.entries(impactMap)) {
-        const knownImpact = registryEntry.impacts?.[targetKey];
-
-        if (!knownImpact) {
+        if (!allowedOutcomeKeys.has(targetKey)) {
           errors.push(`inputImpacts.${inputKey}.${targetKey} is not a recognized impact target.`);
           continue;
         }
 
-        if (
-          impactProfile?.direction !== "none" &&
-          impactProfile?.direction !== "positive" &&
-          impactProfile?.direction !== "negative" &&
-          impactProfile?.direction !== "contextual"
-        ) {
+        if (normalizeImpactDirection(impactProfile?.direction) === null) {
           errors.push(`inputImpacts.${inputKey}.${targetKey}.direction is not valid.`);
         }
 
-        const strength = Number(impactProfile?.strength);
-        if (!Number.isFinite(strength) || strength < 0 || strength > 100) {
+        const strength = normalizeImpactStrength(impactProfile?.strength);
+        if (strength === null) {
           errors.push(`inputImpacts.${inputKey}.${targetKey}.strength must be between 0 and 100.`);
         }
       }
@@ -561,7 +683,13 @@ export function validateBusinessCalibrationProfile(
         }
 
         const knownSignals = new Set(Object.keys(signalGroup));
+        const hasSignals = knownSignals.size > 0;
         const seen = new Set();
+
+        if (order.length === 0 && hasSignals) {
+          errors.push(`pathPriorities.${pathKey}.${groupKey} must contain at least one signal.`);
+          continue;
+        }
 
         for (const signalKey of order) {
           if (typeof signalKey !== "string") {
@@ -575,11 +703,17 @@ export function validateBusinessCalibrationProfile(
           }
 
           if (seen.has(signalKey)) {
-            errors.push(`pathPriorities.${pathKey}.${groupKey} contains duplicate signal "${signalKey}".`);
+            warnings.push(
+              `pathPriorities.${pathKey}.${groupKey} contains duplicate signal "${signalKey}" and will keep the first occurrence.`
+            );
             continue;
           }
 
           seen.add(signalKey);
+        }
+
+        if (!hasSignals && order.length > 0) {
+          errors.push(`pathPriorities.${pathKey}.${groupKey} cannot include signals because the path exposes none.`);
         }
       }
     }
@@ -597,6 +731,7 @@ export function compileBusinessCalibrationProfile(
   baseCalibration = DEFAULT_CALIBRATION
 ) {
   const diagnostics = [];
+  const routeStatuses = {};
   const validation = validateBusinessCalibrationProfile(profile, baseCalibration);
 
   for (const error of validation.errors) {
@@ -620,11 +755,12 @@ export function compileBusinessCalibrationProfile(
   const base = isPlainObject(baseCalibration) ? baseCalibration : DEFAULT_CALIBRATION;
 
   compileInputScales(candidate, base, diagnostics, overrides);
-  compileInputImpacts(candidate, base, diagnostics, overrides);
+  compileInputImpacts(candidate, base, diagnostics, overrides, routeStatuses);
   compilePathPriorities(candidate, base, diagnostics, overrides);
 
   return {
     calibrationOverrides: overrides,
-    diagnostics
+    diagnostics,
+    routeStatuses
   };
 }

@@ -55,6 +55,44 @@ function deepMergeValue(baseValue, overrideValue) {
   return cloneValue(overrideValue);
 }
 
+function normalizeSignalOrder(order) {
+  const nextOrder = [];
+  const seen = new Set();
+
+  for (const signalKey of Array.isArray(order) ? order : []) {
+    if (typeof signalKey !== "string" || seen.has(signalKey)) {
+      continue;
+    }
+
+    seen.add(signalKey);
+    nextOrder.push(signalKey);
+  }
+
+  return nextOrder;
+}
+
+function normalizePathPriorities(pathPriorities) {
+  if (!isPlainObject(pathPriorities)) {
+    return pathPriorities;
+  }
+
+  const nextPathPriorities = cloneValue(pathPriorities);
+
+  for (const priorityProfile of Object.values(nextPathPriorities)) {
+    if (!isPlainObject(priorityProfile)) {
+      continue;
+    }
+
+    for (const groupKey of ["positiveSignalsOrder", "dragSignalsOrder"]) {
+      if (Array.isArray(priorityProfile[groupKey])) {
+        priorityProfile[groupKey] = normalizeSignalOrder(priorityProfile[groupKey]);
+      }
+    }
+  }
+
+  return nextPathPriorities;
+}
+
 function safeParse(jsonText) {
   try {
     return JSON.parse(jsonText);
@@ -98,7 +136,11 @@ function hasOwnOverrides(calibrationOverrides) {
 }
 
 export function mergeBusinessCalibrationProfile(profile) {
-  return deepMergeValue(DEFAULT_BUSINESS_CALIBRATION_PROFILE, profile ?? {});
+  const mergedProfile = deepMergeValue(DEFAULT_BUSINESS_CALIBRATION_PROFILE, profile ?? {});
+  return {
+    ...mergedProfile,
+    pathPriorities: normalizePathPriorities(mergedProfile.pathPriorities)
+  };
 }
 
 export function readBusinessCalibrationProfile() {
@@ -145,7 +187,7 @@ export function importBusinessCalibrationProfile(jsonText) {
 
 function storeCompiledOverrides(profile) {
   const mergedProfile = mergeBusinessCalibrationProfile(profile);
-  const { calibrationOverrides, diagnostics } = compileBusinessCalibrationProfile(
+  const { calibrationOverrides, diagnostics, routeStatuses } = compileBusinessCalibrationProfile(
     mergedProfile,
     DEFAULT_CALIBRATION
   );
@@ -161,7 +203,8 @@ function storeCompiledOverrides(profile) {
   return {
     valid: !hasErrors,
     calibrationOverrides: compiledOverrides,
-    diagnostics
+    diagnostics,
+    routeStatuses
   };
 }
 
@@ -170,6 +213,7 @@ export function writeBusinessCalibrationProfile(profile) {
     return {
       valid: false,
       calibrationOverrides: null,
+      routeStatuses: {},
       diagnostics: [
         {
           level: "warning",
@@ -185,6 +229,7 @@ export function writeBusinessCalibrationProfile(profile) {
     return {
       valid: true,
       calibrationOverrides: null,
+      routeStatuses: {},
       diagnostics: []
     };
   }
@@ -207,13 +252,14 @@ export function readCompiledCalibrationOverrides() {
     return {
       profile: null,
       calibrationOverrides: null,
+      routeStatuses: {},
       valid: true,
       diagnostics: []
     };
   }
 
   const nextProfile = mergeBusinessCalibrationProfile(storedProfile);
-  const { calibrationOverrides, diagnostics } = compileBusinessCalibrationProfile(
+  const { calibrationOverrides, diagnostics, routeStatuses } = compileBusinessCalibrationProfile(
     nextProfile,
     DEFAULT_CALIBRATION
   );
@@ -223,6 +269,7 @@ export function readCompiledCalibrationOverrides() {
   return {
     profile: nextProfile,
     calibrationOverrides: compiledOverrides,
+    routeStatuses,
     valid,
     diagnostics
   };

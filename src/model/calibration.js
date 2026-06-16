@@ -79,14 +79,15 @@
  *    the deterministic fit ranges, not only medians.
  *
  * 5. If adding or removing a coefficient, update the model impact map,
- *    artifact glossary, dependency diagram, and deterministic breakdown
- *    when applicable.
+ *    executable derived-factor contributions, artifact glossary,
+ *    dependency diagram, and deterministic breakdown when applicable.
  *
  * 6. Do not describe a coefficient as benchmark-derived unless it is
  *    actually derived from a dataset or cited source.
  */
 
 import { INPUT_CALIBRATION_REGISTRY, INPUT_SCALE_TYPES } from "./inputCalibrationRegistry.js";
+import { DERIVED_FACTOR_CONTRIBUTIONS } from "./derivedFactorContributions.js";
 
 export const CALIBRATION_VERSION = "heuristic-v2";
 
@@ -273,7 +274,8 @@ export const SCORE_BANDS = {
  *
  * 4. If a value affects variance, tail, or slip, check deterministic ranges.
  *
- * 5. If adding a calibration key, update the impact map and docs.
+ * 5. If adding a calibration key, update the impact map, executable
+ *    derived-factor contributions, and docs.
  *
  * 6. Do not call a value benchmark-derived unless it actually is.
  */
@@ -1618,6 +1620,7 @@ export const DEFAULT_CALIBRATION = {
   inputScales: INPUT_SCALES,
   planConfig: PLAN_CONFIG,
   derivedFactorWeights: DERIVED_FACTOR_WEIGHTS,
+  derivedFactorContributions: DERIVED_FACTOR_CONTRIBUTIONS,
   ownershipHorizonEffects: OWNERSHIP_HORIZON_EFFECTS,
   planFitWeights: PLAN_FIT_WEIGHTS,
   planFitRuntime: PLAN_FIT_RUNTIME,

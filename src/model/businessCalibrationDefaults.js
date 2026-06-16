@@ -1,5 +1,24 @@
-import { INPUT_CALIBRATION_REGISTRY, INPUT_SCALE_TYPES } from "./inputCalibrationRegistry.js";
+import {
+  CALIBRATION_OUTCOME_KEYS,
+  IMPACT_DIRECTIONS,
+  INPUT_CALIBRATION_REGISTRY,
+  INPUT_SCALE_TYPES
+} from "./inputCalibrationRegistry.js";
 import { PATH_FIT_COMPONENT_WEIGHTS } from "./calibration.js";
+
+export const BUSINESS_CALIBRATION_PATH_ORDER = ["build", "core", "premium", "enterprise"];
+
+export const BUSINESS_CALIBRATION_PATH_LABELS = {
+  build: "Build in-house",
+  core: "MUI Core",
+  premium: "MUI X Premium",
+  enterprise: "MUI X Enterprise"
+};
+
+export const BUSINESS_CALIBRATION_PATH_PRIORITY_GROUPS = {
+  positiveSignalsOrder: "Helps this path",
+  dragSignalsOrder: "Drags on this path"
+};
 
 function cloneValue(value) {
   if (Array.isArray(value)) {
@@ -80,19 +99,18 @@ function buildDefaultInputImpacts() {
   const inputImpacts = {};
 
   for (const [inputKey, config] of Object.entries(INPUT_CALIBRATION_REGISTRY)) {
-    const impacts = config.impacts ?? {};
     const nextImpacts = {};
 
-    for (const [targetKey, targetConfig] of Object.entries(impacts)) {
+    for (const targetKey of CALIBRATION_OUTCOME_KEYS) {
+      const targetConfig = config.impacts?.[targetKey];
+
       nextImpacts[targetKey] = {
-        direction: targetConfig.direction,
-        strength: targetConfig.strength
+        direction: targetConfig?.direction ?? IMPACT_DIRECTIONS.none,
+        strength: Number(targetConfig?.strength) || 0
       };
     }
 
-    if (Object.keys(nextImpacts).length > 0) {
-      inputImpacts[inputKey] = nextImpacts;
-    }
+    inputImpacts[inputKey] = nextImpacts;
   }
 
   return inputImpacts;
@@ -101,7 +119,9 @@ function buildDefaultInputImpacts() {
 function buildDefaultPathPriorities() {
   const pathPriorities = {};
 
-  for (const [pathKey, pathConfig] of Object.entries(PATH_FIT_COMPONENT_WEIGHTS)) {
+  for (const pathKey of BUSINESS_CALIBRATION_PATH_ORDER) {
+    const pathConfig = PATH_FIT_COMPONENT_WEIGHTS[pathKey];
+
     if (
       !pathConfig ||
       typeof pathConfig !== "object" ||
