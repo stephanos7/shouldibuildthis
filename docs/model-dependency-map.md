@@ -6,6 +6,54 @@ This document shows how the recommendation model moves from raw assessment input
 
 `MODEL_ARTIFACT_GLOSSARY` owns artifact meaning and lifecycle notes. `DERIVED_FACTOR_CONTRIBUTIONS` controls executable derived-factor routing. `MODEL_IMPACT_MAP` owns causal relationships and audit/explanation detail. `CALIBRATION` controls actual numeric behavior.
 
+## Sales-facing calibration
+
+Sales users edit a business calibration profile, not raw model coefficients.
+
+The profile supports:
+
+- ordered input scale positions,
+- input impact direction and strength,
+- path signal ranking,
+- scenario preview.
+
+## Compilation flow
+
+business profile
+→ compiler
+→ calibration overrides
+→ deterministic model
+→ report
+
+## Input scales
+
+Input scales define how assessment options map to normalized model intensity.
+
+Ordered input scales use continuous option positions from 0 to 100.
+
+Support requirement is one input scale among many. It should not be documented as a special first-class admin control.
+
+## Input impact matrix
+
+The input impact matrix defines where each input matters and whether it helps, hurts, is contextual, or has no impact.
+
+## Derived factor contributions
+
+`DERIVED_FACTOR_CONTRIBUTIONS` is executable routing/config for selected input-to-derived-factor relationships.
+
+## Model impact map
+
+`MODEL_IMPACT_MAP` is not replaced by `DERIVED_FACTOR_CONTRIBUTIONS`.
+
+It remains the explainability and audit layer across:
+
+- inputs,
+- derived factors,
+- scenario levers,
+- path fits,
+- recommendation,
+- report explanation.
+
 ## Score display semantics
 
 The report distinguishes input-profile metrics from path-fit metrics.
@@ -31,9 +79,10 @@ within a band, but the qualitative label carries the user-facing interpretation.
 
 ## Calibration Admin Flow
 
-The admin route `/admin/calibration` edits `calibrationOverrides` in the browser.
+The admin route `/admin/calibration` edits a business calibration profile in the browser, then compiles it into `calibrationOverrides`.
 
-- overrides live in `localStorage`
+- profile state and overrides live in `localStorage`
+- the compiler runs on save or explicit preview
 - overrides are merged into assessment requests before simulation
 - overrides are not stored on the server
 - validation runs locally before save or preview
@@ -65,6 +114,86 @@ Avoid these edits:
 - comparing shares across unrelated groups
 - assuming weights are benchmark-derived
 - tuning from one scenario only
+
+## Path priorities
+
+Path priorities let sales reorder positive and drag signals per path.
+
+The compiler converts rankings into normalized shares.
+
+The UI should use:
+
+- Helps this path
+- Drags on this path
+
+The internal configuration should use:
+
+- `positiveSignals`
+- `dragSignals`
+
+## Scenario preview
+
+Every calibration change should be reviewed against golden scenarios before relying on it.
+
+## Admin UI standards
+
+The admin UI is for sales users, not model engineers.
+
+Use business language.
+
+Use:
+
+- cards,
+- accordions,
+- sliders with labelled marks,
+- toggle button groups,
+- accessible move-up/move-down ranking controls,
+- explicit preview buttons,
+- clear validation alerts,
+- simple tables for score deltas.
+
+Avoid:
+
+- raw coefficient tables as the primary UI,
+- DataGrid for simple configuration screens,
+- drag-and-drop dependencies,
+- chart libraries,
+- auto-running simulations on every slider or ranking change,
+- color-only status indicators.
+
+MUI conventions:
+
+- use Stack, Box, Grid, Card, Accordion, Slider, ToggleButtonGroup, Table, Alert, and Chip;
+- label every Slider and ToggleButtonGroup;
+- provide getAriaValueText for sliders;
+- use text plus color for status;
+- keep mobile layout single-column where possible;
+- use Button/IconButton for ranking movement;
+- do not add dependencies for UI patterns MUI can already cover.
+
+React conventions:
+
+- keep profile state controlled;
+- compile on save or preview, not on every render;
+- avoid firing scenario previews from useEffect after every input change;
+- keep localStorage read/write behind storage helpers;
+- keep admin components small and focused.
+
+## Calibration validation
+
+Validation should check:
+
+- ordered input positions are non-decreasing,
+- impact strengths are finite 0..100,
+- directions are valid,
+- share groups compile to valid shares,
+- score bands are ordered,
+- override paths are known,
+- model impact map refs still resolve where possible.
+
+Errors block preview/save.
+
+Warnings should be visible but do not always need to block experimentation.
 
 ## Direction Legend
 

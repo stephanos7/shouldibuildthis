@@ -48,6 +48,54 @@ deterministic runtime.
 `DERIVED_FACTOR_CONTRIBUTIONS` controls executable derived-factor routing.
 `MODEL_IMPACT_MAP` remains the audit and explanation map.
 
+## Sales-facing calibration
+
+Sales users edit a business calibration profile, not raw model coefficients.
+
+The profile supports:
+
+- ordered input scale positions,
+- input impact direction and strength,
+- path signal ranking,
+- scenario preview.
+
+## Compilation flow
+
+business profile
+→ compiler
+→ calibration overrides
+→ deterministic model
+→ report
+
+## Input scales
+
+Input scales define how assessment options map to normalized model intensity.
+
+Ordered input scales use continuous option positions from 0 to 100.
+
+Support requirement is one input scale among many. It should not be documented as a special first-class admin control.
+
+## Input impact matrix
+
+The input impact matrix defines where each input matters and whether it helps, hurts, is contextual, or has no impact.
+
+## Derived factor contributions
+
+`DERIVED_FACTOR_CONTRIBUTIONS` is executable routing/config for selected input-to-derived-factor relationships.
+
+## Model impact map
+
+`MODEL_IMPACT_MAP` is not replaced by `DERIVED_FACTOR_CONTRIBUTIONS`.
+
+It remains the explainability and audit layer across:
+
+- inputs,
+- derived factors,
+- scenario levers,
+- path fits,
+- recommendation,
+- report explanation.
+
 The intended future split is:
 
 - `INPUT_CALIBRATION_REGISTRY` feeds the admin UI and future compiler.
@@ -55,6 +103,22 @@ The intended future split is:
 - `businessCalibrationCompiler` converts supported business routes into runtime derived-factor contribution overrides and diagnostics.
 - `MODEL_IMPACT_MAP` continues to explain runtime relationships and calibration traceability.
 - `CALIBRATION` continues to own live numeric scoring behavior until a compiler replaces direct runtime wiring.
+
+## Path priorities
+
+Path priorities let sales reorder positive and drag signals per path.
+
+The compiler converts rankings into normalized shares.
+
+The UI should use:
+
+- Helps this path
+- Drags on this path
+
+The internal configuration should use:
+
+- `positiveSignals`
+- `dragSignals`
 
 ## Calibration admin
 
@@ -76,6 +140,70 @@ The admin editor validates the draft before save or preview and shows:
 - `Errors`
 
 Warnings can be acknowledged so admins can keep experimenting without hiding the model issues.
+
+## Scenario preview
+
+Every calibration change should be reviewed against golden scenarios before relying on it.
+
+## Admin UI standards
+
+The admin UI is for sales users, not model engineers.
+
+Use business language.
+
+Use:
+
+- cards,
+- accordions,
+- sliders with labelled marks,
+- toggle button groups,
+- accessible move-up/move-down ranking controls,
+- explicit preview buttons,
+- clear validation alerts,
+- simple tables for score deltas.
+
+Avoid:
+
+- raw coefficient tables as the primary UI,
+- DataGrid for simple configuration screens,
+- drag-and-drop dependencies,
+- chart libraries,
+- auto-running simulations on every slider or ranking change,
+- color-only status indicators.
+
+MUI conventions:
+
+- use Stack, Box, Grid, Card, Accordion, Slider, ToggleButtonGroup, Table, Alert, and Chip;
+- label every Slider and ToggleButtonGroup;
+- provide getAriaValueText for sliders;
+- use text plus color for status;
+- keep mobile layout single-column where possible;
+- use Button/IconButton for ranking movement;
+- do not add dependencies for UI patterns MUI can already cover.
+
+React conventions:
+
+- keep profile state controlled;
+- compile on save or preview, not on every render;
+- avoid firing scenario previews from useEffect after every input change;
+- keep localStorage read/write behind storage helpers;
+- keep admin components small and focused.
+
+## Calibration validation
+
+Validation should check:
+
+- ordered input positions are non-decreasing,
+- impact strengths are finite 0..100,
+- directions are valid,
+- share groups compile to valid shares,
+- score bands are ordered,
+- override paths are known,
+- model impact map refs still resolve where possible.
+
+Errors block preview/save.
+
+Warnings should be visible but do not always need to block experimentation.
 
 ## Calibration levels
 
